@@ -1,10 +1,11 @@
 # This file contains a prototype implementation of Quasi-Stable Cardinality Estimation.
-# It currently only handles acyclic query graphs without labels.
+# It currently only handles query graphs without labels.
 using DataStructures: counter, Dict, Set, Vector, inc!, Queue
 using Graphs
 using QuasiStableColors
 
 struct ColorSummary
+    color_cardinality::Dict{Int, Int}
     edge_cardinality::Dict{Int, Dict{Int, Float64}}
     edge_min_deg::Dict{Int, Dict{Int, Float64}}
     edge_avg_deg::Dict{Int, Dict{Int, Float64}}
@@ -22,7 +23,7 @@ function generate_color_summary(g::Graph, numColors::Int)
         end
     end
 
-    color_to_color_counter::Dict{Int, Dict{Int, counter}} = Dict()
+    color_to_color_counter::Dict{Int, Dict{Int, Any}} = Dict()
     for x in vertices(g)
         c1 = color_hash[x]
         for y in all_neighbors(g,x) 
@@ -64,7 +65,7 @@ function generate_color_summary(g::Graph, numColors::Int)
         end
     end
 
-    return ColorSummary(edge_cardinality, edge_min_deg, edge_avg_deg, edge_max_deg)
+    return ColorSummary(color_cardinality, edge_cardinality, edge_min_deg, edge_avg_deg, edge_max_deg)
 end 
 
 # The following two functions sum over all paths which have the same color assigned to a particular node in the query graph.
@@ -96,35 +97,35 @@ function sum_over_node!(partial_paths, current_query_nodes, node_to_remove)
     end
 end
 
-function sum_over_finished_query_nodes!(query_graph, partial_paths, current_query_nodes, visited_query_nodes)
+function sum_over_finished_query_nodes!(query_graph, partial_paths, current_query_nodes, visited_query_edges)
     prev_query_nodes = copy(current_query_nodes)
     for node in prev_query_nodes
-        has_living_neighbors = false
-        for neighbor in all_neighbors(query_graph, node)
-            if !(neighbor in visited_query_nodes)
-                has_living_neighbors = true
+        has_living_edges = false
+        for neighbor in outneighbors(query_graph, node)
+            if !((node, neighbor) in visited_query_edges)
+                has_living_edges = true
             end
         end
-        if !has_living_neighbors & use_partial_sums
+        for neighbor in inneighbors(query_graph, node)
+            if !((neighbor, node) in visited_query_edges)
+                has_living_edges = true
+            end
+        end
+        if ! has_living_edges
             sum_over_node!(partial_paths, current_query_nodes, node)
         end
     end
 end
 
-function get_cardinality_bounds(query_graph::DiGraph, summary::ColorSummary; use_partial_sums = true, verbose = false)
-    if is_cyclic(query_graph)
-        println("Query Graph Must Be Acyclic")
-        return -1
-    end
-
-    node_order = topological_sort_by_dfs(query_graph)
+function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summary::ColorSummary, 
+                                                    starting_node::Int; use_partial_sums = true, verbose = false)
+    node_order = topological_sort_by_dfs(bfs_tree(query_graph, starting_node))
     partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
-    visited_query_nodes = []
+    visited_query_edges = []
     current_query_nodes = []
     parent_node = popfirst!(node_order)
     child_node = popfirst!(node_order)
-    push!(visited_query_nodes, parent_node)
-    push!(visited_query_nodes, child_node)
+    push!(visited_query_edges, (parent_node, child_node))
     push!(current_query_nodes, parent_node)
     push!(current_query_nodes, child_node)
     for c1 in keys(summary.edge_cardinality)
@@ -138,14 +139,16 @@ function get_cardinality_bounds(query_graph::DiGraph, summary::ColorSummary; use
     while length(node_order) > 0
         if verbose
             println("Current Query Nodes: ", current_query_nodes)
-            println("Visited Query Nodes: ", visited_query_nodes)
+            println("Visited Query Edges: ", visited_query_edges)
             println("Number of Partial Paths: ", length(keys(partial_paths)))
         end
-        sum_over_finished_query_nodes!(query_graph, partial_paths, current_query_nodes, visited_query_nodes)
+        if use_partial_sums
+            sum_over_finished_query_nodes!(query_graph, partial_paths, current_query_nodes, visited_query_edges)
+        end
         if verbose
             println("Number of Partial Paths After Sum: ", length(keys(partial_paths)))
             println("Current Query Nodes After Sum: ", current_query_nodes)
-            println("Visited Query Nodes After Sum: ", visited_query_nodes)
+            println("Visited Query Edges After Sum: ", visited_query_edges)
         end
 
         child_node = popfirst!(node_order)
@@ -156,18 +159,19 @@ function get_cardinality_bounds(query_graph::DiGraph, summary::ColorSummary; use
                 parent_idx = indexin(neighbor, current_query_nodes)
             end
         end
+        push!(visited_query_edges, (parent_node, child_node))
         push!(current_query_nodes, child_node)
-        push!(visited_query_nodes, child_node)
+
         new_partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
         for path in keys(partial_paths)
             running_bounds = partial_paths[path]
             parent_color = only(path[parent_idx])
-            for child_color in keys(summary.edgeAvgDegree[parent_color])
+            for child_color in keys(summary.edge_avg_deg[parent_color])
                 new_path = copy(path)
                 push!(new_path, child_color)
-                new_bounds = [running_bounds[1]*summary.edgeMinDegree[parent_color][child_color],
-                              running_bounds[2]*summary.edgeAvgDegree[parent_color][child_color],
-                              running_bounds[3]*summary.edgeMaxDegree[parent_color][child_color],
+                new_bounds = [running_bounds[1]*summary.edge_min_deg[parent_color][child_color],
+                              running_bounds[2]*summary.edge_avg_deg[parent_color][child_color],
+                              running_bounds[3]*summary.edge_max_deg[parent_color][child_color],
                 ]
                 new_partial_paths[new_path] = new_bounds
             end
@@ -175,29 +179,62 @@ function get_cardinality_bounds(query_graph::DiGraph, summary::ColorSummary; use
         partial_paths = new_partial_paths
     end
 
+    # To account for cyclic queries, we check whether there are any remaining edges that have not
+    # been processed. If so, we set the lower bound to 0, reduce the average estimate accordingly, and leave
+    # the upper bound unchanged.
+    remaining_edges = []
+    for edge in edges(query_graph)
+        if ! ((src(edge), dst(edge)) in visited_query_edges)
+            push!(remaining_edges, (src(edge), dst(edge)))
+        end
+    end
+
     final_bounds = [0,0,0]
     for path in keys(partial_paths) 
-        final_bounds = final_bounds .+ partial_paths[path]
+        lower = only(partial_paths[path][1])
+        if length(remaining_edges) > 0
+            lower = 0
+        end
+        average = only(partial_paths[path][2])
+        for edge in remaining_edges
+            left_node_idx = indexin(edge[1], current_query_nodes)
+            left_color = only(path[left_node_idx])
+            right_node_idx = indexin(edge[2], current_query_nodes)
+            right_color = only(path[right_node_idx])
+            probability_of_edge = 0
+            if haskey(summary.edge_avg_deg, left_color) & haskey(summary.edge_avg_deg[left_color], right_color)
+                probability_of_edge = summary.edge_avg_deg[left_color][right_color]/summary.color_cardinality[right_color]
+            end
+            average *= probability_of_edge
+        end 
+        upper = only(partial_paths[path][3])
+        final_bounds = final_bounds .+ [lower, average, upper]
     end 
+    return final_bounds
+end
+
+function get_cardinality_bounds(query_graph::DiGraph, summary::ColorSummary; use_partial_sums = true, verbose = false)
+    final_bounds = [0, 0, Inf]
+    for node in vertices(query_graph)
+        cur_bounds = get_cardinality_bounds_given_starting_node(query_graph, summary, node;
+                                                                use_partial_sums=use_partial_sums, verbose=verbose)
+        final_bounds[1] = max(final_bounds[1], cur_bounds[1])
+        final_bounds[2] += cur_bounds[2]/nv(query_graph)
+        final_bounds[3] = min(final_bounds[3], cur_bounds[3])
+    end
     return final_bounds
 end
 
 # We use the same general structure to calculate the exact size of the query by finding all paths
 # on the original data graph and giving each path a weight of 1.
-function get_exact_size(query_graph::DiGraph, data_graph::Graph)
-    if is_cyclic(query_graph)
-        println("Query Graph Must Be Acyclic")
-        return -1
-    end
-
-    nodeOrder = topological_sort_by_dfs(query_graph)
+function get_exact_size(query_graph::DiGraph, data_graph::Graph; use_partial_sums = true, verbose=false)
+    node_order = topological_sort_by_dfs(bfs_tree(query_graph, vertices(query_graph)[1]))
     partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
-    visited_query_nodes = []
+    visited_query_edges = []
     current_query_nodes = []
-    parent_node = popfirst!(nodeOrder)
-    child_node = popfirst!(nodeOrder)
-    push!(visited_query_nodes, parent_node)
-    push!(visited_query_nodes, child_node)
+    parent_node = popfirst!(node_order)
+    child_node = popfirst!(node_order)
+    push!(visited_query_edges, (parent_node, child_node))
     push!(current_query_nodes, parent_node)
     push!(current_query_nodes, child_node)
     for c1 in vertices(data_graph)
@@ -206,21 +243,22 @@ function get_exact_size(query_graph::DiGraph, data_graph::Graph)
         end
     end
 
-    while length(nodeOrder) > 0
-        prev_query_nodes = copy(current_query_nodes)
-        for node in prev_query_nodes
-            has_living_neighbors = false
-            for neighbor in all_neighbors(query_graph, node)
-                if !(neighbor in visited_query_nodes)
-                    has_living_neighbors = true
-                end
-            end
-            if !has_living_neighbors
-                sum_over_node!(partial_paths, current_query_nodes, node)
-            end
+    while length(node_order) > 0
+        if verbose
+            println("Current Query Nodes: ", current_query_nodes)
+            println("Visited Query Edges: ", visited_query_edges)
+            println("Number of Partial Paths: ", length(keys(partial_paths)))
+        end
+        if use_partial_sums
+            sum_over_finished_query_nodes!(query_graph, partial_paths, current_query_nodes, visited_query_edges)
+        end
+        if verbose
+            println("Number of Partial Paths After Sum: ", length(keys(partial_paths)))
+            println("Current Query Nodes After Sum: ", current_query_nodes)
+            println("Visited Query Edges After Sum: ", visited_query_edges)
         end
         
-        child_node = popfirst!(nodeOrder)
+        child_node = popfirst!(node_order)
         parent_idx = 0
         for neighbor in all_neighbors(query_graph, child_node)
             if neighbor in current_query_nodes
@@ -230,7 +268,7 @@ function get_exact_size(query_graph::DiGraph, data_graph::Graph)
         end
         
         push!(current_query_nodes, child_node)
-        push!(visited_query_nodes, child_node)
+        push!(visited_query_edges, (parent_node, child_node))
         new_partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
         for path in keys(partial_paths)
             parent_node = only(path[parent_idx])
@@ -242,10 +280,28 @@ function get_exact_size(query_graph::DiGraph, data_graph::Graph)
         end
         partial_paths = new_partial_paths
     end
+    remaining_edges = []
+    for edge in edges(query_graph)
+        if ! ((src(edge), dst(edge)) in visited_query_edges)
+            push!(remaining_edges, (src(edge), dst(edge)))
+        end
+    end
 
     final_bounds = [0]
     for path in keys(partial_paths) 
-        final_bounds = final_bounds .+ partial_paths[path]
+        satisfies_cycles = true
+        for edge in remaining_edges
+            left_node_idx = indexin(edge[1], current_query_nodes)
+            left_data_node = only(path[left_node_idx])
+            right_node_idx = indexin(edge[2], current_query_nodes)
+            right_data_node = only(path[right_node_idx])
+            if !(right_data_node in all_neighbors(data_graph, left_data_node))
+                satisfies_cycles = false
+            end
+        end 
+        if satisfies_cycles
+            final_bounds = final_bounds .+ partial_paths[path]
+        end
     end 
     return final_bounds
 end
