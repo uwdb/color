@@ -1,3 +1,4 @@
+
 # This file contains a prototype implementation of Quasi-Stable Cardinality Estimation.
 # It currently only handles query graphs without labels.
 using DataStructures: counter, Dict, Set, Vector, inc!, Queue
@@ -26,7 +27,7 @@ function generate_color_summary(g::Graph, numColors::Int)
     color_to_color_counter::Dict{Int, Dict{Int, Any}} = Dict()
     for x in vertices(g)
         c1 = color_hash[x]
-        for y in all_neighbors(g,x) 
+        for y in outneighbors(g,x) 
             c2 = color_hash[y]
             if !haskey(color_to_color_counter, c1)
                 color_to_color_counter[c1] = Dict()
@@ -206,23 +207,37 @@ function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summar
                 probability_of_edge = summary.edge_avg_deg[left_color][right_color]/summary.color_cardinality[right_color]
             end
             average *= probability_of_edge
-        end 
+        end
+        
         upper = only(partial_paths[path][3])
         final_bounds = final_bounds .+ [lower, average, upper]
     end 
     return final_bounds
 end
 
-function get_cardinality_bounds(query_graph::DiGraph, summary::ColorSummary; use_partial_sums = true, verbose = false)
-    final_bounds = [0, 0, Inf]
+function get_cardinality_bounds(query_graph::DiGraph, summary::ColorSummary; 
+                                use_partial_sums = true, try_all_starting_nodes=true, verbose = false)
+    root_nodes = []
     for node in vertices(query_graph)
-        cur_bounds = get_cardinality_bounds_given_starting_node(query_graph, summary, node;
-                                                                use_partial_sums=use_partial_sums, verbose=verbose)
-        final_bounds[1] = max(final_bounds[1], cur_bounds[1])
-        final_bounds[2] += cur_bounds[2]/nv(query_graph)
-        final_bounds[3] = min(final_bounds[3], cur_bounds[3])
+        if is_connected(bfs_tree(query_graph, node))
+            push!(root_nodes, node)
+        end
     end
-    return final_bounds
+    if try_all_starting_nodes
+        final_bounds = [0, 0, Inf]
+        for node in root_nodes
+            cur_bounds = get_cardinality_bounds_given_starting_node(query_graph, summary, node;
+                                                                    use_partial_sums=use_partial_sums, verbose=verbose)
+            print(cur_bounds)
+            final_bounds[1] = max(final_bounds[1], cur_bounds[1])
+            final_bounds[2] += cur_bounds[2]
+            final_bounds[3] = min(final_bounds[3], cur_bounds[3])
+        end
+        final_bounds[2] /= length(root_nodes)
+        return final_bounds
+    end
+    return get_cardinality_bounds_given_starting_node(query_graph, summary, root_nodes[1];
+                                                      use_partial_sums=use_partial_sums, verbose=verbose)
 end
 
 # We use the same general structure to calculate the exact size of the query by finding all paths
