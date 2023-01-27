@@ -103,6 +103,18 @@ using Graphs
         @test predicted_size == exact_size
     end
 
+    @testset "disconnected graph" begin
+        numVertices = 4
+        g = Graph(numVertices)
+        add_edge!(g, 1, 2)
+        add_edge!(g, 3, 4)
+        query_graph = DiGraph(2)
+        add_edge!(query_graph, (1, 2))
+        exact_size = only(get_exact_size(query_graph, g; verbose=false))
+        predicted_size = 4
+        @test predicted_size == exact_size
+    end
+
     # result is too large (5.36e303) to predict, can't be used to test
     # validity of get_exact_size function
     # @testset "simple path graph" begin
