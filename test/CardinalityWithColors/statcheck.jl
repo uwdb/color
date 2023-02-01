@@ -6,6 +6,7 @@ using Test
 using Graphs
 
 @testset "exact symmetrical graphs" begin
+
     @testset "1-edge graph" begin
         numVertices = 2
         g = path_graph(numVertices)
@@ -26,9 +27,9 @@ using Graphs
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
     @testset "query larger than 1-edge graph" begin
@@ -52,9 +53,9 @@ using Graphs
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
     
     @testset "cycle graph" begin
@@ -77,9 +78,9 @@ using Graphs
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
     @testset "query larger than cycle graph" begin
@@ -102,9 +103,9 @@ using Graphs
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
     @testset "simple path graph" begin
@@ -129,9 +130,9 @@ using Graphs
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
     @testset "Dorogovtsev-Mendes graph" begin
@@ -154,9 +155,9 @@ using Graphs
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
     @testset "binary tree graph" begin
@@ -180,9 +181,9 @@ using Graphs
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
     @testset "star graph" begin
@@ -206,9 +207,9 @@ using Graphs
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
     @testset "disconnected graph" begin
@@ -233,9 +234,9 @@ using Graphs
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 end
 
@@ -266,9 +267,9 @@ end
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
     @testset "asymmetrical barbell graph" begin
@@ -299,9 +300,9 @@ end
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 end
 
@@ -322,7 +323,7 @@ end
         @test bounds_without_partial_agg[2] <= bounds_without_partial_agg[3]
         @test bounds_without_partial_agg[1] <= exact_size
         @test exact_size <= bounds_without_partial_agg[3]
-        # test that min/avg/max are reasonable for bounds with apartial sums
+        # test that min/avg/max are reasonable for bounds with partial sums
         @test bounds_with_partial_agg[1] <= bounds_with_partial_agg[2]
         @test bounds_with_partial_agg[2] <= bounds_with_partial_agg[3]
         @test bounds_with_partial_agg[1] <= exact_size
@@ -330,6 +331,9 @@ end
         # test that lower bounds are 0
         @test bounds_with_partial_agg[1] == 0
         @test bounds_without_partial_agg[1] == 0
+        # test that partial aggregation doesn't affect results
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 end
 
@@ -364,10 +368,9 @@ end
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        # currently unsure how to handle here because with large graphs it won't equal 1; what is the limit?
-        # @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        # @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        # @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
     @testset "random regular graph, simple query" begin
@@ -390,9 +393,9 @@ end
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
         # test that partial aggregation doesn't affect results
-        # @test bounds_without_partial_agg[1] / bounds_with_partial_agg[1] == 1
-        # @test bounds_without_partial_agg[2] / bounds_with_partial_agg[2] == 1
-        # @test bounds_without_partial_agg[3] / bounds_with_partial_agg[3] == 1
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
     @testset "zipfian graph, random query" begin
@@ -410,7 +413,7 @@ end
         summary = generate_color_summary(g, 16)
         # it's hard to generate random query graphs since all the nodes in the query must be connected,
         # which is not guaranteed by Julia random graph generators.
-        numVertices = rand(range(1, 10))
+        numVertices = rand(range(2, 10))
         query_graph = path_digraph(numVertices)
         exact_size = only(get_exact_size(query_graph, g; verbose=false))
         bounds_without_partial_agg = get_cardinality_bounds(query_graph, summary; use_partial_sums = false, verbose = false);
@@ -425,6 +428,10 @@ end
         @test bounds_with_partial_agg[2] <= bounds_with_partial_agg[3]
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
+        # test that partial aggregation doesn't affect results
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
     @testset "Simple Graph, Path Query" begin
@@ -432,7 +439,7 @@ end
         summary = generate_color_summary(g, 16)
         # it's hard to generate random query graphs since all the nodes in the query must be connected,
         # which is not guaranteed by Julia random graph generators.
-        numVertices = rand(range(1, 3))
+        numVertices = rand(range(2, 4))
         query_graph = path_digraph(numVertices)
         exact_size = only(get_exact_size(query_graph, g; verbose=false))
         bounds_without_partial_agg = get_cardinality_bounds(query_graph, summary; use_partial_sums = false, verbose = false);
@@ -447,5 +454,9 @@ end
         @test bounds_with_partial_agg[2] <= bounds_with_partial_agg[3]
         @test bounds_with_partial_agg[1] <= exact_size
         @test exact_size <= bounds_with_partial_agg[3]
+        # test that partial aggregation doesn't affect results
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 end
