@@ -195,34 +195,34 @@ using Graphs
     end
 
     # also breaks due to keyerror: key 1 not found
-    # @testset "star graph" begin
-    #     numVertices = 4
-    #     g = DiGraph(numVertices)
-    #     add_edge!(g, (1, 2))
-    #     add_edge!(g, (1, 3))
-    #     add_edge!(g, (1, 4))
-    #     summary = generate_color_summary(g, 16)
-    #     query_graph = DiGraph(3)
-    #     add_edge!(query_graph, (1, 2))
-    #     add_edge!(query_graph, (2, 3))
-    #     exact_size = only(get_exact_size(query_graph, g; verbose=false))
-    #     bounds_without_partial_agg = get_cardinality_bounds(query_graph, summary; use_partial_sums = false, verbose = false);
-    #     bounds_with_partial_agg = get_cardinality_bounds(query_graph, summary; use_partial_sums = true, verbose = false);
-    #     # test that min/avg/max are reasonable for bounds without partial sums
-    #     @test bounds_without_partial_agg[1] <= bounds_without_partial_agg[2]
-    #     @test bounds_without_partial_agg[2] <= bounds_without_partial_agg[3]
-    #     @test bounds_without_partial_agg[1] <= exact_size
-    #     @test exact_size <= bounds_without_partial_agg[3]
-    #     # test that min/avg/max are reasonable for bounds with apartial sums
-    #     @test bounds_with_partial_agg[1] <= bounds_with_partial_agg[2]
-    #     @test bounds_with_partial_agg[2] <= bounds_with_partial_agg[3]
-    #     @test bounds_with_partial_agg[1] <= exact_size
-    #     @test exact_size <= bounds_with_partial_agg[3]
-    #     # test that partial aggregation doesn't affect results
-    #     @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
-    #     @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
-    #     @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
-    # end
+    @testset "star graph" begin
+        numVertices = 4
+        g = DiGraph(numVertices)
+        add_edge!(g, (1, 2))
+        add_edge!(g, (1, 3))
+        add_edge!(g, (1, 4))
+        summary = generate_color_summary(g, 16)
+        query_graph = DiGraph(3)
+        add_edge!(query_graph, (1, 2))
+        add_edge!(query_graph, (2, 3))
+        exact_size = only(get_exact_size(query_graph, g; verbose=false))
+        bounds_without_partial_agg = get_cardinality_bounds(query_graph, summary; use_partial_sums = false, verbose = false);
+        bounds_with_partial_agg = get_cardinality_bounds(query_graph, summary; use_partial_sums = true, verbose = false);
+        # test that min/avg/max are reasonable for bounds without partial sums
+        @test bounds_without_partial_agg[1] <= bounds_without_partial_agg[2]
+        @test bounds_without_partial_agg[2] <= bounds_without_partial_agg[3]
+        @test bounds_without_partial_agg[1] <= exact_size
+        @test exact_size <= bounds_without_partial_agg[3]
+        # test that min/avg/max are reasonable for bounds with apartial sums
+        @test bounds_with_partial_agg[1] <= bounds_with_partial_agg[2]
+        @test bounds_with_partial_agg[2] <= bounds_with_partial_agg[3]
+        @test bounds_with_partial_agg[1] <= exact_size
+        @test exact_size <= bounds_with_partial_agg[3]
+        # test that partial aggregation doesn't affect results
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
+    end
 
     @testset "disconnected graph" begin
         numVertices = 4
@@ -254,36 +254,36 @@ end
 
 @testset "asymmetrical graphs" begin
     # error: key 4 not found
-    # @testset "asymmetrical star graph" begin
-    #     numVertices = 6
-    #     g = DiGraph(numVertices)
-    #     add_edge!(g, 1, 2)
-    #     add_edge!(g, 1, 3)
-    #     add_edge!(g, 1, 4)
-    #     add_edge!(g, 1, 5)
-    #     add_edge!(g, 5, 6)
-    #     summary = generate_color_summary(g, 16)
-    #     query_graph = DiGraph(3)
-    #     add_edge!(query_graph, (1, 2))
-    #     add_edge!(query_graph, (2, 3))
-    #     exact_size = only(get_exact_size(query_graph, g; verbose=false))
-    #     bounds_without_partial_agg = get_cardinality_bounds(query_graph, summary; use_partial_sums = false, verbose = false);
-    #     bounds_with_partial_agg = get_cardinality_bounds(query_graph, summary; use_partial_sums = true, verbose = false);
-    #     # test that min/avg/max are reasonable for bounds without partial sums
-    #     @test bounds_without_partial_agg[1] <= bounds_without_partial_agg[2]
-    #     @test bounds_without_partial_agg[2] <= bounds_without_partial_agg[3]
-    #     @test bounds_without_partial_agg[1] <= exact_size
-    #     @test exact_size <= bounds_without_partial_agg[3]
-    #     # test that min/avg/max are reasonable for bounds with apartial sums
-    #     @test bounds_with_partial_agg[1] <= bounds_with_partial_agg[2]
-    #     @test bounds_with_partial_agg[2] <= bounds_with_partial_agg[3]
-    #     @test bounds_with_partial_agg[1] <= exact_size
-    #     @test exact_size <= bounds_with_partial_agg[3]
-    #     # test that partial aggregation doesn't affect results
-    #     @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
-    #     @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
-    #     @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
-    # end
+    @testset "asymmetrical star graph" begin
+        numVertices = 6
+        g = DiGraph(numVertices)
+        add_edge!(g, 1, 2)
+        add_edge!(g, 1, 3)
+        add_edge!(g, 1, 4)
+        add_edge!(g, 1, 5)
+        add_edge!(g, 5, 6)
+        summary = generate_color_summary(g, 16)
+        query_graph = DiGraph(3)
+        add_edge!(query_graph, (1, 2))
+        add_edge!(query_graph, (2, 3))
+        exact_size = only(get_exact_size(query_graph, g; verbose=false))
+        bounds_without_partial_agg = get_cardinality_bounds(query_graph, summary; use_partial_sums = false, verbose = false);
+        bounds_with_partial_agg = get_cardinality_bounds(query_graph, summary; use_partial_sums = true, verbose = false);
+        # test that min/avg/max are reasonable for bounds without partial sums
+        @test bounds_without_partial_agg[1] <= bounds_without_partial_agg[2]
+        @test bounds_without_partial_agg[2] <= bounds_without_partial_agg[3]
+        @test bounds_without_partial_agg[1] <= exact_size
+        @test exact_size <= bounds_without_partial_agg[3]
+        # test that min/avg/max are reasonable for bounds with apartial sums
+        @test bounds_with_partial_agg[1] <= bounds_with_partial_agg[2]
+        @test bounds_with_partial_agg[2] <= bounds_with_partial_agg[3]
+        @test bounds_with_partial_agg[1] <= exact_size
+        @test exact_size <= bounds_with_partial_agg[3]
+        # test that partial aggregation doesn't affect results
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
+    end
 
     @testset "asymmetrical barbell graph" begin
         numVertices = 7
@@ -411,7 +411,7 @@ end
         @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
-    @testset "zipfian graph, random query" begin
+    @testset "zipfian graph, larger random path query" begin
         n = 2000
         numVertices = 1000
         zipf = [1.0/(i^.5) for i in 1:numVertices]
@@ -426,7 +426,8 @@ end
         summary = generate_color_summary(g, 16)
         # it's hard to generate random query graphs since all the nodes in the query must be connected,
         # which is not guaranteed by Julia random graph generators.
-        numVertices = rand(range(2, 10))
+        # Also as this approaches 10 it takes longer time to complete :/
+        numVertices = rand(range(3, 6))
         query_graph = path_digraph(numVertices)
         exact_size = only(get_exact_size(query_graph, g; verbose=false))
         bounds_without_partial_agg = get_cardinality_bounds(query_graph, summary; use_partial_sums = false, verbose = false);

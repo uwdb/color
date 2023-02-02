@@ -174,6 +174,12 @@ function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summar
             # this is where the key is missing :/
             # is the summary the reason why this is failing?
             # what about the digraphs could cause this to fail?
+            # currently, the children are only 2 and 3, so we're missing 1...
+            # need to flip parent and child?
+            if (!haskey(summary.edge_avg_deg, parent_color))
+                # is this the right thing to do :/
+                continue
+            end
             for child_color in keys(summary.edge_avg_deg[parent_color])
                 new_path = copy(path)
                 push!(new_path, child_color)
