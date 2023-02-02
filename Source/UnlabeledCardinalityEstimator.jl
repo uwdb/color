@@ -15,7 +15,7 @@ end
 
 function generate_color_summary(g::DiGraph, numColors::Int) # First step, use a digraph instead of a graph
     color_cardinality = counter(Int)
-    undirected_graph = SimpleGraph(g)
+    undirected_graph = Graph(g)
     C = q_color(undirected_graph, n_colors=numColors) # Still need to provide an undirected graph to q_color
     color_hash::Dict{Int, Int} = Dict()
     for (color, nodes) in enumerate(C)
@@ -171,6 +171,9 @@ function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summar
         for path in keys(partial_paths)
             running_bounds = partial_paths[path]
             parent_color = only(path[parent_idx])
+            # this is where the key is missing :/
+            # is the summary the reason why this is failing?
+            # what about the digraphs could cause this to fail?
             for child_color in keys(summary.edge_avg_deg[parent_color])
                 new_path = copy(path)
                 push!(new_path, child_color)
@@ -247,6 +250,7 @@ end
 # We use the same general structure to calculate the exact size of the query by finding all paths
 # on the original data graph and giving each path a weight of 1.
 function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_sums = true, verbose=false)
+    # for some reason this is excluding the last vertex in the query??
     node_order = topological_sort_by_dfs(bfs_tree(query_graph, vertices(query_graph)[1]))
     partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
     visited_query_edges = []
@@ -279,7 +283,6 @@ function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_s
         
         child_node = popfirst!(node_order)
         parent_idx = 0
-        # confused - does this not just grab one parent and ignore all the others? 
         for neighbor in inneighbors(query_graph, child_node)
             if neighbor in current_query_nodes
                 parent_node = neighbor

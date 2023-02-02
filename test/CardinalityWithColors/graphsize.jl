@@ -66,18 +66,19 @@ using Graphs
         @test predicted_size == exact_size
     end
 
-    # TODO: figure out why this fails...
-    # @testset "undirected cycle graph, 2 edge query" begin
-    #     numVertices = 1000
-    #     g = cycle_graph(numVertices)
-    #     g = DiGraph(numVertices)
-    #     query_graph = DiGraph(3)
-    #     add_edge!(query_graph, (1, 2))
-    #     add_edge!(query_graph, (2, 3))
-    #     exact_size = only(get_exact_size(query_graph, g; verbose=false))
-    #     predicted_size = 4000
-    #     @test predicted_size == exact_size
-    # end
+    @testset "undirected cycle graph, 2 edge query" begin
+        numVertices = 1000
+        g = cycle_graph(numVertices)
+        g = DiGraph(g)
+        query_graph = DiGraph(3)
+        add_edge!(query_graph, (1, 2))
+        add_edge!(query_graph, (2, 3))
+        exact_size_partial = only(get_exact_size(query_graph, g; use_partial_sums=true, verbose=false))
+        exact_size_no_partial = only(get_exact_size(query_graph, g; use_partial_sums=false, verbose=false))
+        predicted_size = 4000
+        @test predicted_size == exact_size_partial
+        @test predicted_size == exact_size_no_partial
+    end
 
     @testset "query larger than cycle graph" begin
         numVertices = 1000
