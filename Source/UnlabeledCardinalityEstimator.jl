@@ -6,18 +6,18 @@ using Graphs
 using QuasiStableColors
 
 struct ColorSummary
-    color_cardinality::Dict{Int, Int}
-    edge_cardinality::Dict{Int, Dict{Int, Float64}}
-    edge_min_deg::Dict{Int, Dict{Int, Float64}}
-    edge_avg_deg::Dict{Int, Dict{Int, Float64}}
-    edge_max_deg::Dict{Int, Dict{Int, Float64}}
+    color_cardinality::Dict{Int32, Int32}
+    edge_cardinality::Dict{Int32, Dict{Int32, Float64}}
+    edge_min_deg::Dict{Int32, Dict{Int32, Float64}}
+    edge_avg_deg::Dict{Int32, Dict{Int32, Float64}}
+    edge_max_deg::Dict{Int32, Dict{Int32, Float64}}
 end
 
-function generate_color_summary(g::DiGraph, numColors::Int)
+@noinline function generate_color_summary(g::DiGraph, numColors::Int)
     color_cardinality = counter(Int)
     undirected_graph = Graph(g)
     C = q_color(undirected_graph, n_colors=numColors)
-    color_hash::Dict{Int, Int} = Dict()
+    color_hash::Dict{Int, Int32} = Dict()
     for (color, nodes) in enumerate(C)
         for x in nodes
             color_hash[x] = color
@@ -25,7 +25,7 @@ function generate_color_summary(g::DiGraph, numColors::Int)
         end
     end
 
-    color_to_color_counter::Dict{Int, Dict{Int, Any}} = Dict()
+    color_to_color_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
     for x in vertices(g)
         c1 = color_hash[x]
         for y in outneighbors(g,x) 
@@ -34,16 +34,16 @@ function generate_color_summary(g::DiGraph, numColors::Int)
                 color_to_color_counter[c1] = Dict()
             end
             if !haskey(color_to_color_counter[c1], c2)
-                color_to_color_counter[c1][c2] = counter(Int)
+                color_to_color_counter[c1][c2] = counter(Int32)
             end
             inc!(color_to_color_counter[c1][c2], x)
         end
     end
 
-    edge_cardinality::Dict{Int, Dict{Int, Float64}} = Dict()
-    edge_min_deg::Dict{Int, Dict{Int, Float64}} = Dict()
-    edge_avg_deg::Dict{Int, Dict{Int, Float64}} = Dict()
-    edge_max_deg::Dict{Int, Dict{Int, Float64}} = Dict()
+    edge_cardinality::Dict{Int32, Dict{Int32, Float64}} = Dict()
+    edge_min_deg::Dict{Int32, Dict{Int32, Float64}} = Dict()
+    edge_avg_deg::Dict{Int32, Dict{Int32, Float64}} = Dict()
+    edge_max_deg::Dict{Int32, Dict{Int32, Float64}} = Dict()
     for c1 in keys(color_to_color_counter)
         edge_min_deg[c1] = Dict()
         edge_avg_deg[c1] = Dict()
@@ -82,20 +82,22 @@ function sum_over_node!(partial_paths, current_query_nodes, node_to_remove)
         end 
         nodeIdx += 1
     end
-    new_partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
-    for path in keys(partial_paths)
+    new_partial_paths::Dict{Array{Int}, Union{Array{Float64}, Int}} = Dict()
+    for path_and_bounds in partial_paths
+        path = path_and_bounds[1]
+        bounds = path_and_bounds[2]
         new_path = copy(path)
         deleteat!(new_path, nodeIdx)
-        if ! haskey(new_partial_paths, new_path)
-            new_partial_paths[new_path] = partial_paths[path]
+        if !haskey(new_partial_paths, new_path)
+            new_partial_paths[new_path] = bounds
         else
-            new_partial_paths[new_path] = new_partial_paths[new_path] .+ partial_paths[path]
+            new_partial_paths[new_path] = new_partial_paths[new_path] .+ bounds
         end
     end
     deleteat!(current_query_nodes, nodeIdx)
     empty!(partial_paths)
     for path in keys(new_partial_paths)
-        partial_paths[path] = new_partial_paths[path]
+        push!(partial_paths, (path, new_partial_paths[path]))
     end
 end
 
@@ -122,7 +124,7 @@ end
 function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summary::ColorSummary, 
                                                     starting_node::Int; use_partial_sums = true, verbose = false)
     node_order = topological_sort_by_dfs(bfs_tree(query_graph, starting_node))
-    partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
+    partial_paths::Array{Tuple{Array{Int}, Array{Float64}}} = []
     visited_query_edges = []
     current_query_nodes = []
     parent_node = popfirst!(node_order)
@@ -132,9 +134,9 @@ function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summar
     push!(current_query_nodes, child_node)
     for c1 in keys(summary.edge_cardinality)
         for c2 in keys(summary.edge_cardinality[c1])
-            partial_paths[[c1,c2]] = [summary.edge_cardinality[c1][c2],
+            push!(partial_paths, ([c1,c2], [summary.edge_cardinality[c1][c2],
                                      summary.edge_cardinality[c1][c2],
-                                     summary.edge_cardinality[c1][c2]]
+                                     summary.edge_cardinality[c1][c2]]))
         end
     end
 
@@ -164,9 +166,10 @@ function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summar
         push!(visited_query_edges, (parent_node, child_node))
         push!(current_query_nodes, child_node)
 
-        new_partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
-        for path in keys(partial_paths)
-            running_bounds = partial_paths[path]
+        new_partial_paths::Array{Tuple{Array{Int}, Array{Float64}}} = []
+        for path_and_bounds in partial_paths
+            path = path_and_bounds[1]
+            running_bounds = path_and_bounds[2]
             parent_color = only(path[parent_idx])
             # account for colors with no outgoing children
             if (!haskey(summary.edge_avg_deg, parent_color))
@@ -179,7 +182,7 @@ function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summar
                               running_bounds[2]*summary.edge_avg_deg[parent_color][child_color],
                               running_bounds[3]*summary.edge_max_deg[parent_color][child_color],
                 ]
-                new_partial_paths[new_path] = new_bounds
+                push!(new_partial_paths, (new_path, new_bounds))
             end
         end
         partial_paths = new_partial_paths
@@ -196,12 +199,14 @@ function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summar
     end
 
     final_bounds = [0,0,0]
-    for path in keys(partial_paths) 
-        lower = only(partial_paths[path][1])
+    for path_and_bounds in partial_paths
+        path = path_and_bounds[1]
+        bounds = path_and_bounds[2]
+        lower = only(bounds[1])
         if length(remaining_edges) > 0
             lower = 0
         end
-        average = only(partial_paths[path][2])
+        average = only(bounds[2])
         for edge in remaining_edges
             parent_node_idx = indexin(edge[1], current_query_nodes)
             parent_color = only(path[parent_node_idx])
@@ -214,7 +219,7 @@ function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summar
             average *= probability_of_edge
         end
         
-        upper = only(partial_paths[path][3])
+        upper = only(bounds[3])
         final_bounds = final_bounds .+ [lower, average, upper]
     end 
     return final_bounds
@@ -248,7 +253,7 @@ end
 # on the original data graph and giving each path a weight of 1.
 function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_sums = true, verbose=false)
     node_order = topological_sort_by_dfs(bfs_tree(query_graph, vertices(query_graph)[1]))
-    partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
+    partial_paths::Array{Tuple{Array{Int}, Int}} = []
     visited_query_edges = []
     current_query_nodes = []
     parent_node = popfirst!(node_order)
@@ -258,7 +263,7 @@ function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_s
     push!(current_query_nodes, child_node)
     for c1 in vertices(data_graph)
         for c2 in outneighbors(data_graph, c1)
-            partial_paths[[c1,c2]] = [1]
+            push!(partial_paths, ([c1,c2], 1))
         end
     end
 
@@ -288,13 +293,15 @@ function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_s
         
         push!(current_query_nodes, child_node)
         push!(visited_query_edges, (parent_node, child_node))
-        new_partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
-        for path in keys(partial_paths)
+        new_partial_paths::Array{Tuple{Array{Int}, Int}} = []
+        for path_and_weight in partial_paths
+            path = path_and_weight[1]
+            weight = path_and_weight[2]
             parent_node = only(path[parent_idx])
             for child_node in outneighbors(data_graph, parent_node)
                 new_path = copy(path)
                 push!(new_path, child_node)
-                new_partial_paths[new_path] = partial_paths[path]
+                push!(new_partial_paths, (new_path, weight))
             end
         end
         partial_paths = new_partial_paths
@@ -305,9 +312,11 @@ function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_s
             push!(remaining_edges, (src(edge), dst(edge)))
         end
     end
-
-    final_bounds = [0]
-    for path in keys(partial_paths) 
+    
+    final_bounds = 0
+    for path_and_weight in partial_paths 
+        path = path_and_weight[1]
+        weight = path_and_weight[2]
         satisfies_cycles = true
         for edge in remaining_edges
             parent_node_idx = indexin(edge[1], current_query_nodes)
@@ -319,7 +328,7 @@ function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_s
             end
         end 
         if satisfies_cycles
-            final_bounds = final_bounds .+ partial_paths[path]
+            final_bounds = final_bounds + weight
         end
     end 
     return final_bounds
