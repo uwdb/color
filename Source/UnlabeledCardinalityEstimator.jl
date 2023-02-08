@@ -208,7 +208,7 @@ function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summar
             child_node_idx = indexin(edge[2], current_query_nodes)
             child_color = only(path[child_node_idx])
             probability_of_edge = 0
-            if haskey(summary.edge_avg_deg, parent_color) & haskey(summary.edge_avg_deg[parent_color], child_color)
+            if haskey(summary.edge_avg_deg, parent_color) && haskey(summary.edge_avg_deg[parent_color], child_color)
                 probability_of_edge = summary.edge_avg_deg[parent_color][child_color]/summary.color_cardinality[child_color]
             end
             average *= probability_of_edge
