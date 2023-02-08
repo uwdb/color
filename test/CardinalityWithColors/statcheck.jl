@@ -5,6 +5,10 @@ using DataStructures: counter, Dict, Set, Vector, inc!
 using Test
 using Graphs
 
+# This test suite aims to determine the correctness of the 'get_cardinality_bounds' function.
+# We compare the results of the function with the exact sizes and make sure the min/avg/max are appropriate.
+# We also test to make sure partial aggregation has a minimal effect on the results.
+
 @testset "exact symmetrical graphs" begin
 
     @testset "1-edge graph" begin
@@ -161,7 +165,6 @@ using Graphs
         @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
-    # currently breaks due to a keyerror: key 1 not found
     @testset "binary tree graph" begin
         numVertices = 7
         g = DiGraph(numVertices)
@@ -194,7 +197,6 @@ using Graphs
         @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
-    # also breaks due to keyerror: key 1 not found
     @testset "star graph" begin
         numVertices = 4
         g = DiGraph(numVertices)
@@ -253,7 +255,6 @@ using Graphs
 end
 
 @testset "asymmetrical graphs" begin
-    # error: key 4 not found
     @testset "asymmetrical star graph" begin
         numVertices = 6
         g = DiGraph(numVertices)

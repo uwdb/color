@@ -10,15 +10,6 @@ using Graphs
 
 @testset "exact symmetrical graphs" begin
 
-    # It appears as though we cannot support 1-vertex queries... for now
-    # @testset "1-vertex query" begin
-    #     g = path_graph(2)
-    #     query_graph = DiGraph(1)
-    #     exact_size = only(get_exact_size(query_graph, g; verbose=false))
-    #     predicted_size = 2
-    #     @test predicted_size == exact_size
-    # end
-
     @testset "1-edge graph" begin
         numVertices = 2
         g = DiGraph(2)
@@ -155,17 +146,13 @@ using Graphs
         @test predicted_size == exact_size
     end
 
-    # result is too large (5.36e303) to predict, can't be used to test
-    # validity of get_exact_size function
-    # @testset "simple path graph" begin
-    #     numVertices = 1000
-    #     g = cycle_graph(numVertices)
-    #     query_graph = DiGraph(1000)
-    #     for i in 1:999
-    #         add_edge!(query_graph, (i, i+1))
-    #     end
+    # The current implementation does not support 1-vertex queries, but this
+    # will be fixed in the update incorporating edge/vertex labels
+    # @testset "1-vertex query" begin
+    #     g = path_graph(2)
+    #     query_graph = DiGraph(1)
     #     exact_size = only(get_exact_size(query_graph, g; verbose=false))
-    #     predicted_size = 2000
+    #     predicted_size = 2
     #     @test predicted_size == exact_size
     # end
 end
