@@ -13,10 +13,10 @@ struct ColorSummary
     edge_max_deg::Dict{Int, Dict{Int, Float64}}
 end
 
-function generate_color_summary(g::DiGraph, numColors::Int) # First step, use a digraph instead of a graph
+function generate_color_summary(g::DiGraph, numColors::Int)
     color_cardinality = counter(Int)
     undirected_graph = Graph(g)
-    C = q_color(undirected_graph, n_colors=numColors) # Still need to provide an undirected graph to q_color
+    C = q_color(undirected_graph, n_colors=numColors)
     color_hash::Dict{Int, Int} = Dict()
     for (color, nodes) in enumerate(C)
         for x in nodes
@@ -26,7 +26,6 @@ function generate_color_summary(g::DiGraph, numColors::Int) # First step, use a 
     end
 
     color_to_color_counter::Dict{Int, Dict{Int, Any}} = Dict()
-    # already supports directed graphs because specifically describes outneighbors?
     for x in vertices(g)
         c1 = color_hash[x]
         for y in outneighbors(g,x) 
@@ -122,14 +121,12 @@ end
 
 function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summary::ColorSummary, 
                                                     starting_node::Int; use_partial_sums = true, verbose = false)
-    # include a case later for if the query graph only has one vertex
     node_order = topological_sort_by_dfs(bfs_tree(query_graph, starting_node))
     partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
     visited_query_edges = []
     current_query_nodes = []
     parent_node = popfirst!(node_order)
     child_node = popfirst!(node_order)
-    # is this guaranteed to be a valid edge?
     push!(visited_query_edges, (parent_node, child_node))
     push!(current_query_nodes, parent_node)
     push!(current_query_nodes, child_node)
@@ -158,26 +155,21 @@ function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summar
 
         child_node = popfirst!(node_order)
         parent_idx = 0
-        for neighbor in inneighbors(query_graph, child_node) # Change to outneighbors? Check this
+        for neighbor in inneighbors(query_graph, child_node)
             if neighbor in current_query_nodes
                 parent_node = neighbor
                 parent_idx = indexin(neighbor, current_query_nodes)
             end
         end
-        push!(visited_query_edges, (parent_node, child_node)) # Here we assume a parent -> child edge as well
+        push!(visited_query_edges, (parent_node, child_node))
         push!(current_query_nodes, child_node)
 
         new_partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
         for path in keys(partial_paths)
             running_bounds = partial_paths[path]
             parent_color = only(path[parent_idx])
-            # this is where the key is missing :/
-            # is the summary the reason why this is failing?
-            # what about the digraphs could cause this to fail?
-            # currently, the children are only 2 and 3, so we're missing 1...
-            # need to flip parent and child?
+            # account for colors with no outgoing children
             if (!haskey(summary.edge_avg_deg, parent_color))
-                # is this the right thing to do :/
                 continue
             end
             for child_color in keys(summary.edge_avg_deg[parent_color])
@@ -196,7 +188,6 @@ function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summar
     # To account for cyclic queries, we check whether there are any remaining edges that have not
     # been processed. If so, we set the lower bound to 0, reduce the average estimate accordingly, and leave
     # the upper bound unchanged.
-    # not sure if this logic still applies for directed graphs
     remaining_edges = []
     for edge in edges(query_graph)
         if ! ((src(edge), dst(edge)) in visited_query_edges)
@@ -212,7 +203,7 @@ function get_cardinality_bounds_given_starting_node(query_graph::DiGraph, summar
         end
         average = only(partial_paths[path][2])
         for edge in remaining_edges
-            parent_node_idx = indexin(edge[1], current_query_nodes) # TODO change left and right to parent/child
+            parent_node_idx = indexin(edge[1], current_query_nodes)
             parent_color = only(path[parent_node_idx])
             child_node_idx = indexin(edge[2], current_query_nodes)
             child_color = only(path[child_node_idx])
@@ -256,7 +247,6 @@ end
 # We use the same general structure to calculate the exact size of the query by finding all paths
 # on the original data graph and giving each path a weight of 1.
 function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_sums = true, verbose=false)
-    # for some reason this is excluding the last vertex in the query??
     node_order = topological_sort_by_dfs(bfs_tree(query_graph, vertices(query_graph)[1]))
     partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
     visited_query_edges = []
@@ -318,7 +308,6 @@ function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_s
 
     final_bounds = [0]
     for path in keys(partial_paths) 
-        # what does this bool represent
         satisfies_cycles = true
         for edge in remaining_edges
             parent_node_idx = indexin(edge[1], current_query_nodes)
@@ -326,7 +315,6 @@ function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_s
             child_node_idx = indexin(edge[2], current_query_nodes)
             child_data_node = only(path[child_node_idx])
             if !(child_data_node in inneighbors(data_graph, parent_data_node))
-                # what if there are multiple edges remaining and the bool gets overwritten?
                 satisfies_cycles = false
             end
         end 

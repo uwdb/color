@@ -171,7 +171,6 @@ using Graphs
 end
 
 @testset "asymmetrical graphs" begin
-    # TODO: add directed graph tests
     @testset "undirected asymmetrical star graph" begin
         numVertices = 6
         g = Graph(numVertices)
