@@ -1,4 +1,4 @@
-using Graphs: SimpleGraphFromIterator, Edge
+using Graphs: SimpleDiGraphFromIterator, Edge
 
 function load_dataset(path)
     n = 0
@@ -15,5 +15,5 @@ function load_dataset(path)
             push!(edges, Edge(e1, e2))
         end
     end
-    return SimpleGraphFromIterator(edges)
+    return SimpleDiGraphFromIterator(edges)
 end
