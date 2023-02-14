@@ -31,7 +31,7 @@ function generate_color_summary(g::PropertyGraph, numColors::Int)
     color_cardinality = Dict()
     undirected_graph = Graph(g.graph)
     C = q_color(undirected_graph, n_colors=numColors)
-    color_hash::Dict{Int, Int} = Dict()
+    color_hash::Dict{Int, Int32} = Dict()
     for (color, nodes) in enumerate(C)
         for x in nodes
             color_hash[x] = color
@@ -42,7 +42,7 @@ function generate_color_summary(g::PropertyGraph, numColors::Int)
         end
     end
 
-    color_to_color_counter::Dict{Int, Dict{Int, Any}} = Dict()
+    color_to_color_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
     for x in vertices(g.graph)
         c1 = color_hash[x]
         for y in outneighbors(g.graph,x)
@@ -260,7 +260,7 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
 
     # Sum over the calculated partial paths to get the final bounds
     final_bounds = [0,0,0]
-    for path_and_bounds in keys(partial_paths)
+    for path_and_bounds in partial_paths
         path = path_and_bounds[1]
         bounds = path_and_bounds[2]
         lower = only(bounds[1])
@@ -321,7 +321,7 @@ end
 #Make similar changes to get exact size
 function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_sums = true, verbose=false)
     node_order = topological_sort_by_dfs(bfs_tree(query_graph, vertices(query_graph)[1]))
-    partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
+    partial_paths::Array{Tuple{Array{Int}, Int}} = []
     visited_query_edges = []
     current_query_nodes = []
     parent_node = popfirst!(node_order)
@@ -331,7 +331,7 @@ function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_s
     push!(current_query_nodes, child_node)
     for c1 in vertices(data_graph)
         for c2 in outneighbors(data_graph, c1)
-            partial_paths[[c1,c2]] = [1]
+            push!(partial_paths, ([c1,c2], 1))
         end
     end
 
@@ -361,14 +361,16 @@ function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_s
         
         push!(current_query_nodes, child_node)
         push!(visited_query_edges, (parent_node, child_node))
-        new_partial_paths::Dict{Array{Int}, Array{Float64}} = Dict()
-        for path in keys(partial_paths)
+        new_partial_paths::Array{Tuple{Array{Int}, Int}} = []
+        for path_and_weight in partial_paths
+            path = path_and_weight[1]
+            weight = path_and_weight[2]
             parent_node = only(path[parent_idx])
             for child_node in outneighbors(data_graph, parent_node)
                 # only add a new partial path if the edge label and node label match our query
                 new_path = copy(path)
                 push!(new_path, child_node)
-                new_partial_paths[new_path] = partial_paths[path]
+                push!(new_partial_paths, (new_path, weight))
             end
         end
         partial_paths = new_partial_paths
@@ -379,10 +381,12 @@ function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_s
             push!(remaining_edges, (src(edge), dst(edge)))
         end
     end
-
-    exact_size = [0]
-    for path in keys(partial_paths) 
-        node_matches_query = true
+    
+    final_bounds = 0
+    for path_and_weight in partial_paths 
+        path = path_and_weight[1]
+        weight = path_and_weight[2]
+        satisfies_cycles = true
         for edge in remaining_edges
             # Only count the cycle as satisfied if this remaining edge's label matches the query graph's edge label
             parent_node_idx = indexin(edge[1], current_query_nodes)
@@ -393,8 +397,8 @@ function get_exact_size(query_graph::DiGraph, data_graph::DiGraph; use_partial_s
                 node_matches_query = false
             end
         end 
-        if node_matches_query
-            exact_size = exact_size .+ partial_paths[path]
+        if satisfies_cycles
+            final_bounds = final_bounds + weight
         end
     end 
     return exact_size
