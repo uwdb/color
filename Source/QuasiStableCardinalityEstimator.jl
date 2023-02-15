@@ -1,43 +1,11 @@
-
 # This file contains a prototype implementation of Quasi-Stable Cardinality Estimation.
 # It currently only handles query graphs without labels.
+include("PropertyGraph.jl")
 using DataStructures: counter, Dict, Set, Vector, inc!, Queue
 using Graphs
 using QuasiStableColors
 
-# Create a property graph struct which has the following things: underlying graph,
-# and dictionaries which map edges to label sets and vertices to label sets
 
-# queries only have one label per edge/node, data graphs can have as many
-struct PropertyGraph
-    graph::DiGraph
-    edge_labels::Dict{Int, Dict{Int, Array{Int}}} # edge_labels[n1][n2] = { labels }
-    vertex_labels::Dict{Int, Array{Int}} # vertex_labels[n] = { labels }
-
-    PropertyGraph(num_vertices::Int) = new(DiGraph(num_vertices), Dict(), Dict())
-end
-
-
-function add_labeled_node!(g::PropertyGraph, node::Int, node_labels::Array{Int})
-    g.vertex_labels[node] = node_labels
-end
-
-function add_labeled_edge!(g::PropertyGraph, edge::Tuple{Int, Int}, edge_label::Int)
-    add_edge!(g.graph, edge)
-    parent_node = edge[1]
-    child_node = edge[2]
-    if !haskey(g.edge_labels, parent_node)
-        g.edge_labels[parent_node] = Dict()
-    end
-    if !haskey(g.edge_labels[parent_node], child_node)
-        g.edge_labels[parent_node][child_node] = []
-    end
-    if edge_label in g.edge_labels[parent_node][child_node]
-        return
-    end
-    push!(g.edge_labels[parent_node][child_node], edge_label)
-end 
-# Everywhere that we reference a graph (query or data) we should replace it with our new struct.
 
 # Extend the colorsummary to account for edge labels and vertex labels as additional layers of dict nesting
 # Change the color_label_cardinality to account for node labels and remove the edge_cardinality dict
@@ -159,7 +127,7 @@ function sum_over_node!(partial_paths, current_query_nodes, node_to_remove)
         end 
         nodeIdx += 1
     end
-    new_partial_paths::Dict{Array{Tuple{Int, Int}}, Union{Array{Float64}, Int}} = Dict()
+    new_partial_paths::Dict{Array{Int}, Union{Array{Float64}, Int}} = Dict()
     for path_and_bounds in partial_paths
         path = path_and_bounds[1]
         bounds = path_and_bounds[2]
@@ -314,9 +282,10 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
             child_label = only(path[child_node_idx][1])
             edge_label = query.edge_labels[edge[1]][edge[2]][1]
             probability_of_edge = 0
-            if (haskey(summary.edge_avg_deg, parent_color) && haskey(summary.edge_avg_deg[parent_color], child_color)
-            && haskey(summary.edge_avg_deg[parent_color][child_color], edge_label)
-            && haskey(summary.edge_avg_deg[parent_color][child_color][edge_label], child_label))
+            if (haskey(summary.edge_avg_deg, parent_color) 
+                    && haskey(summary.edge_avg_deg[parent_color], child_color)
+                        && haskey(summary.edge_avg_deg[parent_color][child_color], edge_label)
+                            && haskey(summary.edge_avg_deg[parent_color][child_color][edge_label], child_label))
                 probability_of_edge = summary.edge_avg_deg[parent_color][child_color][edge_label][child_label]/summary.color_label_cardinality[child_color][child_label]
             end
             average *= probability_of_edge
