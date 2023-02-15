@@ -5,10 +5,10 @@ using DataStructures: counter, Dict, Set, Vector, inc!, Queue
 using Graphs
 using QuasiStableColors
 
-
-
-# Extend the colorsummary to account for edge labels and vertex labels as additional layers of dict nesting
-# Change the color_label_cardinality to account for node labels and remove the edge_cardinality dict
+# The ColorSummary struct holds statistical information associated with the colored graph.
+# It keeps detailed information about the number of edges between colors of a particular color and which land in
+# a particular color. Note that `-1` is used to represent a "wildcard" label. These do not appear in the data graph,
+# but they do occur in the query graph.
 struct ColorSummary
     color_label_cardinality::Dict{Int, Dict{Int, Int}} # color_label_cardinality[c][v] = num_vertices
     edge_min_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_deg[c1][c2][e][v2] = min
@@ -27,11 +27,13 @@ function generate_color_summary(g::PropertyGraph, numColors::Int)
         color_cardinality[color] = length(nodes)
         for x in nodes
             color_hash[x] = color
+            inc!(color_label_cardinality[color], -1)
             for label in g.vertex_labels[x]
                 inc!(color_label_cardinality[color], label)
             end
         end
     end
+
     color_to_color_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
     for x in vertices(g.graph)
         c1 = color_hash[x]
@@ -45,12 +47,20 @@ function generate_color_summary(g::PropertyGraph, numColors::Int)
             if !haskey(color_to_color_counter[c1], c2)
                 color_to_color_counter[c1][c2] = Dict()
             end
+            if !haskey(color_to_color_counter[c1][c2], -1)
+                color_to_color_counter[c1][c2][-1] = Dict()
+            end
+            
             # since each edge/vertex can have multiple labels associated with it,
-            # we must count each edge/vertex label separately in our counter
+            # we must count each edge/vertex label separately in our counter. 
             for edge_label in edge_labels
                 if !haskey(color_to_color_counter[c1][c2], edge_label)
                     color_to_color_counter[c1][c2][edge_label] = Dict()
                 end
+                if !haskey(color_to_color_counter[c1][c2][edge_label], -1)
+                    color_to_color_counter[c1][c2][edge_label][-1] = counter(Int)
+                end
+                inc!(color_to_color_counter[c1][c2][edge_label][-1], x)
                 for vertex_label in vertex_labels
                     if !haskey(color_to_color_counter[c1][c2][edge_label], vertex_label)
                         color_to_color_counter[c1][c2][edge_label][vertex_label] = counter(Int)
@@ -58,6 +68,16 @@ function generate_color_summary(g::PropertyGraph, numColors::Int)
                     inc!(color_to_color_counter[c1][c2][edge_label][vertex_label], x)
                 end
             end
+            for vertex_label in vertex_labels
+                if !haskey(color_to_color_counter[c1][c2][-1], vertex_label)
+                    color_to_color_counter[c1][c2][-1][vertex_label] = counter(Int)
+                end
+                inc!(color_to_color_counter[c1][c2][-1][vertex_label], x)
+            end
+            if !haskey(color_to_color_counter[c1][c2][-1], -1)
+                color_to_color_counter[c1][c2][-1][-1] = counter(Int)
+            end
+            inc!(color_to_color_counter[c1][c2][-1][-1], x)
         end
     end
 
@@ -340,7 +360,7 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
     push!(current_query_nodes, parent_node)
     for node in vertices(data.graph)
         node_label = data.vertex_labels[node][1]
-        if (node_label == parent_label)
+        if (parent_label == -1) || (node_label == parent_label)
             push!(partial_paths, ([node], 1))
         end
     end
@@ -383,7 +403,8 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
                 # do we not have to worry about matching the parent node?
                 data_edge_labels = data.edge_labels[parent_node][data_child_node]
                 data_child_labels = data.vertex_labels[data_child_node]
-                if (in(query_edge_label, data_edge_labels) && in(query_child_label, data_child_labels))
+                if (query_edge_label == -1 || in(query_edge_label, data_edge_labels) &&
+                         (query_child_label == -1  || in(query_child_label, data_child_labels)))
                     new_path = copy(path)
                     push!(new_path, data_child_node)
                     push!(new_partial_paths, (new_path, weight))
@@ -426,7 +447,8 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
             data_child_vertex_labels = data.vertex_labels[child_data_node]
             query_edge_label = only(query.edge_labels[edge[1]][edge[2]])
             query_child_vertex_label = only(query.vertex_labels[edge[2]])
-            if !(in(query_edge_label, data_edge_labels) && in(query_child_vertex_label, data_child_vertex_labels))
+            if !((query_edge_label == -1 || in(query_edge_label, data_edge_labels)) && 
+                    (query_child_vertex_label == -1 || in(query_child_vertex_label, data_child_vertex_labels)))
                 satisfies_cycles = false
                 break
             end
