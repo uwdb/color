@@ -19,29 +19,30 @@ end
 
 
 # Extend the colorsummary to account for edge labels and vertex labels as additional layers of dict nesting
-# Change the color_cardinality to account for node labels and remove the edge_cardinality dict
+# Change the color_label_cardinality to account for node labels and remove the edge_cardinality dict
 struct ColorSummary
-    color_cardinality::Dict{Int, Dict{Int, Int}} # color_cardinality[c][v] = num_vertices
+    color_label_cardinality::Dict{Int, Dict{Int, Int}} # color_label_cardinality[c][v] = num_vertices
     edge_min_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_deg[c1][c2][e][v2] = min
-    edge_avg_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_deg[c1][c2][v2] = avg
-    edge_max_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_deg[c1][c2][v2] = max
+    edge_avg_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_deg[c1][c2][e][v2] = avg
+    edge_max_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_deg[c1][c2][e][v2] = max
 end
 
 function generate_color_summary(g::PropertyGraph, numColors::Int)
     color_cardinality = Dict()
+    color_label_cardinality = Dict()
     undirected_graph = Graph(g.graph)
     C = q_color(undirected_graph, n_colors=numColors)
     color_hash::Dict{Int, Int32} = Dict()
     for (color, nodes) in enumerate(C)
+        color_label_cardinality[color] = counter(Int)
+        color_cardinality[color] = length(nodes)
         for x in nodes
             color_hash[x] = color
-            color_cardinality[color] = counter(Int)
             for label in g.vertex_labels[x]
-                inc!(color_cardinality[color], label)
+                inc!(color_label_cardinality[color], label)
             end
         end
     end
-
     color_to_color_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
     for x in vertices(g.graph)
         c1 = color_hash[x]
@@ -95,12 +96,12 @@ function generate_color_summary(g::PropertyGraph, numColors::Int)
                         edge_max_deg[c1][c2][edge_label][vertex_label] = max(v, edge_max_deg[c1][c2][edge_label][vertex_label])
                     end
 
-                    edge_avg_deg[c1][c2][edge_label][vertex_label] = sum(values(color_to_color_counter[c1][c2][edge_label][vertex_label])) / color_cardinality[c1][vertex_label]
+                    edge_avg_deg[c1][c2][edge_label][vertex_label] = sum(values(color_to_color_counter[c1][c2][edge_label][vertex_label])) / color_cardinality[c1]
                     # edge_avg_deg[c1][c2][edge_label][vertex_label] = sum(values(color_to_color_counter[c1][c2][edge_label][vertex_label])) / length(values(color_to_color_counter[c1][c2][edge_label][vertex_label]))
                     
                     # if the number of connections is less than the number of vertices in the color,
                     # we can't guarantee the minimum bounds since they won't all map to the same vertex
-                    if length(values(color_to_color_counter[c1][c2][edge_label][vertex_label])) < color_cardinality[c1][vertex_label]
+                    if length(values(color_to_color_counter[c1][c2][edge_label][vertex_label])) < color_cardinality[c1]
                         edge_min_deg[c1][c2][edge_label][vertex_label] = 0;
                     end
                 end
@@ -108,7 +109,7 @@ function generate_color_summary(g::PropertyGraph, numColors::Int)
         end
     end
 
-    return ColorSummary(color_cardinality, edge_min_deg, edge_avg_deg, edge_max_deg)
+    return ColorSummary(color_label_cardinality, edge_min_deg, edge_avg_deg, edge_max_deg)
 end 
 
 # The following two functions sum over all paths which have the same color assigned to a particular node in the query graph.
@@ -177,12 +178,12 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
     parent_label = query.vertex_labels[parent_node][1]
     push!(current_query_nodes, parent_node)
     # initialize partial_paths with all possible starting color/vertex possibilities.
-    for color in keys(summary.color_cardinality)
+    for color in keys(summary.color_label_cardinality)
         # only use the parent label
-        if (haskey(summary.color_cardinality[color], parent_label))
-            push!(partial_paths, ([(color, parent_label)], [summary.color_cardinality[color][parent_label],
-                                                            summary.color_cardinality[color][parent_label],
-                                                            summary.color_cardinality[color][parent_label]]))
+        if (haskey(summary.color_label_cardinality[color], parent_label))
+            push!(partial_paths, ([(color, parent_label)], [summary.color_label_cardinality[color][parent_label],
+                                                            summary.color_label_cardinality[color][parent_label],
+                                                            summary.color_label_cardinality[color][parent_label]]))
         end
     end
     child_node = parent_node
@@ -281,7 +282,7 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
             if (haskey(summary.edge_avg_deg, parent_color) && haskey(summary.edge_avg_deg[parent_color], child_color)
             && haskey(summary.edge_avg_deg[parent_color][child_color], edge_label)
             && haskey(summary.edge_avg_deg[parent_color][child_color][edge_label], child_label))
-                probability_of_edge = summary.edge_avg_deg[parent_color][child_color][edge_label][child_label]/summary.color_cardinality[child_color][child_label]
+                probability_of_edge = summary.edge_avg_deg[parent_color][child_color][edge_label][child_label]/summary.color_label_cardinality[child_color][child_label]
             end
             average *= probability_of_edge
         end
