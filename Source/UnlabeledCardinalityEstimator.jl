@@ -11,8 +11,8 @@ using QuasiStableColors
 # queries only have one label per edge/node, data graphs can have as many
 struct PropertyGraph
     graph::DiGraph
-    edge_labels::Dict{Int, Dict{Int, Set{Int}}} # edge_labels[n1][n2] = { labels }
-    vertex_labels::Dict{Int, Set{Int}} # vertex_labels[n] = { labels }
+    edge_labels::Dict{Int, Dict{Int, Array{Int}}} # edge_labels[n1][n2] = { labels }
+    vertex_labels::Dict{Int, Array{Int}} # vertex_labels[n] = { labels }
 end
 
 # Everywhere that we reference a graph (query or data) we should replace it with our new struct.
@@ -278,9 +278,9 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
             child_label = only(path[child_node_idx][1])
             edge_label = query.edge_labels[edge[1]][edge[2]][1]
             probability_of_edge = 0
-            if haskey(summary.edge_avg_deg, parent_color) & haskey(summary.edge_avg_deg[parent_color], child_color)
-            & haskey(summary.edge_avg_deg[parent_color][child_color], edge_label)
-            & haskey(summary.edge_avg_deg[parent_color][child_color][edge_label], child_label)
+            if (haskey(summary.edge_avg_deg, parent_color) && haskey(summary.edge_avg_deg[parent_color], child_color)
+            && haskey(summary.edge_avg_deg[parent_color][child_color], edge_label)
+            && haskey(summary.edge_avg_deg[parent_color][child_color][edge_label], child_label))
                 probability_of_edge = summary.edge_avg_deg[parent_color][child_color][edge_label][child_label]/summary.color_cardinality[child_color][child_label]
             end
             average *= probability_of_edge
@@ -320,7 +320,7 @@ end
 
 #Make similar changes to get exact size
 function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_sums = true, verbose=false)
-    node_order = topological_sort_by_dfs(bfs_tree(query_graph, vertices(query_graph)[1]))
+    node_order = topological_sort_by_dfs(bfs_tree(query.graph, vertices(query.graph)[1]))
     # right now the path is an array of node-label tuples, but the "label" part isn't necessary since
     # we have access to the original data graph. It's there because the summing function needs it?
     partial_paths::Array{Tuple{Array{Tuple{Int, Int}}, Int}} = []
@@ -331,10 +331,10 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
     # initial query node's label
     parent_node = popfirst!(node_order)
     child_node = parent_node
-    parent_label = query.vertex_labels[parent_node]
+    parent_label = query.vertex_labels[parent_node][1]
     push!(current_query_nodes, parent_node)
     for node in vertices(data.graph)
-        node_label = data.vertex_labels[node]
+        node_label = data.vertex_labels[node][1]
         if (node_label == parent_label)
             push!(partial_paths, ([(node, node_label)], 1))
         end
@@ -347,7 +347,7 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
             println("Number of Partial Paths: ", length(keys(partial_paths)))
         end
         if use_partial_sums
-            sum_over_finished_query_nodes!(query_graph, partial_paths, current_query_nodes, visited_query_edges)
+            sum_over_finished_query_nodes!(query, partial_paths, current_query_nodes, visited_query_edges)
         end
         if verbose
             println("Number of Partial Paths After Sum: ", length(keys(partial_paths)))
@@ -356,8 +356,8 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
         end
         parent_node = child_node
         child_node = popfirst!(node_order)
-        query_edge_label = query.edge_labels[parent_node][child_node]
-        query_child_label = query.vertex_labels[child_node]
+        query_edge_label = query.edge_labels[parent_node][child_node][1]
+        query_child_label = query.vertex_labels[child_node][1]
         parent_idx = 0
         for neighbor in inneighbors(query.graph, child_node)
             if neighbor in current_query_nodes
@@ -372,7 +372,7 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
         for path_and_weight in partial_paths
             path = path_and_weight[1]
             weight = path_and_weight[2]
-            parent_node = only(path[parent_idx])
+            parent_node = only(path[parent_idx])[1]
             for data_child_node in outneighbors(data.graph, parent_node)
                 # only add a new partial path if the edge label and node label match our query
                 # do we not have to worry about matching the parent node?
@@ -380,7 +380,7 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
                 data_child_labels = data.vertex_labels[data_child_node]
                 if (in(query_edge_label, data_edge_labels) && in(query_child_label, data_child_labels))
                     new_path = copy(path)
-                    push!(new_path, [data_child_node, query_child_label])
+                    push!(new_path, (data_child_node, query_child_label))
                     push!(new_partial_paths, (new_path, weight))
                 end
             end
@@ -394,7 +394,7 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
         end
     end
     
-    final_bounds = 0
+    exact_size = 0
     for path_and_weight in partial_paths 
         path = path_and_weight[1]
         weight = path_and_weight[2]
@@ -430,7 +430,7 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
             end
         end 
         if satisfies_cycles
-            final_bounds = final_bounds + weight
+            exact_size = exact_size + weight
         end
     end 
     return exact_size
