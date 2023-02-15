@@ -410,16 +410,21 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
             child_node_idx = indexin(edge[2], current_query_nodes)
             child_data_node = only(path[child_node_idx][1])
 
-            # check if that exists
+            # check if the edge label exists, if it doesn't then we can break here
+            # don't need to check parent node because we got the parent node from the data graph,
+            # but we do need to check if there is an edge connection to the child
+            if (!haskey(data.edge_labels[parent_data_node], child_data_node))
+                satisfies_cycles = false;
+                break;
+            end
             remaining_edge_labels = data.edge_labels[parent_data_node][child_data_node]
             query_edge_label = query.edge_labels[edge[1]][edge[2]][1]
             if !(in(query_edge_label, remaining_edge_labels))
                 satisfies_cycles = false
                 break
             end
-            # if the child node isn't a parent of its parent, then we never close the cycle?
-            # should this be the other way around?
             # this confirms that the child is a child of its parent
+            # might be unnecessary if we already confirm that there is an edge label from parent to child
             if !(child_data_node in outneighbors(data.graph, parent_data_node))
                 satisfies_cycles = false
             end
