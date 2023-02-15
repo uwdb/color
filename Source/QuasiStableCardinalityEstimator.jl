@@ -101,7 +101,7 @@ function generate_color_summary(g::PropertyGraph, numColors::Int)
     return ColorSummary(color_label_cardinality, edge_min_deg, edge_avg_deg, edge_max_deg)
 end 
 
-function getColorSummarySize(summary)
+function get_color_summary_size(summary)
     numEntries = 0
     for c1 in keys(summary.edge_avg_deg)
         for c2 in keys(summary.edge_avg_deg[c1])
@@ -359,10 +359,8 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
             println("Current Query Nodes After Sum: ", current_query_nodes)
             println("Visited Query Edges After Sum: ", visited_query_edges)
         end
-        parent_node = child_node
+
         child_node = popfirst!(node_order)
-        query_edge_label = query.edge_labels[parent_node][child_node][1]
-        query_child_label = query.vertex_labels[child_node][1]
         parent_idx = 0
         for neighbor in inneighbors(query.graph, child_node)
             if neighbor in current_query_nodes
@@ -370,6 +368,8 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
                 parent_idx = indexin(neighbor, current_query_nodes)
             end
         end
+        query_edge_label = query.edge_labels[parent_node][child_node][1]
+        query_child_label = query.vertex_labels[child_node][1]
         
         push!(current_query_nodes, child_node)
         push!(visited_query_edges, (parent_node, child_node))
