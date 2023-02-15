@@ -146,6 +146,8 @@ using Graphs
         @test predicted_size == exact_size
     end
 
+    # TODO: test cyclic queries
+
     # The current implementation does not support 1-vertex queries, but this
     # will be fixed in the update incorporating edge/vertex labels
     # @testset "1-vertex query" begin
