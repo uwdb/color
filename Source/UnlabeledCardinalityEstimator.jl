@@ -35,7 +35,7 @@ function generate_color_summary(g::PropertyGraph, numColors::Int)
     for (color, nodes) in enumerate(C)
         for x in nodes
             color_hash[x] = color
-            color_cardinality[color] = counter()
+            color_cardinality[color] = counter(Int)
             for label in g.vertex_labels[x]
                 inc!(color_cardinality[color], label)
             end
@@ -180,7 +180,7 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
     for color in keys(summary.color_cardinality)
         # only use the parent label
         if (haskey(summary.color_cardinality[color], parent_label))
-            push!(partial_paths, ([[color, parent_label]], [summary.color_cardinality[color][parent_label],
+            push!(partial_paths, ([(color, parent_label)], [summary.color_cardinality[color][parent_label],
                                                             summary.color_cardinality[color][parent_label],
                                                             summary.color_cardinality[color][parent_label]]))
         end
@@ -222,10 +222,10 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
         # update the partial paths using the parent-child combo that comes next from the query
         new_partial_paths::Array{Tuple{Array{Tuple{Int, Int}}, Array{Float64}}} = []
         for path_and_bounds in partial_paths
-            path = path_and_bounds[1]
+            path = path_and_bounds[1] # using a tuple causes intermediate data structure?
             running_bounds = path_and_bounds[2]
-            parent_color = only(path[parent_idx][1])
-            parent_label = only(path[parent_idx][2])
+            parent_color = only(path[parent_idx])[1]
+            parent_label = only(path[parent_idx])[2]
             # account for colors with no outgoing children
             if (!haskey(summary.edge_avg_deg, parent_color))
                 continue
@@ -235,7 +235,7 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
                 if (haskey(summary.edge_avg_deg[parent_color][child_color], edge_label))
                     if (haskey(summary.edge_avg_deg[parent_color][child_color][edge_label], child_label))
                         new_path = copy(path)
-                        push!(new_path, [child_color, child_label])        
+                        push!(new_path, (child_color, child_label))        
                         new_bounds = [running_bounds[1]*summary.edge_min_deg[parent_color][child_color][edge_label][child_label],
                               running_bounds[2]*summary.edge_avg_deg[parent_color][child_color][edge_label][child_label],
                               running_bounds[3]*summary.edge_max_deg[parent_color][child_color][edge_label][child_label],
@@ -252,7 +252,7 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
     # been processed. If so, we set the lower bound to 0, reduce the average estimate accordingly, and leave
     # the upper bound unchanged.
     remaining_edges = []
-    for edge in edges(query_graph)
+    for edge in edges(query.graph)
         if ! ((src(edge), dst(edge)) in visited_query_edges)
             push!(remaining_edges, (src(edge), dst(edge)))
         end
