@@ -11,9 +11,12 @@ using QuasiStableColors
 # but they do occur in the query graph.
 struct ColorSummary
     color_label_cardinality::Dict{Int, Dict{Int, Int}} # color_label_cardinality[c][v] = num_vertices
-    edge_min_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_deg[c1][c2][e][v2] = min
-    edge_avg_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_deg[c1][c2][e][v2] = avg
-    edge_max_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_deg[c1][c2][e][v2] = max
+    edge_min_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_out_deg[c1][c2][e][v2] = min
+    edge_min_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_out_deg[c1][c2][e][v2] = min
+    edge_avg_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_out_deg[c1][c2][e][v2] = avg
+    edge_avg_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_out_deg[c1][c2][e][v2] = avg
+    edge_max_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_out_deg[c1][c2][e][v2] = max
+    edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_out_deg[c1][c2][e][v2] = max
 end
 
 function generate_color_summary(g::PropertyGraph, numColors::Int)
@@ -34,99 +37,189 @@ function generate_color_summary(g::PropertyGraph, numColors::Int)
         end
     end
 
-    color_to_color_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
+    # We keep separate degree statistics for in-degree and out-degree.
+    color_to_color_out_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
     for x in vertices(g.graph)
         c1 = color_hash[x]
         for y in outneighbors(g.graph,x)
             c2 = color_hash[y]
             edge_labels = g.edge_labels[x][y];
             vertex_labels = g.vertex_labels[y];
-            if !haskey(color_to_color_counter, c1)
-                color_to_color_counter[c1] = Dict()
+            if !haskey(color_to_color_out_counter, c1)
+                color_to_color_out_counter[c1] = Dict()
             end
-            if !haskey(color_to_color_counter[c1], c2)
-                color_to_color_counter[c1][c2] = Dict()
-            end
-            if !haskey(color_to_color_counter[c1][c2], -1)
-                color_to_color_counter[c1][c2][-1] = Dict()
+            if !haskey(color_to_color_out_counter[c1], c2)
+                color_to_color_out_counter[c1][c2] = Dict()
             end
             
-            # since each edge/vertex can have multiple labels associated with it,
+            # Since each edge/vertex can have multiple labels associated with it,
             # we must count each edge/vertex label separately in our counter. 
+            # Additionally, we need to include a count for the implicit `-1` wildcard label.
             for edge_label in edge_labels
-                if !haskey(color_to_color_counter[c1][c2], edge_label)
-                    color_to_color_counter[c1][c2][edge_label] = Dict()
+                if !haskey(color_to_color_out_counter[c1][c2], edge_label)
+                    color_to_color_out_counter[c1][c2][edge_label] = Dict()
                 end
-                if !haskey(color_to_color_counter[c1][c2][edge_label], -1)
-                    color_to_color_counter[c1][c2][edge_label][-1] = counter(Int)
+                if !haskey(color_to_color_out_counter[c1][c2][edge_label], -1)
+                    color_to_color_out_counter[c1][c2][edge_label][-1] = counter(Int)
                 end
-                inc!(color_to_color_counter[c1][c2][edge_label][-1], x)
+                inc!(color_to_color_out_counter[c1][c2][edge_label][-1], x)
                 for vertex_label in vertex_labels
-                    if !haskey(color_to_color_counter[c1][c2][edge_label], vertex_label)
-                        color_to_color_counter[c1][c2][edge_label][vertex_label] = counter(Int)
+                    if !haskey(color_to_color_out_counter[c1][c2][edge_label], vertex_label)
+                        color_to_color_out_counter[c1][c2][edge_label][vertex_label] = counter(Int)
                     end
-                    inc!(color_to_color_counter[c1][c2][edge_label][vertex_label], x)
+                    inc!(color_to_color_out_counter[c1][c2][edge_label][vertex_label], x)
                 end
+            end
+            if !haskey(color_to_color_out_counter[c1][c2], -1)
+                color_to_color_out_counter[c1][c2][-1] = Dict()
             end
             for vertex_label in vertex_labels
-                if !haskey(color_to_color_counter[c1][c2][-1], vertex_label)
-                    color_to_color_counter[c1][c2][-1][vertex_label] = counter(Int)
+                if !haskey(color_to_color_out_counter[c1][c2][-1], vertex_label)
+                    color_to_color_out_counter[c1][c2][-1][vertex_label] = counter(Int)
                 end
-                inc!(color_to_color_counter[c1][c2][-1][vertex_label], x)
+                inc!(color_to_color_out_counter[c1][c2][-1][vertex_label], x)
             end
-            if !haskey(color_to_color_counter[c1][c2][-1], -1)
-                color_to_color_counter[c1][c2][-1][-1] = counter(Int)
+            if !haskey(color_to_color_out_counter[c1][c2][-1], -1)
+                color_to_color_out_counter[c1][c2][-1][-1] = counter(Int)
             end
-            inc!(color_to_color_counter[c1][c2][-1][-1], x)
+            inc!(color_to_color_out_counter[c1][c2][-1][-1], x)
         end
     end
 
-    # edge_cardinality::Dict{Int, Dict{Int, Float64}} = Dict()
-    edge_min_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
-    edge_avg_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
-    edge_max_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
-    for c1 in keys(color_to_color_counter)
-        edge_min_deg[c1] = Dict()
-        edge_avg_deg[c1] = Dict()
-        edge_max_deg[c1] = Dict()
-        for c2 in keys(color_to_color_counter[c1])
-            edge_min_deg[c1][c2] = Dict()
-            edge_avg_deg[c1][c2] = Dict()
-            edge_max_deg[c1][c2] = Dict()
-            for edge_label in keys(color_to_color_counter[c1][c2]) 
-                edge_min_deg[c1][c2][edge_label] = Dict()
-                edge_avg_deg[c1][c2][edge_label] = Dict()
-                edge_max_deg[c1][c2][edge_label] = Dict()
-                for vertex_label in keys(color_to_color_counter[c1][c2][edge_label])
-                    edge_min_deg[c1][c2][edge_label][vertex_label] = nv(g.graph) # set this to the max possible value for comparison later
-                    edge_max_deg[c1][c2][edge_label][vertex_label] = 0 # set to min possible value for comparison later
-                    for v in values(color_to_color_counter[c1][c2][edge_label][vertex_label])
-                        edge_min_deg[c1][c2][edge_label][vertex_label] = min(v, edge_min_deg[c1][c2][edge_label][vertex_label])
-                        edge_max_deg[c1][c2][edge_label][vertex_label] = max(v, edge_max_deg[c1][c2][edge_label][vertex_label])
+    edge_min_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
+    edge_avg_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
+    edge_max_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
+    for c1 in keys(color_to_color_out_counter)
+        edge_min_out_deg[c1] = Dict()
+        edge_avg_out_deg[c1] = Dict()
+        edge_max_out_deg[c1] = Dict()
+        for c2 in keys(color_to_color_out_counter[c1])
+            edge_min_out_deg[c1][c2] = Dict()
+            edge_avg_out_deg[c1][c2] = Dict()
+            edge_max_out_deg[c1][c2] = Dict()
+            for edge_label in keys(color_to_color_out_counter[c1][c2]) 
+                edge_min_out_deg[c1][c2][edge_label] = Dict()
+                edge_avg_out_deg[c1][c2][edge_label] = Dict()
+                edge_max_out_deg[c1][c2][edge_label] = Dict()
+                for vertex_label in keys(color_to_color_out_counter[c1][c2][edge_label])
+                    edge_min_out_deg[c1][c2][edge_label][vertex_label] = nv(g.graph) # set this to the max possible value for comparison later
+                    edge_max_out_deg[c1][c2][edge_label][vertex_label] = 0 # set to min possible value for comparison later
+                    for v in values(color_to_color_out_counter[c1][c2][edge_label][vertex_label])
+                        edge_min_out_deg[c1][c2][edge_label][vertex_label] = min(v, edge_min_out_deg[c1][c2][edge_label][vertex_label])
+                        edge_max_out_deg[c1][c2][edge_label][vertex_label] = max(v, edge_max_out_deg[c1][c2][edge_label][vertex_label])
                     end
-
-                    edge_avg_deg[c1][c2][edge_label][vertex_label] = sum(values(color_to_color_counter[c1][c2][edge_label][vertex_label])) / color_cardinality[c1]
-                    # edge_avg_deg[c1][c2][edge_label][vertex_label] = sum(values(color_to_color_counter[c1][c2][edge_label][vertex_label])) / length(values(color_to_color_counter[c1][c2][edge_label][vertex_label]))
+                    edge_avg_out_deg[c1][c2][edge_label][vertex_label] = sum(values(color_to_color_out_counter[c1][c2][edge_label][vertex_label])) / color_cardinality[c1]
                     
                     # if the number of connections is less than the number of vertices in the color,
                     # we can't guarantee the minimum bounds since they won't all map to the same vertex
-                    if length(values(color_to_color_counter[c1][c2][edge_label][vertex_label])) < color_cardinality[c1]
-                        edge_min_deg[c1][c2][edge_label][vertex_label] = 0;
+                    if length(values(color_to_color_out_counter[c1][c2][edge_label][vertex_label])) < color_cardinality[c1]
+                        edge_min_out_deg[c1][c2][edge_label][vertex_label] = 0;
                     end
                 end
             end
         end
     end
 
-    return ColorSummary(color_label_cardinality, edge_min_deg, edge_avg_deg, edge_max_deg)
+    color_to_color_in_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
+    for x in vertices(g.graph)
+        c1 = color_hash[x]
+        for y in inneighbors(g.graph,x)
+            c2 = color_hash[y]
+            edge_labels = g.edge_labels[x][y];
+            vertex_labels = g.vertex_labels[y];
+            if !haskey(color_to_color_in_counter, c1)
+                color_to_color_in_counter[c1] = Dict()
+            end
+            if !haskey(color_to_color_in_counter[c1], c2)
+                color_to_color_in_counter[c1][c2] = Dict()
+            end
+            
+            # Since each edge/vertex can have multiple labels associated with it,
+            # we must count each edge/vertex label separately in our counter. 
+            # Additionally, we need to include a count for the implicit `-1` wildcard label.
+            for edge_label in edge_labels
+                if !haskey(color_to_color_in_counter[c1][c2], edge_label)
+                    color_to_color_in_counter[c1][c2][edge_label] = Dict()
+                end
+                if !haskey(color_to_color_in_counter[c1][c2][edge_label], -1)
+                    color_to_color_in_counter[c1][c2][edge_label][-1] = counter(Int)
+                end
+                inc!(color_to_color_in_counter[c1][c2][edge_label][-1], x)
+                for vertex_label in vertex_labels
+                    if !haskey(color_to_color_in_counter[c1][c2][edge_label], vertex_label)
+                        color_to_color_in_counter[c1][c2][edge_label][vertex_label] = counter(Int)
+                    end
+                    inc!(color_to_color_in_counter[c1][c2][edge_label][vertex_label], x)
+                end
+            end
+            if !haskey(color_to_color_in_counter[c1][c2], -1)
+                color_to_color_in_counter[c1][c2][-1] = Dict()
+            end
+            for vertex_label in vertex_labels
+                if !haskey(color_to_color_in_counter[c1][c2][-1], vertex_label)
+                    color_to_color_in_counter[c1][c2][-1][vertex_label] = counter(Int)
+                end
+                inc!(color_to_color_in_counter[c1][c2][-1][vertex_label], x)
+            end
+            if !haskey(color_to_color_in_counter[c1][c2][-1], -1)
+                color_to_color_in_counter[c1][c2][-1][-1] = counter(Int)
+            end
+            inc!(color_to_color_in_counter[c1][c2][-1][-1], x)
+        end
+    end
+
+    edge_min_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
+    edge_avg_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
+    edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
+    for c1 in keys(color_to_color_in_counter)
+        edge_min_in_deg[c1] = Dict()
+        edge_avg_in_deg[c1] = Dict()
+        edge_max_in_deg[c1] = Dict()
+        for c2 in keys(color_to_color_in_counter[c1])
+            edge_min_in_deg[c1][c2] = Dict()
+            edge_avg_in_deg[c1][c2] = Dict()
+            edge_max_in_deg[c1][c2] = Dict()
+            for edge_label in keys(color_to_color_in_counter[c1][c2]) 
+                edge_min_in_deg[c1][c2][edge_label] = Dict()
+                edge_avg_in_deg[c1][c2][edge_label] = Dict()
+                edge_max_in_deg[c1][c2][edge_label] = Dict()
+                for vertex_label in keys(color_to_color_in_counter[c1][c2][edge_label])
+                    edge_min_in_deg[c1][c2][edge_label][vertex_label] = nv(g.graph) # set this to the max possible value for comparison later
+                    edge_max_in_deg[c1][c2][edge_label][vertex_label] = 0 # set to min possible value for comparison later
+                    for v in values(color_to_color_in_counter[c1][c2][edge_label][vertex_label])
+                        edge_min_in_deg[c1][c2][edge_label][vertex_label] = min(v, edge_min_in_deg[c1][c2][edge_label][vertex_label])
+                        edge_max_in_deg[c1][c2][edge_label][vertex_label] = max(v, edge_max_in_deg[c1][c2][edge_label][vertex_label])
+                    end
+                    edge_avg_in_deg[c1][c2][edge_label][vertex_label] = sum(values(color_to_color_in_counter[c1][c2][edge_label][vertex_label])) / color_cardinality[c1]
+                    
+                    # if the number of connections is less than the number of vertices in the color,
+                    # we can't guarantee the minimum bounds since they won't all map to the same vertex
+                    if length(values(color_to_color_in_counter[c1][c2][edge_label][vertex_label])) < color_cardinality[c1]
+                        edge_min_in_deg[c1][c2][edge_label][vertex_label] = 0;
+                    end
+                end
+            end
+        end
+    end
+    return ColorSummary(color_label_cardinality, edge_min_out_deg, edge_min_in_deg, 
+                                    edge_avg_out_deg, edge_avg_in_deg, edge_max_out_deg, edge_max_in_deg)
 end 
 
 function get_color_summary_size(summary)
     numEntries = 0
-    for c1 in keys(summary.edge_avg_deg)
-        for c2 in keys(summary.edge_avg_deg[c1])
-            for e in keys(summary.edge_avg_deg[c1][c2])
-                for v in keys(summary.edge_avg_deg[c1][c2][e])
+    for c1 in keys(summary.edge_avg_out_deg)
+        for c2 in keys(summary.edge_avg_out_deg[c1])
+            for e in keys(summary.edge_avg_out_deg[c1][c2])
+                for v in keys(summary.edge_avg_out_deg[c1][c2][e])
+                    numEntries += 1
+                end
+            end
+        end
+    end
+    for c1 in keys(summary.edge_avg_in_deg)
+        for c2 in keys(summary.edge_avg_in_deg[c1])
+            for e in keys(summary.edge_avg_in_deg[c1][c2])
+                for v in keys(summary.edge_avg_in_deg[c1][c2][e])
                     numEntries += 1
                 end
             end
@@ -188,7 +281,7 @@ end
 
 function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summary::ColorSummary, 
                                                     starting_node::Int; use_partial_sums = true, verbose = false)
-    node_order = topological_sort_by_dfs(bfs_tree(query.graph, starting_node))
+    node_order = topological_sort_by_dfs(bfs_tree(Graph(query.graph), starting_node))
     # since we have node labels, should the partial path array have each value instead be subarrays of color-label pairs?
     # Kyle: Because the label is implied by the color -> query_graph_vertex mapping stored in current_query_nodes, I don't think
     # we have to keep the label in the partial paths object.
@@ -230,9 +323,13 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
         # get the next child from the node order
         child_node = popfirst!(node_order)
         parent_idx = 0
-        for neighbor in inneighbors(query.graph, child_node)
+        outEdge = false
+        for neighbor in all_neighbors(query.graph, child_node)
             if neighbor in current_query_nodes
                 parent_node = neighbor
+                if parent_node in inneighbors(query.graph, child_node)
+                    outEdge = true
+                end
                 # gets the index of the parent in the list of current nodes
                 parent_idx = indexin(neighbor, current_query_nodes)
             end
@@ -242,7 +339,12 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
         push!(current_query_nodes, child_node)
 
         # get the appropriate labels, the query only uses one label per vertex/node
-        edge_label = query.edge_labels[parent_node][child_node][1]
+        edge_label = 0
+        if outEdge
+            edge_label = query.edge_labels[parent_node][child_node][1]
+        else
+            edge_label =  query.edge_labels[child_node][parent_node][1]
+        end 
         child_label = query.vertex_labels[child_node][1]
 
         # update the partial paths using the parent-child combo that comes next from the query
@@ -252,19 +354,27 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
             running_bounds = path_and_bounds[2]
             parent_color = only(path[parent_idx])
             # account for colors with no outgoing children
-            if (!haskey(summary.edge_avg_deg, parent_color))
+            if (!haskey(summary.edge_avg_out_deg, parent_color))
                 continue
             end
-            for child_color in keys(summary.edge_avg_deg[parent_color])
+            for child_color in keys(summary.edge_avg_out_deg[parent_color])
                 # edge and vertex labels are defined by the query
-                if (haskey(summary.edge_avg_deg[parent_color][child_color], edge_label))
-                    if (haskey(summary.edge_avg_deg[parent_color][child_color][edge_label], child_label))
+                if (haskey(summary.edge_avg_out_deg[parent_color][child_color], edge_label))
+                    if (haskey(summary.edge_avg_out_deg[parent_color][child_color][edge_label], child_label))
                         new_path = copy(path)
                         push!(new_path, child_color)        
-                        new_bounds = [running_bounds[1]*summary.edge_min_deg[parent_color][child_color][edge_label][child_label],
-                              running_bounds[2]*summary.edge_avg_deg[parent_color][child_color][edge_label][child_label],
-                              running_bounds[3]*summary.edge_max_deg[parent_color][child_color][edge_label][child_label],
-                        ]
+                        if outEdge
+                            new_bounds = [running_bounds[1]*summary.edge_min_out_deg[parent_color][child_color][edge_label][child_label],
+                                running_bounds[2]*summary.edge_avg_out_deg[parent_color][child_color][edge_label][child_label],
+                                running_bounds[3]*summary.edge_max_out_deg[parent_color][child_color][edge_label][child_label],
+                            ]
+                        else
+                            new_bounds = [running_bounds[1]*summary.edge_min_in_deg[parent_color][child_color][edge_label][child_label],
+                                running_bounds[2]*summary.edge_avg_in_deg[parent_color][child_color][edge_label][child_label],
+                                running_bounds[3]*summary.edge_max_in_deg[parent_color][child_color][edge_label][child_label],
+                            ]
+
+                        end
                         push!(new_partial_paths, (new_path, new_bounds))
                     end
                 end
@@ -302,11 +412,11 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
             child_label = only(path[child_node_idx][1])
             edge_label = query.edge_labels[edge[1]][edge[2]][1]
             probability_of_edge = 0
-            if (haskey(summary.edge_avg_deg, parent_color) 
-                    && haskey(summary.edge_avg_deg[parent_color], child_color)
-                        && haskey(summary.edge_avg_deg[parent_color][child_color], edge_label)
-                            && haskey(summary.edge_avg_deg[parent_color][child_color][edge_label], child_label))
-                probability_of_edge = summary.edge_avg_deg[parent_color][child_color][edge_label][child_label]/summary.color_label_cardinality[child_color][child_label]
+            if (haskey(summary.edge_avg_out_deg, parent_color) 
+                    && haskey(summary.edge_avg_out_deg[parent_color], child_color)
+                        && haskey(summary.edge_avg_out_deg[parent_color][child_color], edge_label)
+                            && haskey(summary.edge_avg_out_deg[parent_color][child_color][edge_label], child_label))
+                probability_of_edge = summary.edge_avg_out_deg[parent_color][child_color][edge_label][child_label]/summary.color_label_cardinality[child_color][child_label]
             end
             average *= probability_of_edge
         end
@@ -318,25 +428,19 @@ end
 
 function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary; 
                                 use_partial_sums = true, try_all_starting_nodes=true, verbose = false)
-    root_nodes = []
-    for node in vertices(query.graph)
-        if is_connected(bfs_tree(query.graph, node))
-            push!(root_nodes, node)
-        end
-    end
     if try_all_starting_nodes
         final_bounds = [0, 0, Inf]
-        for node in root_nodes
+        for node in vertices(query.graph)
             cur_bounds = get_cardinality_bounds_given_starting_node(query, summary, node;
                                                                     use_partial_sums=use_partial_sums, verbose=verbose)
             final_bounds[1] = max(final_bounds[1], cur_bounds[1])
             final_bounds[2] += cur_bounds[2]
             final_bounds[3] = min(final_bounds[3], cur_bounds[3])
         end
-        final_bounds[2] /= length(root_nodes)
+        final_bounds[2] /= nv(query.graph)
         return final_bounds
     end
-    return get_cardinality_bounds_given_starting_node(query, summary, root_nodes[1];
+    return get_cardinality_bounds_given_starting_node(query, summary, vertices(query.graph)[1];
                                                       use_partial_sums=use_partial_sums, verbose=verbose)
 end
 
@@ -345,13 +449,15 @@ end
 
 #Make similar changes to get exact size
 function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_sums = true, verbose=false)
-    node_order = topological_sort_by_dfs(bfs_tree(query.graph, vertices(query.graph)[1]))
+    node_order = topological_sort_by_dfs(bfs_tree(Graph(query.graph), vertices(query.graph)[1]))
     # right now the path is an array of node-label tuples, but the "label" part isn't necessary since
     # we have access to the original data graph. It's there because the summing function needs it?
     partial_paths::Array{Tuple{Array{Int}, Int}} = []
     visited_query_edges = []
     current_query_nodes = []
-
+    if verbose
+        println("Node Order: ", node_order)
+    end
     # initialize partial_paths as 1-node paths with label matching the
     # initial query node's label
     parent_node = popfirst!(node_order)
@@ -359,12 +465,11 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
     parent_label = query.vertex_labels[parent_node][1]
     push!(current_query_nodes, parent_node)
     for node in vertices(data.graph)
-        node_label = data.vertex_labels[node][1]
-        if (parent_label == -1) || (node_label == parent_label)
+        node_labels = data.vertex_labels[node]
+        if (parent_label == -1) || (in(parent_label, node_labels))
             push!(partial_paths, ([node], 1))
         end
     end
-
     while length(node_order) > 0
         if verbose
             println("Current Query Nodes: ", current_query_nodes)
@@ -382,13 +487,22 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
 
         child_node = popfirst!(node_order)
         parent_idx = 0
-        for neighbor in inneighbors(query.graph, child_node)
+        outEdge = false
+        for neighbor in all_neighbors(query.graph, child_node)
             if neighbor in current_query_nodes
+                if neighbor in inneighbors(query.graph, child_node)
+                    outEdge = true
+                end
                 parent_node = neighbor
                 parent_idx = indexin(neighbor, current_query_nodes)
             end
         end
-        query_edge_label = query.edge_labels[parent_node][child_node][1]
+        query_edge_label = 0
+        if outEdge
+            query_edge_label = query.edge_labels[parent_node][child_node][1]
+        else
+            query_edge_label =  query.edge_labels[child_node][parent_node][1]
+        end 
         query_child_label = query.vertex_labels[child_node][1]
         
         push!(current_query_nodes, child_node)
@@ -398,16 +512,23 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
             path = path_and_weight[1]
             weight = path_and_weight[2]
             parent_node = only(path[parent_idx])
-            for data_child_node in outneighbors(data.graph, parent_node)
+            potential_child_nodes = []
+            if outEdge
+                potential_child_nodes = outneighbors(data.graph, parent_node)
+            else
+                potential_child_nodes = inneighbors(data.graph, parent_node)
+            end
+            for data_child_node in potential_child_nodes
+                new_weight = weight
                 # only add a new partial path if the edge label and node label match our query
                 # do we not have to worry about matching the parent node?
                 data_edge_labels = data.edge_labels[parent_node][data_child_node]
                 data_child_labels = data.vertex_labels[data_child_node]
-                if (query_edge_label == -1 || in(query_edge_label, data_edge_labels) &&
-                         (query_child_label == -1  || in(query_child_label, data_child_labels)))
+                if (query_child_label == -1  || in(query_child_label, data_child_labels)) && 
+                    (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
                     new_path = copy(path)
                     push!(new_path, data_child_node)
-                    push!(new_partial_paths, (new_path, weight))
+                    push!(new_partial_paths, (new_path, new_weight))
                 end
             end
         end
@@ -419,7 +540,6 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
             push!(remaining_edges, (src(edge), dst(edge)))
         end
     end
-    
     exact_size = 0
     for path_and_weight in partial_paths 
         path = path_and_weight[1]
@@ -451,6 +571,9 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
                     (query_child_vertex_label == -1 || in(query_child_vertex_label, data_child_vertex_labels)))
                 satisfies_cycles = false
                 break
+            end
+            if query_edge_label == -1
+                weight *= length(data_edge_labels)
             end
         end 
         if satisfies_cycles
