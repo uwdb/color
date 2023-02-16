@@ -258,6 +258,51 @@ function sum_over_node!(partial_paths, current_query_nodes, node_to_remove)
     end
 end
 
+function handle_extra_edges!(query::PropertyGraph, summary::ColorSummary, partial_paths, current_query_nodes, visited_query_edges)
+    # To account for cyclic queries, we check whether there are any remaining edges that have not
+    # been processed. If so, we set the lower bound to 0, reduce the average estimate accordingly, and leave
+    # the upper bound unchanged.
+    remaining_edges = []
+    for edge in edges(query.graph)
+        if ! ((src(edge), dst(edge)) in visited_query_edges) &&
+                 (src(edge) in current_query_nodes && dst(edge) in current_query_nodes)
+            push!(remaining_edges, (src(edge), dst(edge)))
+            push!(visited_query_edges, (src(edge), dst(edge)))
+        end
+    end
+
+    # Sum over the calculated partial paths to get the final bounds
+    for i  in range(1, length(partial_paths))
+        path = partial_paths[i][1]
+        bounds = partial_paths[i][2]
+        lower = only(bounds[1])
+        if length(remaining_edges) > 0
+            lower = 0
+        end
+        average = only(bounds[2])
+        # scale down the average if there are remaining non-tree-edges
+        for edge in remaining_edges
+            parent_node_idx = indexin(edge[1], current_query_nodes)
+            parent_color = only(path[parent_node_idx])
+            child_node_idx = indexin(edge[2], current_query_nodes)
+            child_color = only(path[child_node_idx][1])
+            child_label = only(path[child_node_idx][1])
+            edge_label = query.edge_labels[edge[1]][edge[2]][1]
+            probability_of_edge = 0
+            if (haskey(summary.edge_avg_out_deg, parent_color) 
+                    && haskey(summary.edge_avg_out_deg[parent_color], child_color)
+                        && haskey(summary.edge_avg_out_deg[parent_color][child_color], edge_label)
+                            && haskey(summary.edge_avg_out_deg[parent_color][child_color][edge_label], child_label))
+                probability_of_edge = summary.edge_avg_out_deg[parent_color][child_color][edge_label][child_label]/summary.color_label_cardinality[child_color][child_label]
+            end
+            average *= probability_of_edge
+        end
+        upper = only(bounds[3])
+        partial_paths[i] = (path, [lower, average, upper])
+    end 
+
+end
+
 function sum_over_finished_query_nodes!(query::PropertyGraph, partial_paths, current_query_nodes, visited_query_edges)
     prev_query_nodes = copy(current_query_nodes)
     for node in prev_query_nodes
@@ -278,9 +323,47 @@ function sum_over_finished_query_nodes!(query::PropertyGraph, partial_paths, cur
     end
 end
 
+function get_min_width_node_order(g::DiGraph)
+    min_width = nv(g)
+    min_order = []
+    for starting_node in vertices(g)
+        max_width = 0
+        visited_nodes = [starting_node]
+        while length(visited_nodes) < nv(g)
+            new_width = nv(g)
+            next_node = -1
+            for potential_node in vertices(g)
+                if potential_node in visited_nodes || !any([x in all_neighbors(g, potential_node) for x in visited_nodes])
+                    continue
+                end
+                potential_visited_nodes = []
+                copy!(potential_visited_nodes, visited_nodes)
+                push!(potential_visited_nodes, potential_node)
+                potential_num_active_nodes = 0
+                for v in potential_visited_nodes
+                    if ! all([x in potential_visited_nodes for x in all_neighbors(g, v)])
+                        potential_num_active_nodes += 1
+                    end
+                end
+                if potential_num_active_nodes <= new_width
+                    next_node = potential_node
+                    new_width = potential_num_active_nodes
+                end
+            end
+            push!(visited_nodes, next_node)
+            max_width = max(max_width, new_width)
+        end
+        if max_width <= min_width
+            min_order = visited_nodes
+            min_width = max_width
+        end
+    end
+    return min_order
+end
+
 function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summary::ColorSummary, 
                                                     starting_node::Int; use_partial_sums = true, verbose = false)
-    node_order = topological_sort_by_dfs(bfs_tree(Graph(query.graph), starting_node))
+    node_order = get_min_width_node_order(query.graph)
     # since we have node labels, should the partial path array have each value instead be subarrays of color-label pairs?
     # Kyle: Because the label is implied by the color -> query_graph_vertex mapping stored in current_query_nodes, I don't think
     # we have to keep the label in the partial paths object.
@@ -305,6 +388,7 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
     end
     child_node = parent_node
     while length(node_order) > 0
+        handle_extra_edges!(query, summary, partial_paths, current_query_nodes, visited_query_edges)
         if verbose
             println("Current Query Nodes: ", current_query_nodes)
             println("Visited Query Edges: ", visited_query_edges)
@@ -389,45 +473,12 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
         partial_paths = new_partial_paths
     end
 
-    # To account for cyclic queries, we check whether there are any remaining edges that have not
-    # been processed. If so, we set the lower bound to 0, reduce the average estimate accordingly, and leave
-    # the upper bound unchanged.
-    remaining_edges = []
-    for edge in edges(query.graph)
-        if ! ((src(edge), dst(edge)) in visited_query_edges)
-            push!(remaining_edges, (src(edge), dst(edge)))
-        end
-    end
+    handle_extra_edges!(query, summary, partial_paths, current_query_nodes, visited_query_edges)
 
     # Sum over the calculated partial paths to get the final bounds
     final_bounds = [0,0,0]
     for path_and_bounds in partial_paths
-        path = path_and_bounds[1]
-        bounds = path_and_bounds[2]
-        lower = only(bounds[1])
-        if length(remaining_edges) > 0
-            lower = 0
-        end
-        average = only(bounds[2])
-        # scale down the average if there are remaining non-tree-edges
-        for edge in remaining_edges
-            parent_node_idx = indexin(edge[1], current_query_nodes)
-            parent_color = only(path[parent_node_idx])
-            child_node_idx = indexin(edge[2], current_query_nodes)
-            child_color = only(path[child_node_idx][1])
-            child_label = only(path[child_node_idx][1])
-            edge_label = query.edge_labels[edge[1]][edge[2]][1]
-            probability_of_edge = 0
-            if (haskey(summary.edge_avg_out_deg, parent_color) 
-                    && haskey(summary.edge_avg_out_deg[parent_color], child_color)
-                        && haskey(summary.edge_avg_out_deg[parent_color][child_color], edge_label)
-                            && haskey(summary.edge_avg_out_deg[parent_color][child_color][edge_label], child_label))
-                probability_of_edge = summary.edge_avg_out_deg[parent_color][child_color][edge_label][child_label]/summary.color_label_cardinality[child_color][child_label]
-            end
-            average *= probability_of_edge
-        end
-        upper = only(bounds[3])
-        final_bounds = final_bounds .+ [lower, average, upper]
+        final_bounds = final_bounds .+ path_and_bounds[2]
     end
     return final_bounds
 end
@@ -448,6 +499,62 @@ function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary;
     end
     return get_cardinality_bounds_given_starting_node(query, summary, vertices(query.graph)[1];
                                                       use_partial_sums=use_partial_sums, verbose=verbose)
+end
+
+
+function handle_extra_edges_exact!(query::PropertyGraph, data::PropertyGraph, partial_paths, current_query_nodes, visited_query_edges)
+    new_partial_paths::Array{Tuple{Array{Int}, Int}} = []
+    remaining_edges = []
+    for edge in edges(query.graph)
+        if ! ((src(edge), dst(edge)) in visited_query_edges) &&
+                 (src(edge) in current_query_nodes && dst(edge) in current_query_nodes)
+            push!(remaining_edges, (src(edge), dst(edge)))
+            push!(visited_query_edges, (src(edge), dst(edge)))
+        end
+    end
+    for path_and_weight in partial_paths 
+        path = path_and_weight[1]
+        weight = path_and_weight[2]
+        satisfies_cycles = true
+        for edge in remaining_edges
+            # Only count the cycle as satisfied if this remaining edge's label matches the query graph's edge label
+            # how do we check this if the remaining edges are taken from the query graph? Isn't this guaranteed?
+
+            # get the parent node from the list of current query nodes
+            parent_node_idx = indexin(edge[1], current_query_nodes)
+            parent_data_node = only(path[parent_node_idx])
+            # get the child node from the list of current query nodes
+            child_node_idx = indexin(edge[2], current_query_nodes)
+            child_data_node = only(path[child_node_idx])
+
+            # check if the edge label exists, if it doesn't then we can break here
+            # don't need to check parent node because we got the parent node from the data graph,
+            # but we do need to check if there is an edge connection to the child
+            if (!haskey(data.edge_labels[parent_data_node], child_data_node))
+                satisfies_cycles = false;
+                break;
+            end
+            data_edge_labels = data.edge_labels[parent_data_node][child_data_node]
+            data_child_vertex_labels = data.vertex_labels[child_data_node]
+            query_edge_label = only(query.edge_labels[edge[1]][edge[2]])
+            query_child_vertex_label = only(query.vertex_labels[edge[2]])
+            if !((query_edge_label == -1 || in(query_edge_label, data_edge_labels)) && 
+                    (query_child_vertex_label == -1 || in(query_child_vertex_label, data_child_vertex_labels)))
+                satisfies_cycles = false
+                break
+            end
+            if query_edge_label == -1
+                weight *= length(data_edge_labels)
+            end
+        end 
+        if satisfies_cycles
+            push!(new_partial_paths, (path, weight))
+        end
+    end 
+
+    empty!(partial_paths)
+    copy!(partial_paths, new_partial_paths)
+    empty!(new_partial_paths)
 end
 
 # We use the same general structure to calculate the exact size of the query by finding all paths
@@ -475,6 +582,7 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
         end
     end
     while length(node_order) > 0
+        handle_extra_edges_exact!(query, data, partial_paths, current_query_nodes, visited_query_edges)
         if verbose
             println("Current Query Nodes: ", current_query_nodes)
             println("Visited Query Edges: ", visited_query_edges)
@@ -550,6 +658,8 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
         end
         partial_paths = new_partial_paths
     end
+    handle_extra_edges_exact!(query, data, partial_paths, current_query_nodes, visited_query_edges)
+
     remaining_edges = []
     for edge in edges(query.graph)
         if ! ((src(edge), dst(edge)) in visited_query_edges)
