@@ -12,17 +12,17 @@ using QuasiStableColors
 struct ColorSummary
     color_label_cardinality::Dict{Int, Dict{Int, Int}} # color_label_cardinality[c][v] = num_vertices
     edge_min_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_out_deg[c1][c2][e][v2] = min
-    edge_min_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_out_deg[c1][c2][e][v2] = min
+    edge_min_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_in_deg[c1][c2][e][v2] = min
     edge_avg_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_out_deg[c1][c2][e][v2] = avg
-    edge_avg_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_out_deg[c1][c2][e][v2] = avg
+    edge_avg_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_in_deg[c1][c2][e][v2] = avg
     edge_max_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_out_deg[c1][c2][e][v2] = max
-    edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_out_deg[c1][c2][e][v2] = max
+    edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_in_deg[c1][c2][e][v2] = max
 end
 
 function generate_color_summary(g::PropertyGraph, numColors::Int)
     color_cardinality = Dict()
     color_label_cardinality = Dict()
-    C = q_color(Graph(g.graph), n_colors=numColors)
+    C = q_color(g.graph, n_colors=numColors)
     color_hash::Dict{Int, Int32} = Dict()
     for (color, nodes) in enumerate(C)
         color_label_cardinality[color] = counter(Int)
