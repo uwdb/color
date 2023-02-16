@@ -22,8 +22,7 @@ end
 function generate_color_summary(g::PropertyGraph, numColors::Int)
     color_cardinality = Dict()
     color_label_cardinality = Dict()
-    undirected_graph = Graph(g.graph)
-    C = q_color(undirected_graph, n_colors=numColors)
+    C = q_color(Graph(g.graph), n_colors=numColors)
     color_hash::Dict{Int, Int32} = Dict()
     for (color, nodes) in enumerate(C)
         color_label_cardinality[color] = counter(Int)
@@ -125,7 +124,7 @@ function generate_color_summary(g::PropertyGraph, numColors::Int)
         c1 = color_hash[x]
         for y in inneighbors(g.graph,x)
             c2 = color_hash[y]
-            edge_labels = g.edge_labels[x][y];
+            edge_labels = g.edge_labels[y][x];
             vertex_labels = g.vertex_labels[y];
             if !haskey(color_to_color_in_counter, c1)
                 color_to_color_in_counter[c1] = Dict()
@@ -327,11 +326,12 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
         for neighbor in all_neighbors(query.graph, child_node)
             if neighbor in current_query_nodes
                 parent_node = neighbor
+                # gets the index of the parent in the list of current nodes
+                parent_idx = indexin(neighbor, current_query_nodes)
                 if parent_node in inneighbors(query.graph, child_node)
                     outEdge = true
                 end
-                # gets the index of the parent in the list of current nodes
-                parent_idx = indexin(neighbor, current_query_nodes)
+                break
             end
         end
         # push the current edge and nodes to the visited lists
@@ -358,27 +358,29 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
             running_bounds = path_and_bounds[2]
             parent_color = only(path[parent_idx])
             # account for colors with no outgoing children
-            if (!haskey(summary.edge_avg_out_deg, parent_color))
-                continue
-            end
-            for child_color in keys(summary.edge_avg_out_deg[parent_color])
-                # edge and vertex labels are defined by the query
-                if (haskey(summary.edge_avg_out_deg[parent_color][child_color], edge_label))
-                    if (haskey(summary.edge_avg_out_deg[parent_color][child_color][edge_label], child_label))
-                        new_path = copy(path)
-                        push!(new_path, child_color)        
-                        if outEdge
-                            new_bounds = [running_bounds[1]*summary.edge_min_out_deg[parent_color][child_color][edge_label][child_label],
-                                running_bounds[2]*summary.edge_avg_out_deg[parent_color][child_color][edge_label][child_label],
-                                running_bounds[3]*summary.edge_max_out_deg[parent_color][child_color][edge_label][child_label],
-                            ]
-                        else
-                            new_bounds = [running_bounds[1]*summary.edge_min_in_deg[parent_color][child_color][edge_label][child_label],
-                                running_bounds[2]*summary.edge_avg_in_deg[parent_color][child_color][edge_label][child_label],
-                                running_bounds[3]*summary.edge_max_in_deg[parent_color][child_color][edge_label][child_label],
-                            ]
-
-                        end
+            if outEdge && haskey(summary.edge_avg_out_deg, parent_color)
+                for child_color in keys(summary.edge_avg_out_deg[parent_color])
+                    new_path = copy(path)
+                    push!(new_path, child_color)     
+                    if (haskey(summary.edge_avg_out_deg[parent_color][child_color], edge_label)) &&
+                            (haskey(summary.edge_avg_out_deg[parent_color][child_color][edge_label], child_label))
+                        new_bounds = [running_bounds[1]*summary.edge_min_out_deg[parent_color][child_color][edge_label][child_label],
+                            running_bounds[2]*summary.edge_avg_out_deg[parent_color][child_color][edge_label][child_label],
+                            running_bounds[3]*summary.edge_max_out_deg[parent_color][child_color][edge_label][child_label],
+                        ]
+                        push!(new_partial_paths, (new_path, new_bounds))
+                    end 
+                end
+            elseif !outEdge && haskey(summary.edge_avg_in_deg, parent_color)
+                for child_color in keys(summary.edge_avg_in_deg[parent_color])
+                    new_path = copy(path)
+                    push!(new_path, child_color)     
+                    if (haskey(summary.edge_avg_in_deg[parent_color][child_color], edge_label)) &&
+                            (haskey(summary.edge_avg_in_deg[parent_color][child_color][edge_label], child_label))
+                        new_bounds = [running_bounds[1]*summary.edge_min_in_deg[parent_color][child_color][edge_label][child_label],
+                            running_bounds[2]*summary.edge_avg_in_deg[parent_color][child_color][edge_label][child_label],
+                            running_bounds[3]*summary.edge_max_in_deg[parent_color][child_color][edge_label][child_label],
+                        ]
                         push!(new_partial_paths, (new_path, new_bounds))
                     end
                 end
@@ -492,11 +494,12 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
         outEdge = false
         for neighbor in all_neighbors(query.graph, child_node)
             if neighbor in current_query_nodes
+                parent_node = neighbor
+                parent_idx = indexin(neighbor, current_query_nodes)
                 if neighbor in inneighbors(query.graph, child_node)
                     outEdge = true
                 end
-                parent_node = neighbor
-                parent_idx = indexin(neighbor, current_query_nodes)
+                break
             end
         end
         query_edge_label = 0
@@ -516,21 +519,32 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
             parent_node = only(path[parent_idx])
             potential_child_nodes = []
             if outEdge
-                potential_child_nodes = outneighbors(data.graph, parent_node)
+                for data_child_node in outneighbors(data.graph, parent_node)
+                    new_weight = weight
+                    # only add a new partial path if the edge label and node label match our query
+                    # do we not have to worry about matching the parent node?
+                    data_edge_labels = data.edge_labels[parent_node][data_child_node]
+                    data_child_labels = data.vertex_labels[data_child_node]
+                    if (query_child_label == -1  || in(query_child_label, data_child_labels)) && 
+                        (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
+                        new_path = copy(path)
+                        push!(new_path, data_child_node)
+                        push!(new_partial_paths, (new_path, new_weight))
+                    end
+                end
             else
-                potential_child_nodes = inneighbors(data.graph, parent_node)
-            end
-            for data_child_node in potential_child_nodes
-                new_weight = weight
-                # only add a new partial path if the edge label and node label match our query
-                # do we not have to worry about matching the parent node?
-                data_edge_labels = data.edge_labels[parent_node][data_child_node]
-                data_child_labels = data.vertex_labels[data_child_node]
-                if (query_child_label == -1  || in(query_child_label, data_child_labels)) && 
-                    (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
-                    new_path = copy(path)
-                    push!(new_path, data_child_node)
-                    push!(new_partial_paths, (new_path, new_weight))
+                for data_child_node in inneighbors(data.graph, parent_node)
+                    new_weight = weight
+                    # only add a new partial path if the edge label and node label match our query
+                    # do we not have to worry about matching the parent node?
+                    data_edge_labels = data.edge_labels[data_child_node][parent_node]
+                    data_child_labels = data.vertex_labels[data_child_node]
+                    if (query_child_label == -1  || in(query_child_label, data_child_labels)) && 
+                        (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
+                        new_path = copy(path)
+                        push!(new_path, data_child_node)
+                        push!(new_partial_paths, (new_path, new_weight))
+                    end
                 end
             end
         end
