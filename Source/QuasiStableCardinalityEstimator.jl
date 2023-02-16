@@ -335,7 +335,11 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
             end
         end
         # push the current edge and nodes to the visited lists
-        push!(visited_query_edges, (parent_node, child_node))
+        if outEdge 
+            push!(visited_query_edges, (parent_node, child_node))
+        else 
+            push!(visited_query_edges, (child_node, parent_node))
+        end
         push!(current_query_nodes, child_node)
 
         # get the appropriate labels, the query only uses one label per vertex/node
@@ -446,8 +450,6 @@ end
 
 # We use the same general structure to calculate the exact size of the query by finding all paths
 # on the original data graph and giving each path a weight of 1. 
-
-#Make similar changes to get exact size
 function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_sums = true, verbose=false)
     node_order = topological_sort_by_dfs(bfs_tree(Graph(query.graph), vertices(query.graph)[1]))
     # right now the path is an array of node-label tuples, but the "label" part isn't necessary since
