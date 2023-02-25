@@ -6,14 +6,16 @@ using Graphs
 # queries only have one label per edge/node, data graphs can have any number.
 struct PropertyGraph
     graph::DiGraph
-    edge_labels::Dict{Int, Dict{Int, Array{Int}}} # edge_labels[n1][n2] = { labels }
-    vertex_labels::Dict{Int, Array{Int}} # vertex_labels[n] = { labels }
+    edge_labels::Dict{Int, Dict{Int, Vector{Int}}} # edge_labels[n1][n2] = { labels }
+    vertex_labels::Dict{Int, Vector{Int}} # vertex_labels[n] = { labels }
 
     PropertyGraph(num_vertices::Int) = new(DiGraph(num_vertices), Dict(), Dict())
+    PropertyGraph(g::DiGraph) = new(g, 
+                                    Dict(src(e) => Dict(x => Vector{Int64}() for x in outneighbors(g, src(e))) for e in edges(g)),
+                                    Dict(x => Vector{Int64}() for x in range(1, nv(g))))
 end
 
-
-function add_labeled_node!(g::PropertyGraph, node::Int, node_labels::Array{Int})
+function add_labeled_node!(g::PropertyGraph, node::Int, node_labels::Vector{Int})
     g.vertex_labels[node] = node_labels
 end
 

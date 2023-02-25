@@ -1,7 +1,6 @@
 # This file contains a prototype implementation of Quasi-Stable Cardinality Estimation.
 # It currently only handles query graphs without labels.
 include("PropertyGraph.jl")
-using DataStructures: counter, Dict, Set, Vector, inc!, Queue
 using Graphs
 using QuasiStableColors
 
@@ -239,7 +238,7 @@ function sum_over_node!(partial_paths, current_query_nodes, node_to_remove)
         end 
         nodeIdx += 1
     end
-    new_partial_paths::Dict{Array{Int}, Union{Array{Float64}, Int}} = Dict()
+    new_partial_paths::Dict{Vector{Int}, Union{Vector{Float64}, Int}} = Dict()
     for path_and_bounds in partial_paths
         path = path_and_bounds[1]
         bounds = path_and_bounds[2]
@@ -364,10 +363,10 @@ end
 function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summary::ColorSummary, 
                                                     starting_node::Int; use_partial_sums = true, verbose = false)
     node_order = get_min_width_node_order(query.graph)
-    # since we have node labels, should the partial path array have each value instead be subarrays of color-label pairs?
+    # since we have node labels, should the partial path Vector have each value instead be subVectors of color-label pairs?
     # Kyle: Because the label is implied by the color -> query_graph_vertex mapping stored in current_query_nodes, I don't think
     # we have to keep the label in the partial paths object.
-    partial_paths::Array{Tuple{Array{Int}, Array{Float64}}} = [] # each tuple contains a pairing of color paths -> bounds
+    partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = [] # each tuple contains a pairing of color paths -> bounds
     visited_query_edges = []
     current_query_nodes = []
     # Change this to initialize the partial_paths as 1-node paths with bounds corresponding to the 
@@ -436,7 +435,7 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
         child_label = query.vertex_labels[child_node][1]
 
         # update the partial paths using the parent-child combo that comes next from the query
-        new_partial_paths::Array{Tuple{Array{Int}, Array{Float64}}} = []
+        new_partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = []
         for path_and_bounds in partial_paths
             path = path_and_bounds[1] # using a tuple causes intermediate data structure?
             running_bounds = path_and_bounds[2]
@@ -503,7 +502,7 @@ end
 
 
 function handle_extra_edges_exact!(query::PropertyGraph, data::PropertyGraph, partial_paths, current_query_nodes, visited_query_edges)
-    new_partial_paths::Array{Tuple{Array{Int}, Int}} = []
+    new_partial_paths::Vector{Tuple{Vector{Int}, Int}} = []
     remaining_edges = []
     for edge in edges(query.graph)
         if ! ((src(edge), dst(edge)) in visited_query_edges) &&
@@ -543,9 +542,9 @@ function handle_extra_edges_exact!(query::PropertyGraph, data::PropertyGraph, pa
                 satisfies_cycles = false
                 break
             end
-            if query_edge_label == -1
-                weight *= length(data_edge_labels)
-            end
+#            if query_edge_label == -1
+#                weight *= length(data_edge_labels)
+#            end
         end 
         if satisfies_cycles
             push!(new_partial_paths, (path, weight))
@@ -561,9 +560,10 @@ end
 # on the original data graph and giving each path a weight of 1. 
 function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_sums = true, verbose=false)
     node_order = topological_sort_by_dfs(bfs_tree(Graph(query.graph), vertices(query.graph)[1]))
-    # right now the path is an array of node-label tuples, but the "label" part isn't necessary since
+
+    # right now the path is an Vector of node-label tuples, but the "label" part isn't necessary since
     # we have access to the original data graph. It's there because the summing function needs it?
-    partial_paths::Array{Tuple{Array{Int}, Int}} = []
+    partial_paths::Vector{Tuple{Vector{Int}, Int}} = []
     visited_query_edges = []
     current_query_nodes = []
     if verbose
@@ -613,19 +613,19 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
         query_edge_label = 0
         if outEdge
             query_edge_label = query.edge_labels[parent_node][child_node][1]
+            push!(visited_query_edges, (parent_node, child_node))
         else
             query_edge_label =  query.edge_labels[child_node][parent_node][1]
+            push!(visited_query_edges, (child_node, parent_node))
         end 
         query_child_label = query.vertex_labels[child_node][1]
         
         push!(current_query_nodes, child_node)
-        push!(visited_query_edges, (parent_node, child_node))
-        new_partial_paths::Array{Tuple{Array{Int}, Int}} = []
+        new_partial_paths::Vector{Tuple{Vector{Int}, Int}} = []
         for path_and_weight in partial_paths
             path = path_and_weight[1]
             weight = path_and_weight[2]
             parent_node = only(path[parent_idx])
-            potential_child_nodes = []
             if outEdge
                 for data_child_node in outneighbors(data.graph, parent_node)
                     new_weight = weight
@@ -658,53 +658,22 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
         end
         partial_paths = new_partial_paths
     end
-    handle_extra_edges_exact!(query, data, partial_paths, current_query_nodes, visited_query_edges)
-
-    remaining_edges = []
-    for edge in edges(query.graph)
-        if ! ((src(edge), dst(edge)) in visited_query_edges)
-            push!(remaining_edges, (src(edge), dst(edge)))
-        end
+    if verbose
+        println("Current Query Nodes: ", current_query_nodes)
+        println("Visited Query Edges: ", visited_query_edges)
+        println("Number of Partial Paths: ", length(keys(partial_paths)))
     end
+    handle_extra_edges_exact!(query, data, partial_paths, current_query_nodes, visited_query_edges)
+    if verbose
+        println("Current Query Nodes: ", current_query_nodes)
+        println("Visited Query Edges: ", visited_query_edges)
+        println("Number of Partial Paths: ", length(keys(partial_paths)))
+    end
+
+    
     exact_size = 0
     for path_and_weight in partial_paths 
-        path = path_and_weight[1]
-        weight = path_and_weight[2]
-        satisfies_cycles = true
-        for edge in remaining_edges
-            # Only count the cycle as satisfied if this remaining edge's label matches the query graph's edge label
-            # how do we check this if the remaining edges are taken from the query graph? Isn't this guaranteed?
-
-            # get the parent node from the list of current query nodes
-            parent_node_idx = indexin(edge[1], current_query_nodes)
-            parent_data_node = only(path[parent_node_idx])
-            # get the child node from the list of current query nodes
-            child_node_idx = indexin(edge[2], current_query_nodes)
-            child_data_node = only(path[child_node_idx])
-
-            # check if the edge label exists, if it doesn't then we can break here
-            # don't need to check parent node because we got the parent node from the data graph,
-            # but we do need to check if there is an edge connection to the child
-            if (!haskey(data.edge_labels[parent_data_node], child_data_node))
-                satisfies_cycles = false;
-                break;
-            end
-            data_edge_labels = data.edge_labels[parent_data_node][child_data_node]
-            data_child_vertex_labels = data.vertex_labels[child_data_node]
-            query_edge_label = only(query.edge_labels[edge[1]][edge[2]])
-            query_child_vertex_label = only(query.vertex_labels[edge[2]])
-            if !((query_edge_label == -1 || in(query_edge_label, data_edge_labels)) && 
-                    (query_child_vertex_label == -1 || in(query_child_vertex_label, data_child_vertex_labels)))
-                satisfies_cycles = false
-                break
-            end
-            if query_edge_label == -1
-                weight *= length(data_edge_labels)
-            end
-        end 
-        if satisfies_cycles
-            exact_size = exact_size + weight
-        end
+        exact_size +=  path_and_weight[2]
     end 
     return exact_size
 end
