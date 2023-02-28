@@ -363,22 +363,20 @@ end
 function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summary::ColorSummary, 
                                                     starting_node::Int; use_partial_sums = true, verbose = false)
     node_order = get_min_width_node_order(query.graph)
-    # since we have node labels, should the partial path Vector have each value instead be subVectors of color-label pairs?
-    # Kyle: Because the label is implied by the color -> query_graph_vertex mapping stored in current_query_nodes, I don't think
-    # we have to keep the label in the partial paths object.
+    # Because the label is implied by the color -> query_graph_vertex mapping stored in current_query_nodes,
+    # we don't have to keep the label in the partial paths object.
     partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = [] # each tuple contains a pairing of color paths -> bounds
     visited_query_edges = []
     current_query_nodes = []
     # Change this to initialize the partial_paths as 1-node paths with bounds corresponding to the 
-    # number of nodes of the particular label within each color
+    # number of nodes of the particular label within each color.
 
-    # new initialization 
     parent_node = popfirst!(node_order)
     parent_label = query.vertex_labels[parent_node][1]
     push!(current_query_nodes, parent_node)
-    # initialize partial_paths with all possible starting color/vertex possibilities.
+    # Initialize partial_paths with all possible starting color/vertex possibilities.
     for color in keys(summary.color_label_cardinality)
-        # only use the parent label
+        # Only use the parent label.
         if (haskey(summary.color_label_cardinality[color], parent_label))
             push!(partial_paths, ([color], [summary.color_label_cardinality[color][parent_label],
                                                             summary.color_label_cardinality[color][parent_label],
@@ -402,14 +400,14 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
             println("Visited Query Edges After Sum: ", visited_query_edges)
         end
 
-        # get the next child from the node order
+        # Get the next child from the node order.
         child_node = popfirst!(node_order)
         parent_idx = 0
         outEdge = false
         for neighbor in all_neighbors(query.graph, child_node)
             if neighbor in current_query_nodes
                 parent_node = neighbor
-                # gets the index of the parent in the list of current nodes
+                # Gets the index of the parent in the list of current nodes.
                 parent_idx = indexin(neighbor, current_query_nodes)
                 if parent_node in inneighbors(query.graph, child_node)
                     outEdge = true
@@ -417,7 +415,7 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
                 break
             end
         end
-        # push the current edge and nodes to the visited lists
+        # Push the current edge and nodes to the visited lists.
         if outEdge 
             push!(visited_query_edges, (parent_node, child_node))
         else 
@@ -425,7 +423,7 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
         end
         push!(current_query_nodes, child_node)
 
-        # get the appropriate labels, the query only uses one label per vertex/node
+        # Get the appropriate labels, the query only uses one label per vertex/node.
         edge_label = 0
         if outEdge
             edge_label = query.edge_labels[parent_node][child_node][1]
@@ -434,13 +432,13 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
         end 
         child_label = query.vertex_labels[child_node][1]
 
-        # update the partial paths using the parent-child combo that comes next from the query
+        # Update the partial paths using the parent-child combo that comes next from the query.
         new_partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = []
         for path_and_bounds in partial_paths
-            path = path_and_bounds[1] # using a tuple causes intermediate data structure?
+            path = path_and_bounds[1]
             running_bounds = path_and_bounds[2]
             parent_color = only(path[parent_idx])
-            # account for colors with no outgoing children
+            # Account for colors with no outgoing children.
             if outEdge && haskey(summary.edge_avg_out_deg, parent_color)
                 for child_color in keys(summary.edge_avg_out_deg[parent_color])
                     new_path = copy(path)
@@ -474,7 +472,7 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
 
     handle_extra_edges!(query, summary, partial_paths, current_query_nodes, visited_query_edges)
 
-    # Sum over the calculated partial paths to get the final bounds
+    # Sum over the calculated partial paths to get the final bounds.
     final_bounds = [0,0,0]
     for path_and_bounds in partial_paths
         final_bounds = final_bounds .+ path_and_bounds[2]
@@ -516,19 +514,18 @@ function handle_extra_edges_exact!(query::PropertyGraph, data::PropertyGraph, pa
         weight = path_and_weight[2]
         satisfies_cycles = true
         for edge in remaining_edges
-            # Only count the cycle as satisfied if this remaining edge's label matches the query graph's edge label
-            # how do we check this if the remaining edges are taken from the query graph? Isn't this guaranteed?
+            # Only count the cycle as satisfied if this remaining edge's label matches the query graph's edge label.
 
-            # get the parent node from the list of current query nodes
+            # Get the parent node from the list of current query nodes.
             parent_node_idx = indexin(edge[1], current_query_nodes)
             parent_data_node = only(path[parent_node_idx])
-            # get the child node from the list of current query nodes
+            # Get the child node from the list of current query nodes.
             child_node_idx = indexin(edge[2], current_query_nodes)
             child_data_node = only(path[child_node_idx])
 
-            # check if the edge label exists, if it doesn't then we can break here
-            # don't need to check parent node because we got the parent node from the data graph,
-            # but we do need to check if there is an edge connection to the child
+            # Check if the edge label exists, if it doesn't then we can break here.
+            # Don't need to check parent node because we got the parent node from the data graph,
+            # but we do need to check if there is an edge connection to the child.
             if (!haskey(data.edge_labels[parent_data_node], child_data_node))
                 satisfies_cycles = false;
                 break;
@@ -560,17 +557,14 @@ end
 # on the original data graph and giving each path a weight of 1. 
 function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_sums = true, verbose=false)
     node_order = topological_sort_by_dfs(bfs_tree(Graph(query.graph), vertices(query.graph)[1]))
-
-    # right now the path is an Vector of node-label tuples, but the "label" part isn't necessary since
-    # we have access to the original data graph. It's there because the summing function needs it?
     partial_paths::Vector{Tuple{Vector{Int}, Int}} = []
     visited_query_edges = []
     current_query_nodes = []
     if verbose
         println("Node Order: ", node_order)
     end
-    # initialize partial_paths as 1-node paths with label matching the
-    # initial query node's label
+    # Initialize partial_paths as 1-node paths with label matching the
+    # initial query node's label.
     parent_node = popfirst!(node_order)
     child_node = parent_node
     parent_label = query.vertex_labels[parent_node][1]
@@ -629,8 +623,7 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
             if outEdge
                 for data_child_node in outneighbors(data.graph, parent_node)
                     new_weight = weight
-                    # only add a new partial path if the edge label and node label match our query
-                    # do we not have to worry about matching the parent node?
+                    # Only add a new partial path if the edge label and node label match our query.
                     data_edge_labels = data.edge_labels[parent_node][data_child_node]
                     data_child_labels = data.vertex_labels[data_child_node]
                     if (query_child_label == -1  || in(query_child_label, data_child_labels)) && 
@@ -643,8 +636,7 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
             else
                 for data_child_node in inneighbors(data.graph, parent_node)
                     new_weight = weight
-                    # only add a new partial path if the edge label and node label match our query
-                    # do we not have to worry about matching the parent node?
+                    # Only add a new partial path if the edge label and node label match our query.
                     data_edge_labels = data.edge_labels[data_child_node][parent_node]
                     data_child_labels = data.vertex_labels[data_child_node]
                     if (query_child_label == -1  || in(query_child_label, data_child_labels)) && 
