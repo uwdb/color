@@ -18,10 +18,10 @@ struct ColorSummary
     edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_in_deg[c1][c2][e][v2] = max
 end
 
-function generate_color_summary(g::PropertyGraph, numColors::Int)
+function generate_color_summary(g::PropertyGraph, numColors::Int; weighting=true)
     color_cardinality = Dict()
     color_label_cardinality = Dict()
-    C = q_color(g.graph, n_colors=numColors)
+    C = q_color(g.graph, n_colors=numColors, weighting=weighting)
     color_hash::Dict{Int, Int32} = Dict()
     for (color, nodes) in enumerate(C)
         color_label_cardinality[color] = counter(Int)
@@ -199,6 +199,8 @@ function generate_color_summary(g::PropertyGraph, numColors::Int)
             end
         end
     end
+    color_to_color_in_counter = Dict()
+    color_to_color_out_counter = Dict()
     return ColorSummary(color_label_cardinality, edge_min_out_deg, edge_min_in_deg, 
                                     edge_avg_out_deg, edge_avg_in_deg, edge_max_out_deg, edge_max_in_deg)
 end 
@@ -360,9 +362,11 @@ function get_min_width_node_order(g::DiGraph)
     return min_order
 end
 
-function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summary::ColorSummary, 
-                                                    starting_node::Int; use_partial_sums = true, verbose = false)
+function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary; use_partial_sums = true, verbose = false)
     node_order = get_min_width_node_order(query.graph)
+    if verbose
+        println("Node Order:", node_order)
+    end
     # since we have node labels, should the partial path Vector have each value instead be subVectors of color-label pairs?
     # Kyle: Because the label is implied by the color -> query_graph_vertex mapping stored in current_query_nodes, I don't think
     # we have to keep the label in the partial paths object.
@@ -482,23 +486,6 @@ function get_cardinality_bounds_given_starting_node(query::PropertyGraph, summar
     return final_bounds
 end
 
-function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary; 
-                                use_partial_sums = true, try_all_starting_nodes=true, verbose = false)
-    if try_all_starting_nodes
-        final_bounds = [0, 0, Inf]
-        for node in vertices(query.graph)
-            cur_bounds = get_cardinality_bounds_given_starting_node(query, summary, node;
-                                                                    use_partial_sums=use_partial_sums, verbose=verbose)
-            final_bounds[1] = max(final_bounds[1], cur_bounds[1])
-            final_bounds[2] += cur_bounds[2]
-            final_bounds[3] = min(final_bounds[3], cur_bounds[3])
-        end
-        final_bounds[2] /= nv(query.graph)
-        return final_bounds
-    end
-    return get_cardinality_bounds_given_starting_node(query, summary, vertices(query.graph)[1];
-                                                      use_partial_sums=use_partial_sums, verbose=verbose)
-end
 
 
 function handle_extra_edges_exact!(query::PropertyGraph, data::PropertyGraph, partial_paths, current_query_nodes, visited_query_edges)
