@@ -25,42 +25,37 @@ function generate_color_summary(g::PropertyGraph, numColors::Int; weighting=true
     color_filters = Dict()
     color_cardinality = Dict()
     color_label_cardinality = Dict()
-    coloring = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting)
-    node_color_map = QSC.node_map(C)
+    C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting)
+    color_hash = QSC.node_map(C)
     for node in keys(node_color_map)
-        for color in node_color_map[node]
-            print(color)
+        color = node_color_map[node]
+        # initialize the color filter
+        if !haskey(color_filters, color)
+            m = 100000 # represents size
+            k = 4 # determines runtime
+            # consider using constrain()...
+            color_filters[color] = BloomFilter(m, k);
         end
-    end
-    color = 0
-    for partition in C.partitions
-        color++
+        push!(color_filters[color], x)
 
-        for node in color
-            print("hi")
+        # initialize color-label cardinality counter
+        if (!haskey(color_label_cardinality, color))
+            color_label_cardinality[color] = counter(Int)
+        end
+        # initialize color cardinality counter
+        if (!haskey(color_cardinality, color))
+            color_cardinality[color] = 0
+        else
+            color_cardinality[color] += 1
+        end
+
+        # increment counter for all labels, including wildcards
+        inc!(color_label_cardinality[color], -1)
+        for label in g.vertex_labels[node]
+            inc!(color_label_cardinality[color], label)
         end
     end
-    color_hash::Dict{Int, Int32} = Dict()
-    for (color, nodes) in enumerate(QSC.Coloring)
-        color_label_cardinality[color] = counter(Int)
-        color_cardinality[color] = length(nodes)
-        
-        for x in nodes
-            if !haskey(color_filters, color)
-                m = 100000 # represents size
-                k = 4 # determines runtime
-                # instead of using hard-coded values, ask about optimal parameters and use constrain()...
-                color_filters[color] = BloomFilter(m, k);
-            else
-                push!(color_filters[color], x)
-            end
-            color_hash[x] = color
-            inc!(color_label_cardinality[color], -1)
-            for label in g.vertex_labels[x]
-                inc!(color_label_cardinality[color], label)
-            end
-        end
-    end
+    
     # We keep separate degree statistics for in-degree and out-degree.
     color_to_color_out_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
     for x in vertices(g.graph)
