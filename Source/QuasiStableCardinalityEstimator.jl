@@ -3,6 +3,7 @@
 include("PropertyGraph.jl")
 using Graphs
 using QuasiStableColors
+using Probably
 
 # The ColorSummary struct holds statistical information associated with the colored graph.
 # It keeps detailed information about the number of edges between colors of a particular color and which land in
@@ -16,17 +17,43 @@ struct ColorSummary
     edge_avg_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_in_deg[c1][c2][e][v2] = avg
     edge_max_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_out_deg[c1][c2][e][v2] = max
     edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_in_deg[c1][c2][e][v2] = max
+    color_filters::Dict{Int, BloomFilter} # color_filters[c] = filter
 end
 
 function generate_color_summary(g::PropertyGraph, numColors::Int; weighting=true)
+    QSC = QuasiStableColors
+    color_filters = Dict()
     color_cardinality = Dict()
     color_label_cardinality = Dict()
-    C = q_color(g.graph, n_colors=numColors, weighting=weighting)
+    coloring = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting)
+    node_color_map = QSC.node_map(C)
+    for node in keys(node_color_map)
+        for color in node_color_map[node]
+            print(color)
+        end
+    end
+    color = 0
+    for partition in C.partitions
+        color++
+
+        for node in color
+            print("hi")
+        end
+    end
     color_hash::Dict{Int, Int32} = Dict()
-    for (color, nodes) in enumerate(C)
+    for (color, nodes) in enumerate(QSC.Coloring)
         color_label_cardinality[color] = counter(Int)
         color_cardinality[color] = length(nodes)
+        
         for x in nodes
+            if !haskey(color_filters, color)
+                m = 100000 # represents size
+                k = 4 # determines runtime
+                # instead of using hard-coded values, ask about optimal parameters and use constrain()...
+                color_filters[color] = BloomFilter(m, k);
+            else
+                push!(color_filters[color], x)
+            end
             color_hash[x] = color
             inc!(color_label_cardinality[color], -1)
             for label in g.vertex_labels[x]
@@ -34,7 +61,6 @@ function generate_color_summary(g::PropertyGraph, numColors::Int; weighting=true
             end
         end
     end
-
     # We keep separate degree statistics for in-degree and out-degree.
     color_to_color_out_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
     for x in vertices(g.graph)
@@ -202,7 +228,7 @@ function generate_color_summary(g::PropertyGraph, numColors::Int; weighting=true
     color_to_color_in_counter = Dict()
     color_to_color_out_counter = Dict()
     return ColorSummary(color_label_cardinality, edge_min_out_deg, edge_min_in_deg, 
-                                    edge_avg_out_deg, edge_avg_in_deg, edge_max_out_deg, edge_max_in_deg)
+                                    edge_avg_out_deg, edge_avg_in_deg, edge_max_out_deg, edge_max_in_deg, color_filters)
 end
 
 function get_color_summary_size(summary)
@@ -552,7 +578,7 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
     # initial query node's label.
     old_node = popfirst!(node_order)
     new_node = old_node
-    parent_label = query.vertex_labels[old_node][1]
+    parent_label = only(query.vertex_labels[old_node])
     push!(current_query_nodes, old_node)
     for node in vertices(data.graph)
         node_labels = data.vertex_labels[node]

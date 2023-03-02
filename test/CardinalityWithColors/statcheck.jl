@@ -1,4 +1,4 @@
-include("../../Source/UnlabeledCardinalityEstimator.jl")
+include("../../Source/QuasiStableCardinalityEstimator.jl")
 using Distributions
 using DataStructures: counter, Dict, Set, Vector, inc!
 
@@ -13,24 +13,17 @@ using Graphs
 
     @testset "1-edge graph" begin
         g = DiGraph(2)
-        add_edge!(g, (1, 2))
-        g_edge_labels::Dict{Int, Dict{Int, Array{Int}}} = Dict()
-        g_edge_labels[1] = Dict()
-        g_edge_labels[1][2] = Array([1])
-        g_vertex_labels::Dict{Int, Array{Int}} = Dict()
-        g_vertex_labels[1] = Array([1])
-        g_vertex_labels[2] = Array([1])
-        g_property = PropertyGraph(g, g_edge_labels, g_vertex_labels)
+        g_property = PropertyGraph(g)
+        add_labeled_node!(g_property, 1, Array([1]))
+        add_labeled_node!(g_property, 2, Array([1]))
+        add_labeled_edge!(g_property, Tuple([1, 2]), 1)
         summary = generate_color_summary(g_property, 16)
         query_graph = DiGraph(2)
-        add_edge!(query_graph, (1, 2))
-        q_edge_labels::Dict{Int, Dict{Int, Array{Int}}} = Dict()
-        q_edge_labels[1] = Dict()
-        q_edge_labels[1][2] = Array([1])
-        q_vertex_labels::Dict{Int, Array{Int}} = Dict()
-        q_vertex_labels[1] = Array([1])
-        q_vertex_labels[2] = Array([1])
-        q_property = PropertyGraph(query_graph, q_edge_labels, q_vertex_labels)
+        # q_property = PropertyGraph(query_graph, q_edge_labels, q_vertex_labels)
+        q_property = PropertyGraph(query_graph)
+        add_labeled_node!(q_property, 1, Array([1]))
+        add_labeled_node!(q_property, 2, Array([1]))
+        add_labeled_edge!(q_property, Tuple([1, 2]), 1)
         exact_size = only(get_exact_size(q_property, g_property; verbose=false))
         bounds_without_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums = false, verbose = false);
         bounds_with_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums = true, verbose = false);
