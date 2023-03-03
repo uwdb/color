@@ -22,6 +22,24 @@ using Graphs
         @test predicted_size == exact_size
     end
 
+    @testset "1-edge graph, no matching data node" begin
+        g_property = PropertyGraph(2)
+        add_labeled_node!(g_property, 1, [1])
+        add_labeled_node!(g_property, 2, [1])
+        change_node_id!(g_property, 1, 1)
+        change_node_id!(g_property, 2, 2)
+        add_labeled_edge!(g_property, (1, 2), 1)
+        q_property = PropertyGraph(2)
+        add_labeled_node!(q_property, 1, [1])
+        add_labeled_node!(q_property, 2, [1])
+        add_labeled_edge!(q_property, (1, 2), 1)
+        change_node_id!(q_property, 1, 2)
+        change_node_id!(q_property, 2, 1)
+        exact_size = only(get_exact_size(q_property, g_property; verbose=false))
+        predicted_size = 0
+        @test predicted_size == exact_size
+    end
+
     @testset "query larger than 1-edge graph" begin
          numVertices = 2
          g = PropertyGraph(numVertices)

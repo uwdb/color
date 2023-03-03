@@ -43,6 +43,43 @@ using Graphs
         @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     end
 
+    @testset "1-edge graph, no data label matches" begin
+        g = DiGraph(2)
+        g_property = PropertyGraph(g)
+        add_labeled_node!(g_property, 1, Array([1]))
+        add_labeled_node!(g_property, 2, Array([1]))
+        change_node_id!(g_property, 1, 1)
+        change_node_id!(g_property, 2, 2)
+        add_labeled_edge!(g_property, Tuple([1, 2]), 1)
+        summary = generate_color_summary(g_property, 16)
+        query_graph = DiGraph(2)
+        # q_property = PropertyGraph(query_graph, q_edge_labels, q_vertex_labels)
+        q_property = PropertyGraph(query_graph)
+        add_labeled_node!(q_property, 1, Array([1]))
+        add_labeled_node!(q_property, 2, Array([1]))
+        change_node_id!(q_property, 1, 2)
+        change_node_id!(q_property, 2, 1)
+        add_labeled_edge!(q_property, Tuple([1, 2]), 1)
+        exact_size = only(get_exact_size(q_property, g_property; verbose=false))
+        bounds_without_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums = false, verbose = false);
+        bounds_with_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums = true, verbose = false);
+        println("Bounds: ", bounds_with_partial_agg)
+        # test that min/avg/max are reasonable for bounds without partial sums
+        @test bounds_without_partial_agg[1] <= bounds_without_partial_agg[2]
+        @test bounds_without_partial_agg[2] <= bounds_without_partial_agg[3]
+        @test bounds_without_partial_agg[1] <= exact_size
+        @test exact_size <= bounds_without_partial_agg[3]
+        # test that min/avg/max are reasonable for bounds with apartial sums
+        @test bounds_with_partial_agg[1] <= bounds_with_partial_agg[2]
+        @test bounds_with_partial_agg[2] <= bounds_with_partial_agg[3]
+        @test bounds_with_partial_agg[1] <= exact_size
+        @test exact_size <= bounds_with_partial_agg[3]
+        # test that partial aggregation doesn't affect results
+        @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
+        @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
+        @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
+    end
+
     # @testset "query larger than 1-edge graph" begin
     #     numVertices = 2
     #     g = path_digraph(numVertices)
