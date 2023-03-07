@@ -63,7 +63,6 @@ using Graphs
         exact_size = only(get_exact_size(q_property, g_property; verbose=false))
         bounds_without_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums = false, verbose = false);
         bounds_with_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums = true, verbose = false);
-        println("Bounds: ", bounds_with_partial_agg)
         # test that min/avg/max are reasonable for bounds without partial sums
         @test bounds_without_partial_agg[1] <= bounds_without_partial_agg[2]
         @test bounds_without_partial_agg[2] <= bounds_without_partial_agg[3]
