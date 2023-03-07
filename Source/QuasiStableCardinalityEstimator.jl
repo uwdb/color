@@ -64,159 +64,134 @@ function generate_color_summary(g::PropertyGraph, numColors::Int; weighting=true
         c1 = color_hash[x]
         for y in outneighbors(g.graph,x)
             c2 = color_hash[y]
-            edge_labels = g.edge_labels[x][y];
-            vertex_labels = g.vertex_labels[y];
-            if !haskey(color_to_color_out_counter, c1)
-                color_to_color_out_counter[c1] = Dict()
-            end
-            if !haskey(color_to_color_out_counter[c1], c2)
-                color_to_color_out_counter[c1][c2] = Dict()
-            end
+            edge_labels = []
+            copy!(edge_labels, g.edge_labels[x][y])
+            push!(edge_labels, -1)
+            vertex_labels = []
+            copy!(vertex_labels, g.vertex_labels[y])
+            push!(vertex_labels, -1)
             
             # Since each edge/vertex can have multiple labels associated with it,
             # we must count each edge/vertex label separately in our counter. 
             # Additionally, we need to include a count for the implicit `-1` wildcard label.
             for edge_label in edge_labels
-                if !haskey(color_to_color_out_counter[c1][c2], edge_label)
-                    color_to_color_out_counter[c1][c2][edge_label] = Dict()
+                if !haskey(color_to_color_out_counter, edge_label)
+                    color_to_color_out_counter[edge_label] = Dict()
                 end
-                if !haskey(color_to_color_out_counter[c1][c2][edge_label], -1)
-                    color_to_color_out_counter[c1][c2][edge_label][-1] = counter(Int)
-                end
-                inc!(color_to_color_out_counter[c1][c2][edge_label][-1], x)
                 for vertex_label in vertex_labels
-                    if !haskey(color_to_color_out_counter[c1][c2][edge_label], vertex_label)
-                        color_to_color_out_counter[c1][c2][edge_label][vertex_label] = counter(Int)
+                    if !haskey(color_to_color_out_counter[edge_label], vertex_label)
+                        color_to_color_out_counter[edge_label][vertex_label] = Dict()
                     end
-                    inc!(color_to_color_out_counter[c1][c2][edge_label][vertex_label], x)
+                    if !haskey(color_to_color_out_counter[edge_label][vertex_label], c1)
+                        color_to_color_out_counter[edge_label][vertex_label][c1] = Dict()
+                    end
+                    if !haskey(color_to_color_out_counter[edge_label][vertex_label][c1], c2)
+                        color_to_color_out_counter[edge_label][vertex_label][c1][c2] = counter(Int)
+                    end
+                    inc!(color_to_color_out_counter[edge_label][vertex_label][c1][c2], x)
                 end
             end
-            if !haskey(color_to_color_out_counter[c1][c2], -1)
-                color_to_color_out_counter[c1][c2][-1] = Dict()
-            end
-            for vertex_label in vertex_labels
-                if !haskey(color_to_color_out_counter[c1][c2][-1], vertex_label)
-                    color_to_color_out_counter[c1][c2][-1][vertex_label] = counter(Int)
-                end
-                inc!(color_to_color_out_counter[c1][c2][-1][vertex_label], x)
-            end
-            if !haskey(color_to_color_out_counter[c1][c2][-1], -1)
-                color_to_color_out_counter[c1][c2][-1][-1] = counter(Int)
-            end
-            inc!(color_to_color_out_counter[c1][c2][-1][-1], x)
         end
     end
 
     edge_min_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
     edge_avg_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
     edge_max_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
-    for c1 in keys(color_to_color_out_counter)
-        edge_min_out_deg[c1] = Dict()
-        edge_avg_out_deg[c1] = Dict()
-        edge_max_out_deg[c1] = Dict()
-        for c2 in keys(color_to_color_out_counter[c1])
-            edge_min_out_deg[c1][c2] = Dict()
-            edge_avg_out_deg[c1][c2] = Dict()
-            edge_max_out_deg[c1][c2] = Dict()
-            for edge_label in keys(color_to_color_out_counter[c1][c2]) 
-                edge_min_out_deg[c1][c2][edge_label] = Dict()
-                edge_avg_out_deg[c1][c2][edge_label] = Dict()
-                edge_max_out_deg[c1][c2][edge_label] = Dict()
-                for vertex_label in keys(color_to_color_out_counter[c1][c2][edge_label])
-                    edge_min_out_deg[c1][c2][edge_label][vertex_label] = nv(g.graph) # set this to the max possible value for comparison later
-                    edge_max_out_deg[c1][c2][edge_label][vertex_label] = 0 # set to min possible value for comparison later
-                    for v in values(color_to_color_out_counter[c1][c2][edge_label][vertex_label])
-                        edge_min_out_deg[c1][c2][edge_label][vertex_label] = min(v, edge_min_out_deg[c1][c2][edge_label][vertex_label])
-                        edge_max_out_deg[c1][c2][edge_label][vertex_label] = max(v, edge_max_out_deg[c1][c2][edge_label][vertex_label])
+    for edge_label in keys(color_to_color_out_counter)
+        edge_min_out_deg[edge_label] = Dict()
+        edge_avg_out_deg[edge_label] = Dict()
+        edge_max_out_deg[edge_label] = Dict()
+        for vertex_label in keys(color_to_color_out_counter[edge_label])
+            edge_min_out_deg[edge_label][vertex_label] = Dict()
+            edge_avg_out_deg[edge_label][vertex_label] = Dict()
+            edge_max_out_deg[edge_label][vertex_label] = Dict()
+            for c1 in keys(color_to_color_out_counter[edge_label][vertex_label]) 
+                edge_min_out_deg[edge_label][vertex_label][c1] = Dict()
+                edge_avg_out_deg[edge_label][vertex_label][c1] = Dict()
+                edge_max_out_deg[edge_label][vertex_label][c1] = Dict()
+                for c2 in keys(color_to_color_out_counter[edge_label][vertex_label][c1])
+                    edge_min_out_deg[edge_label][vertex_label][c1][c2] = nv(g.graph) # set this to the max possible value for comparison later
+                    edge_max_out_deg[edge_label][vertex_label][c1][c2] = 0 # set to min possible value for comparison later
+                    for v in values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])
+                        edge_min_out_deg[edge_label][vertex_label][c1][c2] = min(v, edge_min_out_deg[edge_label][vertex_label][c1][c2])
+                        edge_max_out_deg[edge_label][vertex_label][c1][c2] = max(v, edge_max_out_deg[edge_label][vertex_label][c1][c2])
                     end
-                    edge_avg_out_deg[c1][c2][edge_label][vertex_label] = sum(values(color_to_color_out_counter[c1][c2][edge_label][vertex_label])) / color_cardinality[c1]
+                    edge_avg_out_deg[edge_label][vertex_label][c1][c2] = sum(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) / color_cardinality[c1]
                     
                     # if the number of connections is less than the number of vertices in the color,
                     # we can't guarantee the minimum bounds since they won't all map to the same vertex
-                    if length(values(color_to_color_out_counter[c1][c2][edge_label][vertex_label])) < color_cardinality[c1]
-                        edge_min_out_deg[c1][c2][edge_label][vertex_label] = 0;
+                    if length(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) < color_cardinality[c1]
+                        edge_min_out_deg[edge_label][vertex_label][c1][c2] = 0;
                     end
                 end
             end
         end
     end
 
+    # We keep separate degree statistics for in-degree and out-degree.
     color_to_color_in_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
     for x in vertices(g.graph)
         c1 = color_hash[x]
         for y in inneighbors(g.graph,x)
             c2 = color_hash[y]
-            edge_labels = g.edge_labels[y][x];
-            vertex_labels = g.vertex_labels[y];
-            if !haskey(color_to_color_in_counter, c1)
-                color_to_color_in_counter[c1] = Dict()
-            end
-            if !haskey(color_to_color_in_counter[c1], c2)
-                color_to_color_in_counter[c1][c2] = Dict()
-            end
+            edge_labels = []
+            copy!(edge_labels, g.edge_labels[y][x])
+            push!(edge_labels, -1)
+            vertex_labels = []
+            copy!(vertex_labels, g.vertex_labels[y])
+            push!(vertex_labels, -1)
             
             # Since each edge/vertex can have multiple labels associated with it,
             # we must count each edge/vertex label separately in our counter. 
             # Additionally, we need to include a count for the implicit `-1` wildcard label.
             for edge_label in edge_labels
-                if !haskey(color_to_color_in_counter[c1][c2], edge_label)
-                    color_to_color_in_counter[c1][c2][edge_label] = Dict()
+                if !haskey(color_to_color_in_counter, edge_label)
+                    color_to_color_in_counter[edge_label] = Dict()
                 end
-                if !haskey(color_to_color_in_counter[c1][c2][edge_label], -1)
-                    color_to_color_in_counter[c1][c2][edge_label][-1] = counter(Int)
-                end
-                inc!(color_to_color_in_counter[c1][c2][edge_label][-1], x)
                 for vertex_label in vertex_labels
-                    if !haskey(color_to_color_in_counter[c1][c2][edge_label], vertex_label)
-                        color_to_color_in_counter[c1][c2][edge_label][vertex_label] = counter(Int)
+                    if !haskey(color_to_color_in_counter[edge_label], vertex_label)
+                        color_to_color_in_counter[edge_label][vertex_label] = Dict()
                     end
-                    inc!(color_to_color_in_counter[c1][c2][edge_label][vertex_label], x)
+                    if !haskey(color_to_color_in_counter[edge_label][vertex_label], c1)
+                        color_to_color_in_counter[edge_label][vertex_label][c1] = Dict()
+                    end
+                    if !haskey(color_to_color_in_counter[edge_label][vertex_label][c1], c2)
+                        color_to_color_in_counter[edge_label][vertex_label][c1][c2] = counter(Int)
+                    end
+                    inc!(color_to_color_in_counter[edge_label][vertex_label][c1][c2], x)
                 end
             end
-            if !haskey(color_to_color_in_counter[c1][c2], -1)
-                color_to_color_in_counter[c1][c2][-1] = Dict()
-            end
-            for vertex_label in vertex_labels
-                if !haskey(color_to_color_in_counter[c1][c2][-1], vertex_label)
-                    color_to_color_in_counter[c1][c2][-1][vertex_label] = counter(Int)
-                end
-                inc!(color_to_color_in_counter[c1][c2][-1][vertex_label], x)
-            end
-            if !haskey(color_to_color_in_counter[c1][c2][-1], -1)
-                color_to_color_in_counter[c1][c2][-1][-1] = counter(Int)
-            end
-            inc!(color_to_color_in_counter[c1][c2][-1][-1], x)
         end
     end
 
     edge_min_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
     edge_avg_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
     edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
-    for c1 in keys(color_to_color_in_counter)
-        edge_min_in_deg[c1] = Dict()
-        edge_avg_in_deg[c1] = Dict()
-        edge_max_in_deg[c1] = Dict()
-        for c2 in keys(color_to_color_in_counter[c1])
-            edge_min_in_deg[c1][c2] = Dict()
-            edge_avg_in_deg[c1][c2] = Dict()
-            edge_max_in_deg[c1][c2] = Dict()
-            for edge_label in keys(color_to_color_in_counter[c1][c2]) 
-                edge_min_in_deg[c1][c2][edge_label] = Dict()
-                edge_avg_in_deg[c1][c2][edge_label] = Dict()
-                edge_max_in_deg[c1][c2][edge_label] = Dict()
-                for vertex_label in keys(color_to_color_in_counter[c1][c2][edge_label])
-                    edge_min_in_deg[c1][c2][edge_label][vertex_label] = nv(g.graph) # set this to the max possible value for comparison later
-                    edge_max_in_deg[c1][c2][edge_label][vertex_label] = 0 # set to min possible value for comparison later
-                    for v in values(color_to_color_in_counter[c1][c2][edge_label][vertex_label])
-                        edge_min_in_deg[c1][c2][edge_label][vertex_label] = min(v, edge_min_in_deg[c1][c2][edge_label][vertex_label])
-                        edge_max_in_deg[c1][c2][edge_label][vertex_label] = max(v, edge_max_in_deg[c1][c2][edge_label][vertex_label])
+    for edge_label in keys(color_to_color_in_counter)
+        edge_min_in_deg[edge_label] = Dict()
+        edge_avg_in_deg[edge_label] = Dict()
+        edge_max_in_deg[edge_label] = Dict()
+        for vertex_label in keys(color_to_color_in_counter[edge_label])
+            edge_min_in_deg[edge_label][vertex_label] = Dict()
+            edge_avg_in_deg[edge_label][vertex_label] = Dict()
+            edge_max_in_deg[edge_label][vertex_label] = Dict()
+            for c1 in keys(color_to_color_in_counter[edge_label][vertex_label]) 
+                edge_min_in_deg[edge_label][vertex_label][c1] = Dict()
+                edge_avg_in_deg[edge_label][vertex_label][c1] = Dict()
+                edge_max_in_deg[edge_label][vertex_label][c1] = Dict()
+                for c2 in keys(color_to_color_in_counter[edge_label][vertex_label][c1])
+                    edge_min_in_deg[edge_label][vertex_label][c1][c2] = nv(g.graph) # set this to the max possible value for comparison later
+                    edge_max_in_deg[edge_label][vertex_label][c1][c2] = 0 # set to min possible value for comparison later
+                    for v in values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])
+                        edge_min_in_deg[edge_label][vertex_label][c1][c2] = min(v, edge_min_in_deg[edge_label][vertex_label][c1][c2])
+                        edge_max_in_deg[edge_label][vertex_label][c1][c2] = max(v, edge_max_in_deg[edge_label][vertex_label][c1][c2])
                     end
-                    edge_avg_in_deg[c1][c2][edge_label][vertex_label] = sum(values(color_to_color_in_counter[c1][c2][edge_label][vertex_label])) / color_cardinality[c1]
+                    edge_avg_in_deg[edge_label][vertex_label][c1][c2] = sum(values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])) / color_cardinality[c1]
                     
                     # if the number of connections is less than the number of vertices in the color,
                     # we can't guarantee the minimum bounds since they won't all map to the same vertex
-                    if length(values(color_to_color_in_counter[c1][c2][edge_label][vertex_label])) < color_cardinality[c1]
-                        edge_min_in_deg[c1][c2][edge_label][vertex_label] = 0;
+                    if length(values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])) < color_cardinality[c1]
+                        edge_min_in_deg[edge_label][vertex_label][c1][c2] = 0;
                     end
                 end
             end
@@ -230,19 +205,19 @@ end
 
 function get_color_summary_size(summary)
     numEntries = 0
-    for c1 in keys(summary.edge_avg_out_deg)
-        for c2 in keys(summary.edge_avg_out_deg[c1])
-            for e in keys(summary.edge_avg_out_deg[c1][c2])
-                for v in keys(summary.edge_avg_out_deg[c1][c2][e])
+    for e in keys(summary.edge_avg_out_deg)
+        for v in keys(summary.edge_avg_out_deg[e])
+            for c1 in keys(summary.edge_avg_out_deg[e][v])
+                for c2 in keys(summary.edge_avg_out_deg[e][v][c1])
                     numEntries += 1
                 end
             end
         end
     end
-    for c1 in keys(summary.edge_avg_in_deg)
-        for c2 in keys(summary.edge_avg_in_deg[c1])
-            for e in keys(summary.edge_avg_in_deg[c1][c2])
-                for v in keys(summary.edge_avg_in_deg[c1][c2][e])
+    for e in keys(summary.edge_avg_in_deg)
+        for v in keys(summary.edge_avg_in_deg[e])
+            for c1 in keys(summary.edge_avg_in_deg[e][v])
+                for c2 in keys(summary.edge_avg_in_deg[e][v][c1])
                     numEntries += 1
                 end
             end
@@ -315,11 +290,11 @@ function handle_extra_edges!(query::PropertyGraph, summary::ColorSummary, partia
             # partial path, so we have already ensured that the colors are appropriate
             edge_label = query.edge_labels[edge[1]][edge[2]][1]
             probability_of_edge = 0
-            if (haskey(summary.edge_avg_out_deg, parent_color) 
-                    && haskey(summary.edge_avg_out_deg[parent_color], child_color)
-                        && haskey(summary.edge_avg_out_deg[parent_color][child_color], edge_label)
-                            && haskey(summary.edge_avg_out_deg[parent_color][child_color][edge_label], child_label))
-                probability_of_edge = summary.edge_avg_out_deg[parent_color][child_color][edge_label][child_label]/summary.color_label_cardinality[child_color][child_label]
+            if (haskey(summary.edge_avg_out_deg, edge_label) 
+                    && haskey(summary.edge_avg_out_deg[edge_label], child_label)
+                        && haskey(summary.edge_avg_out_deg[edge_label][child_label], parent_color)
+                            && haskey(summary.edge_avg_out_deg[edge_label][child_label][parent_color], child_color))
+                probability_of_edge = summary.edge_avg_out_deg[edge_label][child_label][parent_color][child_color]/summary.color_label_cardinality[child_color][child_label]
             end
             average *= probability_of_edge
         end
@@ -462,16 +437,21 @@ function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary; use
         else
             edge_label =  only(query.edge_labels[new_node][old_node])
         end 
+<<<<<<< HEAD
         child_label = only(query.vertex_labels[new_node])
         child_data_label = query.vertex_id_labels[new_node]
+=======
+        new_label = only(query.vertex_labels[new_node])
+>>>>>>> 97d108b642eff728d12768fb0390c311662148d1
 
         # Update the partial paths using the parent-child combo that comes next from the query.
         new_partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = []
         for path_and_bounds in partial_paths
             path = path_and_bounds[1]
             running_bounds = path_and_bounds[2]
-            parent_color = only(path[parent_idx])
+            old_color = only(path[parent_idx])
             # Account for colors with no outgoing children.
+<<<<<<< HEAD
             if outEdge && haskey(summary.edge_avg_out_deg, parent_color)
                 for child_color in keys(summary.edge_avg_out_deg[parent_color])
                     if (child_data_label != -1)
@@ -481,17 +461,21 @@ function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary; use
                             continue
                         end
                     end
+=======
+            if outEdge && haskey(summary.edge_avg_out_deg, edge_label) && 
+                haskey(summary.edge_avg_out_deg[edge_label], new_label) && 
+                haskey(summary.edge_avg_out_deg[edge_label][new_label], old_color)
+                for new_color in keys(summary.edge_avg_out_deg[edge_label][new_label][old_color])
+>>>>>>> 97d108b642eff728d12768fb0390c311662148d1
                     new_path = copy(path)
-                    push!(new_path, child_color)     
-                    if (haskey(summary.edge_avg_out_deg[parent_color][child_color], edge_label)) &&
-                            (haskey(summary.edge_avg_out_deg[parent_color][child_color][edge_label], child_label))
-                        new_bounds = [running_bounds[1]*summary.edge_min_out_deg[parent_color][child_color][edge_label][child_label],
-                                        running_bounds[2]*summary.edge_avg_out_deg[parent_color][child_color][edge_label][child_label],
-                                        running_bounds[3]*summary.edge_max_out_deg[parent_color][child_color][edge_label][child_label],
-                                     ]
-                        push!(new_partial_paths, (new_path, new_bounds))
-                    end 
+                    push!(new_path, new_color)     
+                    new_bounds = [running_bounds[1]*summary.edge_min_out_deg[edge_label][new_label][old_color][new_color],
+                                    running_bounds[2]*summary.edge_avg_out_deg[edge_label][new_label][old_color][new_color],
+                                    running_bounds[3]*summary.edge_max_out_deg[edge_label][new_label][old_color][new_color],
+                                    ]
+                    push!(new_partial_paths, (new_path, new_bounds))
                 end
+<<<<<<< HEAD
             elseif !outEdge && haskey(summary.edge_avg_in_deg, parent_color)
                 for child_color in keys(summary.edge_avg_in_deg[parent_color])
                     if (child_data_label != -1)
@@ -501,16 +485,19 @@ function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary; use
                             continue
                         end
                     end
+=======
+            elseif !outEdge && haskey(summary.edge_avg_in_deg, edge_label) && 
+                    haskey(summary.edge_avg_in_deg[edge_label], new_label) && 
+                    haskey(summary.edge_avg_in_deg[edge_label][new_label], old_color)
+                for new_color in keys(summary.edge_avg_in_deg[edge_label][new_label][old_color])
+>>>>>>> 97d108b642eff728d12768fb0390c311662148d1
                     new_path = copy(path)
-                    push!(new_path, child_color)     
-                    if (haskey(summary.edge_avg_in_deg[parent_color][child_color], edge_label)) &&
-                            (haskey(summary.edge_avg_in_deg[parent_color][child_color][edge_label], child_label))
-                        new_bounds = [running_bounds[1]*summary.edge_min_in_deg[parent_color][child_color][edge_label][child_label],
-                                        running_bounds[2]*summary.edge_avg_in_deg[parent_color][child_color][edge_label][child_label],
-                                        running_bounds[3]*summary.edge_max_in_deg[parent_color][child_color][edge_label][child_label],
-                                     ]
-                        push!(new_partial_paths, (new_path, new_bounds))
-                    end
+                    push!(new_path, new_color)     
+                    new_bounds = [running_bounds[1]*summary.edge_min_in_deg[edge_label][new_label][old_color][new_color],
+                                    running_bounds[2]*summary.edge_avg_in_deg[edge_label][new_label][old_color][new_color],
+                                    running_bounds[3]*summary.edge_max_in_deg[edge_label][new_label][old_color][new_color],
+                                    ]
+                    push!(new_partial_paths, (new_path, new_bounds))
                 end
             end
         end
