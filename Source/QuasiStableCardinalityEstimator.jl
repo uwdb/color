@@ -27,17 +27,22 @@ function generate_color_summary(g::PropertyGraph, numColors::Int; weighting=true
     color_label_cardinality = Dict()
     C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting)
     color_hash = QSC.node_map(C)
+
+    # initialize color filters for data labels
+    current_color = 1;
+    for color in C.partitions
+        num_nodes = only(size(color))
+        accepted_error = 0.01
+        parameters = constrain(BloomFilter, fpr=accepted_error, capacity=num_nodes)
+        color_filters[current_color] = BloomFilter(parameters.m, parameters.k)
+        current_color += 1
+    end
+
     for node in keys(color_hash)
         color = color_hash[node]
-        # initialize the color filter
-        if !haskey(color_filters, color)
-            m = 100000 # represents size
-            k = 4 # determines runtime
-            # consider using constrain()...
-            color_filters[color] = BloomFilter(m, k);
-        end
-        if (g.vertex_id_labels[node] != -1)
-            push!(color_filters[color], g.vertex_id_labels[node])
+        data_label = get_data_label(g, node)
+        if (data_label != -1)
+            push!(color_filters[color], data_label)
         end
 
         # initialize color-label cardinality counter
@@ -257,7 +262,7 @@ function sum_over_node!(partial_paths, current_query_nodes, node_to_remove)
     end
 end
 
-function handle_extra_edges!(query::PropertyGraph, summary::ColorSummary, partial_paths, current_query_nodes, visited_query_edges)
+function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths, current_query_nodes, visited_query_edges)
     # To account for cyclic queries, we check whether there are any remaining edges that have not
     # been processed. If so, we set the lower bound to 0, reduce the average estimate accordingly, and leave
     # the upper bound unchanged.
@@ -303,7 +308,7 @@ function handle_extra_edges!(query::PropertyGraph, summary::ColorSummary, partia
     end 
 end
 
-function sum_over_finished_query_nodes!(query::PropertyGraph, partial_paths, current_query_nodes, visited_query_edges)
+function sum_over_finished_query_nodes!(query::QueryGraph, partial_paths, current_query_nodes, visited_query_edges)
     prev_query_nodes = copy(current_query_nodes)
     for node in prev_query_nodes
         has_living_edges = false
@@ -361,7 +366,7 @@ function get_min_width_node_order(g::DiGraph)
     return min_order
 end
 
-function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary; use_partial_sums = true, verbose = false)
+function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_partial_sums = true, verbose = false)
     node_order = get_min_width_node_order(query.graph)
     if verbose
         println("Node Order:", node_order)
@@ -376,7 +381,7 @@ function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary; use
 
     old_node = popfirst!(node_order)
     parent_label = query.vertex_labels[old_node][1]
-    parent_data_label = query.vertex_id_labels[old_node]
+    parent_data_label = get_data_label(query, old_node)
     push!(current_query_nodes, old_node)
     # Initialize partial_paths with all possible starting color/vertex possibilities.
     for color in keys(summary.color_label_cardinality)
@@ -437,12 +442,8 @@ function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary; use
         else
             edge_label =  only(query.edge_labels[new_node][old_node])
         end 
-<<<<<<< HEAD
-        child_label = only(query.vertex_labels[new_node])
-        child_data_label = query.vertex_id_labels[new_node]
-=======
         new_label = only(query.vertex_labels[new_node])
->>>>>>> 97d108b642eff728d12768fb0390c311662148d1
+        new_data_label = get_data_label(query, new_node)
 
         # Update the partial paths using the parent-child combo that comes next from the query.
         new_partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = []
@@ -451,22 +452,15 @@ function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary; use
             running_bounds = path_and_bounds[2]
             old_color = only(path[parent_idx])
             # Account for colors with no outgoing children.
-<<<<<<< HEAD
-            if outEdge && haskey(summary.edge_avg_out_deg, parent_color)
-                for child_color in keys(summary.edge_avg_out_deg[parent_color])
-                    if (child_data_label != -1)
-                        if !(child_data_label in summary.color_filters[child_color])
-                            # if the child has a data label that isn't expected to be in this color,
-                            # then skip adding this color to the partial paths
-                            continue
-                        end
-                    end
-=======
             if outEdge && haskey(summary.edge_avg_out_deg, edge_label) && 
                 haskey(summary.edge_avg_out_deg[edge_label], new_label) && 
                 haskey(summary.edge_avg_out_deg[edge_label][new_label], old_color)
                 for new_color in keys(summary.edge_avg_out_deg[edge_label][new_label][old_color])
->>>>>>> 97d108b642eff728d12768fb0390c311662148d1
+                    if (new_data_label != -1 && !(new_data_label in summary.color_filters[new_color]))
+                        # if the child has a data label that isn't expected to be in this color,
+                        # then skip adding this color to the partial paths
+                        continue
+                    end
                     new_path = copy(path)
                     push!(new_path, new_color)     
                     new_bounds = [running_bounds[1]*summary.edge_min_out_deg[edge_label][new_label][old_color][new_color],
@@ -475,22 +469,15 @@ function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary; use
                                     ]
                     push!(new_partial_paths, (new_path, new_bounds))
                 end
-<<<<<<< HEAD
-            elseif !outEdge && haskey(summary.edge_avg_in_deg, parent_color)
-                for child_color in keys(summary.edge_avg_in_deg[parent_color])
-                    if (child_data_label != -1)
-                        if !(child_data_label in summary.color_filters[child_color])
-                            # if the child has a data label that isn't expected to be in this color,
-                            # then skip adding this color to the partial paths
-                            continue
-                        end
-                    end
-=======
             elseif !outEdge && haskey(summary.edge_avg_in_deg, edge_label) && 
                     haskey(summary.edge_avg_in_deg[edge_label], new_label) && 
                     haskey(summary.edge_avg_in_deg[edge_label][new_label], old_color)
                 for new_color in keys(summary.edge_avg_in_deg[edge_label][new_label][old_color])
->>>>>>> 97d108b642eff728d12768fb0390c311662148d1
+                    if (new_data_label != -1 && !(new_data_label in summary.color_filters[new_color]))
+                        # if the child has a data label that isn't expected to be in this color,
+                        # then skip adding this color to the partial paths
+                        continue
+                    end                
                     new_path = copy(path)
                     push!(new_path, new_color)     
                     new_bounds = [running_bounds[1]*summary.edge_min_in_deg[edge_label][new_label][old_color][new_color],
@@ -515,7 +502,7 @@ function get_cardinality_bounds(query::PropertyGraph, summary::ColorSummary; use
 end
 
 
-function handle_extra_edges_exact!(query::PropertyGraph, data::PropertyGraph, partial_paths, current_query_nodes, visited_query_edges)
+function handle_extra_edges_exact!(query::QueryGraph, data::PropertyGraph, partial_paths, current_query_nodes, visited_query_edges)
     new_partial_paths::Vector{Tuple{Vector{Int}, Int}} = []
     remaining_edges = []
     for edge in edges(query.graph)
@@ -572,7 +559,7 @@ end
 
 # We use the same general structure to calculate the exact size of the query by finding all paths
 # on the original data graph and giving each path a weight of 1. 
-function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_sums = true, verbose=false)
+function get_exact_size(query::QueryGraph, data::PropertyGraph; use_partial_sums = true, verbose=false)
     node_order = topological_sort_by_dfs(bfs_tree(Graph(query.graph), vertices(query.graph)[1]))
     partial_paths::Vector{Tuple{Vector{Int}, Int}} = []
     visited_query_edges = []
@@ -588,8 +575,9 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
     push!(current_query_nodes, old_node)
     for node in vertices(data.graph)
         # if the id labels don't match, then don't initialize with this node
-        if (query.vertex_id_labels[new_node] != -1)
-            if (query.vertex_id_labels[new_node] != data.vertex_id_labels[new_node])
+        query_data_label = get_data_label(query, new_node)
+        if (query_data_label != -1)
+            if (query_data_label != get_data_label(data, new_node))
                 continue
             end
         end
@@ -651,7 +639,7 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
                     # Only add a new partial path if the edge label and node label match our query.
                     data_edge_labels = data.edge_labels[old_node][data_new_node]
                     data_child_labels = data.vertex_labels[data_new_node]
-                    data_child_id_label = data.vertex_id_labels[data_new_node]
+                    data_child_id_label = get_data_label(data, data_new_node)
                     if (query_child_id_label != -1)
                         if (query_child_id_label != data_child_id_label)
                             continue
@@ -670,7 +658,7 @@ function get_exact_size(query::PropertyGraph, data::PropertyGraph; use_partial_s
                     # Only add a new partial path if the edge label and node label match our query.
                     data_edge_labels = data.edge_labels[data_new_node][old_node]
                     data_child_labels = data.vertex_labels[data_new_node]
-                    data_child_id_label = data.vertex_id_labels[data_new_node]
+                    data_child_id_label = get_data_label(data, data_new_node)
                     if (query_child_id_label != -1)
                         if (query_child_id_label != data_child_id_label)
                             continue
