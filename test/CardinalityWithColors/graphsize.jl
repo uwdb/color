@@ -38,6 +38,53 @@ using Graphs
         @test predicted_size == exact_size
     end
 
+    @testset "looped query, no data labels" begin
+        g_property = PropertyGraph(4)
+        update_node_labels(g_property, 1, [1])
+        update_node_labels(g_property, 2, [1])
+        update_node_labels(g_property, 3, [1])
+        update_node_labels(g_property, 4, [1])
+        add_labeled_edge!(g_property, (1, 2), 1)
+        add_labeled_edge!(g_property, (2, 3), 1)
+        add_labeled_edge!(g_property, (2, 4), 1)
+        add_labeled_edge!(g_property, (3, 1), 1)
+        add_labeled_edge!(g_property, (4, 1), 1)
+        q_property = QueryGraph(3)
+        update_node_labels(q_property, 1, [1])
+        update_node_labels(q_property, 2, [1])
+        update_node_labels(q_property, 3, [1])
+        add_labeled_edge!(q_property, (1, 2), 1)
+        add_labeled_edge!(q_property, (2, 3), 1)
+        add_labeled_edge!(q_property, (3, 1), 1)
+        exact_size = only(get_exact_size(q_property, g_property; verbose=false))
+        predicted_size = 6
+        @test predicted_size == exact_size
+    end
+
+    @testset "looped query, specific data labels" begin
+        g_property = PropertyGraph(4)
+        update_node_labels(g_property, 1, [1])
+        update_node_labels(g_property, 2, [1])
+        update_node_labels(g_property, 3, [1])
+        update_node_labels(g_property, 4, [1])
+        add_labeled_edge!(g_property, (1, 2), 1)
+        add_labeled_edge!(g_property, (2, 3), 1)
+        add_labeled_edge!(g_property, (2, 4), 1)
+        add_labeled_edge!(g_property, (3, 1), 1)
+        add_labeled_edge!(g_property, (4, 1), 1)
+        q_property = QueryGraph(3)
+        update_node_labels(q_property, 1, [1])
+        update_node_labels(q_property, 2, [1])
+        update_node_labels(q_property, 3, [1])
+        add_labeled_edge!(q_property, (1, 2), 1)
+        add_labeled_edge!(q_property, (2, 3), 1)
+        add_labeled_edge!(q_property, (3, 1), 1)
+        change_node_id!(q_property, 1, 0)
+        exact_size = only(get_exact_size(q_property, g_property; verbose=false))
+        predicted_size = 2
+        @test predicted_size == exact_size
+    end
+
     @testset "query larger than 1-edge graph" begin
          numVertices = 2
          g = PropertyGraph(numVertices)

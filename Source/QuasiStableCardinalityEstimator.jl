@@ -577,7 +577,7 @@ function get_exact_size(query::QueryGraph, data::PropertyGraph; use_partial_sums
         # if the id labels don't match, then don't initialize with this node
         query_data_label = get_data_label(query, new_node)
         if (query_data_label != -1)
-            if (query_data_label != get_data_label(data, new_node))
+            if (query_data_label != get_data_label(data, node))
                 continue
             end
         end
