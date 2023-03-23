@@ -22,9 +22,9 @@ function load_dataset(path)
             push!(edges, ((e1, e2), l1))
         end
     end
-    g = PropertyGraph(n)
+    g = DataGraph(n)
     for vertex_and_labels in vertices
-        add_labeled_node!(g, vertex_and_labels[1], vertex_and_labels[2])
+        update_node_labels!(g, vertex_and_labels[1], vertex_and_labels[2])
     end
     for edge_and_label in edges
         add_labeled_edge!(g, edge_and_label[1], edge_and_label[2])
@@ -58,9 +58,9 @@ function load_query(path)
             push!(edges, ((e1, e2), l1))
         end
     end
-    g = PropertyGraph(n)
+    g = QueryGraph(n)
     for vertex_and_labels in vertices
-        add_labeled_node!(g, vertex_and_labels[1], [vertex_and_labels[2]])
+        update_node_labels!(g, vertex_and_labels[1], [vertex_and_labels[2]])
     end
     for edge_and_label in edges
         add_labeled_edge!(g, edge_and_label[1], edge_and_label[2])
