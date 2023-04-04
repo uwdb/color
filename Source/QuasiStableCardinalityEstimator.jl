@@ -20,16 +20,25 @@ struct ColorSummary
     color_filters::Dict{Int, BloomFilter} # color_filters[c] = filter
 end
 
-function generate_color_summary(g::DataGraph, numColors::Int; weighting=true)
+function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, verbose=false)
     QSC = QuasiStableColors
     color_filters = Dict()
     color_cardinality = Dict()
     color_label_cardinality = Dict()
+    if (verbose) 
+        println("Started coloring")
+    end
     C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting)
+    if (verbose)
+        println("Finished coloring")
+    end
     color_hash = QSC.node_map(C)
 
     # initialize color filters for data labels
     current_color = 1;
+    if (verbose)
+        println("Started bloom filters")
+    end
     for color in C.partitions
         num_nodes = only(size(color))
         accepted_error = 0.01
@@ -37,7 +46,13 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true)
         color_filters[current_color] = BloomFilter(parameters.m, parameters.k)
         current_color += 1
     end
+    if (verbose)
+        println("Finished bloom filters")
+    end
 
+    if (verbose)
+        println("Started cardinality counts")
+    end
     for node in keys(color_hash)
         color = color_hash[node]
         data_label = get_data_label(g, node)
@@ -62,7 +77,13 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true)
             inc!(color_label_cardinality[color], label)
         end
     end
+    if (verbose)
+        println("Finished cardinality counts")
+    end
     
+    if (verbose)
+        println("Started tracking statistics")
+    end
     # We keep separate degree statistics for in-degree and out-degree.
     color_to_color_out_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
     for x in vertices(g.graph)
@@ -201,6 +222,9 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true)
                 end
             end
         end
+    end
+    if (verbose)
+        println("Finished tracking statistics")
     end
     color_to_color_in_counter = Dict()
     color_to_color_out_counter = Dict()
@@ -467,6 +491,13 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                                     running_bounds[2]*summary.edge_avg_out_deg[edge_label][new_label][old_color][new_color],
                                     running_bounds[3]*summary.edge_max_out_deg[edge_label][new_label][old_color][new_color],
                                     ]
+                    if (new_data_label != -1)
+                        # we have already confirmed that the data label is in the color, but if the data label isn't -1
+                        # then we need to scale down the result since we only want to consider one of the many nodes in the new color
+                        new_bounds[2] /= summary.color_label_cardinality[new_color][new_label]
+                        # we also need to set the minimum to 0 but keep the maximum the same
+                        new_bounds[1] = 0
+                    end
                     push!(new_partial_paths, (new_path, new_bounds))
                 end
             elseif !outEdge && haskey(summary.edge_avg_in_deg, edge_label) && 
@@ -484,6 +515,13 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                                     running_bounds[2]*summary.edge_avg_in_deg[edge_label][new_label][old_color][new_color],
                                     running_bounds[3]*summary.edge_max_in_deg[edge_label][new_label][old_color][new_color],
                                     ]
+                    if (new_data_label != -1)
+                        # we have already confirmed that the data label is in the color, but if the data label isn't -1
+                        # then we need to scale down the result since we only want to consider one of the many nodes in the new color
+                        new_bounds[2] /= summary.color_label_cardinality[new_color][new_label]
+                        # we also need to set the minimum to 0 but keep the maximum the same
+                        new_bounds[1] = 0
+                    end
                     push!(new_partial_paths, (new_path, new_bounds))
                 end
             end
