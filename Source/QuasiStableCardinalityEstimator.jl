@@ -422,6 +422,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
 
     new_node = old_node
     while length(node_order) > 0
+        println("Calculating partial paths: ", partial_paths)
         if verbose
             println("Current Query Nodes: ", current_query_nodes)
             println("Visited Query Edges: ", visited_query_edges)
@@ -474,6 +475,9 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
         for path_and_bounds in partial_paths
             path = path_and_bounds[1]
             running_bounds = path_and_bounds[2]
+            if (running_bounds[2] == 0)
+                println("Current bounds: ", running_bounds)
+            end
             old_color = only(path[parent_idx])
             # Account for colors with no outgoing children.
             if outEdge && haskey(summary.edge_avg_out_deg, edge_label) && 
@@ -486,7 +490,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                         continue
                     end
                     new_path = copy(path)
-                    push!(new_path, new_color)     
+                    push!(new_path, new_color)   
                     new_bounds = [running_bounds[1]*summary.edge_min_out_deg[edge_label][new_label][old_color][new_color],
                                     running_bounds[2]*summary.edge_avg_out_deg[edge_label][new_label][old_color][new_color],
                                     running_bounds[3]*summary.edge_max_out_deg[edge_label][new_label][old_color][new_color],
@@ -494,9 +498,12 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                     if (new_data_label != -1)
                         # we have already confirmed that the data label is in the color, but if the data label isn't -1
                         # then we need to scale down the result since we only want to consider one of the many nodes in the new color
-                        new_bounds[2] /= summary.color_label_cardinality[new_color][new_label]
+                        new_bounds[2] = new_bounds[2] / summary.color_label_cardinality[new_color][new_label]
                         # we also need to set the minimum to 0 but keep the maximum the same
                         new_bounds[1] = 0
+                    end
+                    if (new_bounds[2] == 0)
+                        println(new_bounds);
                     end
                     push!(new_partial_paths, (new_path, new_bounds))
                 end
@@ -510,7 +517,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                         continue
                     end                
                     new_path = copy(path)
-                    push!(new_path, new_color)     
+                    push!(new_path, new_color)
                     new_bounds = [running_bounds[1]*summary.edge_min_in_deg[edge_label][new_label][old_color][new_color],
                                     running_bounds[2]*summary.edge_avg_in_deg[edge_label][new_label][old_color][new_color],
                                     running_bounds[3]*summary.edge_max_in_deg[edge_label][new_label][old_color][new_color],
@@ -518,9 +525,12 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                     if (new_data_label != -1)
                         # we have already confirmed that the data label is in the color, but if the data label isn't -1
                         # then we need to scale down the result since we only want to consider one of the many nodes in the new color
-                        new_bounds[2] /= summary.color_label_cardinality[new_color][new_label]
+                        new_bounds[2] = new_bounds[2] / summary.color_label_cardinality[new_color][new_label] # is this wrong because it divides by only a part of the color cardinality instead of the whole? still shouldn't result in 0 tho
                         # we also need to set the minimum to 0 but keep the maximum the same
                         new_bounds[1] = 0
+                    end
+                    if (new_bounds[2] == 0)
+                        println("new bounds was 0")
                     end
                     push!(new_partial_paths, (new_path, new_bounds))
                 end
@@ -530,12 +540,18 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
         handle_extra_edges!(query, summary, partial_paths, current_query_nodes, visited_query_edges)
     end
 
-
     # Sum over the calculated partial paths to get the final bounds.
     final_bounds = [0,0,0]
+    numZeroAvg = 0
     for path_and_bounds in partial_paths
         final_bounds = final_bounds .+ path_and_bounds[2]
+        if (path_and_bounds[2][2] == 0)
+            numZeroAvg = numZeroAvg + 1
+        end
     end
+    println("PARTIAL PATHS: ", partial_paths)
+    println("NUMBER OF PARTIAL PATHS: ", length(partial_paths))
+    println("NUMBER OF ZERO AVG: ", numZeroAvg)
     return final_bounds
 end
 
