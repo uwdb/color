@@ -314,13 +314,13 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
             parent_color = only(path[parent_node_idx])
             new_node_idx = indexin(edge[2], current_query_nodes)
             child_color = only(path[new_node_idx][1])
-            child_label = only(path[new_node_idx][1])
+            child_label = only(query.vertex_labels[edge[2]])
             # don't have to check data label because these nodes are already in the
             # partial path, so we have already ensured that the colors are appropriate
             edge_label = only(query.edge_labels[(edge[1],edge[2])])
             probability_of_edge = 0
             if (haskey(summary.edge_avg_out_deg, edge_label) 
-                    && haskey(summary.edge_avg_out_deg[edge_label], child_label)
+                    && haskey(summary.edge_avg_out_deg[edge_label], child_label) # so we know that the child label is not appearing in the edge label table...
                         && haskey(summary.edge_avg_out_deg[edge_label][child_label], parent_color)
                             && haskey(summary.edge_avg_out_deg[edge_label][child_label][parent_color], child_color))
                 probability_of_edge = summary.edge_avg_out_deg[edge_label][child_label][parent_color][child_color]/summary.color_label_cardinality[child_color][child_label]
@@ -422,7 +422,6 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
 
     new_node = old_node
     while length(node_order) > 0
-        println("Calculating partial paths: ", partial_paths)
         if verbose
             println("Current Query Nodes: ", current_query_nodes)
             println("Visited Query Edges: ", visited_query_edges)
@@ -475,9 +474,6 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
         for path_and_bounds in partial_paths
             path = path_and_bounds[1]
             running_bounds = path_and_bounds[2]
-            if (running_bounds[2] == 0)
-                println("Current bounds: ", running_bounds)
-            end
             old_color = only(path[parent_idx])
             # Account for colors with no outgoing children.
             if outEdge && haskey(summary.edge_avg_out_deg, edge_label) && 
@@ -501,9 +497,6 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                         new_bounds[2] = new_bounds[2] / summary.color_label_cardinality[new_color][new_label]
                         # we also need to set the minimum to 0 but keep the maximum the same
                         new_bounds[1] = 0
-                    end
-                    if (new_bounds[2] == 0)
-                        println(new_bounds);
                     end
                     push!(new_partial_paths, (new_path, new_bounds))
                 end
@@ -529,9 +522,6 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                         # we also need to set the minimum to 0 but keep the maximum the same
                         new_bounds[1] = 0
                     end
-                    if (new_bounds[2] == 0)
-                        println("new bounds was 0")
-                    end
                     push!(new_partial_paths, (new_path, new_bounds))
                 end
             end
@@ -545,13 +535,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
     numZeroAvg = 0
     for path_and_bounds in partial_paths
         final_bounds = final_bounds .+ path_and_bounds[2]
-        if (path_and_bounds[2][2] == 0)
-            numZeroAvg = numZeroAvg + 1
-        end
     end
-    println("PARTIAL PATHS: ", partial_paths)
-    println("NUMBER OF PARTIAL PATHS: ", length(partial_paths))
-    println("NUMBER OF ZERO AVG: ", numZeroAvg)
     return final_bounds
 end
 

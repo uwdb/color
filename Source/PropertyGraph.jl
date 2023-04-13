@@ -18,6 +18,7 @@ end
 struct QueryGraph <: PropertyGraph
     graph::DiGraph
     edge_labels::Dict{Tuple{Int, Int}, Vector{Int}} # edge_labels[n1][n2] = { labels }
+    # change this later
     vertex_labels::Vector{Vector{Int}} # vertex_labels[n] = { labels }
     vertex_id_labels::Vector{Int} # vertex_id_labels[n] = label
 
