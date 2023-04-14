@@ -58,7 +58,7 @@ function load_query(path)
     end
     g = QueryGraph(n)
     for vertex_and_labels in vertices
-        update_node_labels!(g, vertex_and_labels[1], [vertex_and_labels[2]])
+        update_node_labels!(g, vertex_and_labels[1], vertex_and_labels[2])
         update_data_labels!(g, vertex_and_labels[1], vertex_and_labels[3])
     end
     for edge_and_label in edges

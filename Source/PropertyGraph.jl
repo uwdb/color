@@ -18,14 +18,13 @@ end
 struct QueryGraph <: PropertyGraph
     graph::DiGraph
     edge_labels::Dict{Tuple{Int, Int}, Vector{Int}} # edge_labels[n1][n2] = { labels }
-    # change this later
-    vertex_labels::Vector{Vector{Int}} # vertex_labels[n] = { labels }
+    vertex_labels::Vector{Int} # vertex_labels[n] = label
     vertex_id_labels::Vector{Int} # vertex_id_labels[n] = label
 
     QueryGraph(num_vertices::Int) = QueryGraph(DiGraph(num_vertices))
     QueryGraph(g::DiGraph) = new(g, 
                                     Dict((src(e), dst(e)) => Vector{Int64}() for e in edges(g)),
-                                    [Vector{Int}() for v in 1:nv(g)],
+                                    [-1 for v in 1:nv(g)],
                                     [-1 for v in 1:nv(g)])
 end
 
@@ -46,8 +45,13 @@ function change_node_id!(g::QueryGraph, node::Int, id_label::Int)
 end
 
 # Replaces the node's labels
-function update_node_labels!(g::PropertyGraph, node::Int, node_labels::Vector{Int})
+function update_node_labels!(g::DataGraph, node::Int, node_labels::Vector{Int})
     g.vertex_labels[node] = node_labels
+end
+
+# Replaces the node's labels
+function update_node_labels!(g::QueryGraph, node::Int, node_label::Int)
+    g.vertex_labels[node] = node_label
 end
 
 # Replaces the node's data labels

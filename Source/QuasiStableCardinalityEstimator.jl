@@ -11,12 +11,12 @@ using Probably
 # but they do occur in the query graph.
 struct ColorSummary
     color_label_cardinality::Dict{Int, Dict{Int, Int}} # color_label_cardinality[c][v] = num_vertices
-    edge_min_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_out_deg[c1][c2][e][v2] = min
-    edge_min_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_in_deg[c1][c2][e][v2] = min
-    edge_avg_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_out_deg[c1][c2][e][v2] = avg
-    edge_avg_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_in_deg[c1][c2][e][v2] = avg
-    edge_max_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_out_deg[c1][c2][e][v2] = max
-    edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_in_deg[c1][c2][e][v2] = max
+    edge_min_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_out_deg[e][v2][c1][c2] = min
+    edge_min_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_in_deg[e][v2][c1][c2] = min
+    edge_avg_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_out_deg[e][v2][c1][c2] = avg
+    edge_avg_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_in_deg[e][v2][c1][c2] = avg
+    edge_max_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_out_deg[e][v2][c1][c2] = max
+    edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_in_deg[e][v2][c1][c2] = max
     color_filters::Dict{Int, BloomFilter} # color_filters[c] = filter
 end
 
@@ -41,7 +41,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
     end
     for color in C.partitions
         num_nodes = only(size(color))
-        accepted_error = 0.01
+        accepted_error = 0.00001
         parameters = constrain(BloomFilter, fpr=accepted_error, capacity=num_nodes)
         color_filters[current_color] = BloomFilter(parameters.m, parameters.k)
         current_color += 1
