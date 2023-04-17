@@ -1,4 +1,8 @@
 using qColoringCardinality
 using Test
 
-# write tests here
+# run subtests
+include("graphsize.jl")
+
+# TODO: fix broken tests
+# include("statcheck.jl")
