@@ -1,4 +1,4 @@
-include("../../Source/UnlabeledCardinalityEstimator.jl")
+include("../Source/UnlabeledCardinalityEstimator.jl")
 using Distributions
 using DataStructures: counter, Dict, Set, Vector, inc!
 
