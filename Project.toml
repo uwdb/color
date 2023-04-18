@@ -1,6 +1,6 @@
 name = "qColoringCardinality"
 uuid = "3fdf6bac-96d1-49b0-a177-5ab34bf54285"
-authors = ["Moe Kayali <moe@kayali.io>"]
+authors = ["Diandre Miguel Sabale <dmbs@uw.edu>", "Kyle Deeds <kdeeds@cs.washington.edu>", "Moe Kayali <kayali@cs.washington.edu>"]
 version = "0.1.0"
 
 [deps]
