@@ -731,7 +731,7 @@ end
 # We use the same general structure to calculate the exact size of the query by finding all paths
 # on the original data graph and giving each path a weight of 1. 
 function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = true, verbose=false)
-    node_order = topological_sort_by_dfs(bfs_tree(Graph(query.graph), vertices(query.graph)[1]))
+    node_order = get_min_width_node_order(query.graph)
     partial_paths::Vector{Tuple{Vector{Int}, Int}} = []
     visited_query_edges = []
     current_query_nodes = []
