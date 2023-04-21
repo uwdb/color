@@ -4,6 +4,7 @@ include("PropertyGraph.jl")
 using Graphs
 using QuasiStableColors
 using Probably
+using StatsBase
 
 # The ColorSummary struct holds statistical information associated with the colored graph.
 # It keeps detailed information about the number of edges between colors of a particular color and which land in
@@ -18,9 +19,20 @@ struct ColorSummary
     edge_max_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_out_deg[e][v2][c1][c2] = max
     edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_in_deg[e][v2][c1][c2] = max
     color_filters::Dict{Int, BloomFilter} # color_filters[c] = filter
+    cycle_probabilities::Dict{Int, Float64}
+    # for outdegrees, c2 is the color of the outneighbor
+    # for indegrees, c2 is the color of the inneighbor
+    # v2 represents the label of the node in c1
 end
 
 function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, verbose=false)
+    # before doing coloring, calculate the probabilities of an edge existing?
+    cycle_probabilities::Dict{Int, Float64} = Dict()
+    maxCycleSize = 4
+    for cycleSize in 2:maxCycleSize
+        cycle_probabilities[cycleSize] = approximate_cycle_likelihood(cycleSize, g)
+    end
+
     QSC = QuasiStableColors
     color_filters = Dict()
     color_cardinality = Dict()
@@ -229,7 +241,123 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
     color_to_color_in_counter = Dict()
     color_to_color_out_counter = Dict()
     return ColorSummary(color_label_cardinality, edge_min_out_deg, edge_min_in_deg, 
-                                    edge_avg_out_deg, edge_avg_in_deg, edge_max_out_deg, edge_max_in_deg, color_filters)
+                                    edge_avg_out_deg, edge_avg_in_deg, edge_max_out_deg, edge_max_in_deg, color_filters, cycle_probabilities)
+end
+
+# when we generate the color summary, we need to have a method  to calculate the odds of a cycle 
+
+# approximates the probability of the cycle existing by using the degree into the landing node
+# and the total number of nodes in the landing node
+function get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary::ColorSummary)
+    summary.edge_avg_out_deg[edge_label][child_label][parent_color][child_color]/summary.color_label_cardinality[child_color][child_label]
+end
+
+# two ways to do it:
+
+# Given a cycle size, find the probability that a chain with the same number of nodes
+# will also have an edge closing the cycle
+function approximate_cycle_likelihood(cycleSize::Int, data::DataGraph)
+    # The path might not be a perfect cycle...
+    # maybe instead treat the query graph like an undirected graph and
+    # find all matches in the data graph? The current exact size method might not handle this properly...
+    println("making cycles")
+    cycleQueries = generate_graphs(cycleSize, 0, (Vector{DiGraph})([DiGraph(cycleSize)]), true)
+    println("making paths")
+    pathQueries = generate_graphs(cycleSize - 1, 0, (Vector{DiGraph})([DiGraph(cycleSize)]), false)
+    numPaths::Float64 = 0
+    numCycles::Float64 = 0
+    for cycle in cycleQueries
+        numCycles += get_exact_size(cycle, data)
+    end
+    for path in pathQueries
+        numPaths += get_exact_size(path, data)
+    end
+    return numPaths != 0 ? numCycles / numPaths : 0
+end
+
+# For a given number of edges, generates all possible directed graphs
+# with the given number of edges
+function generate_graphs(desiredEdges::Int, finishedEdges::Int, graphs::Vector{DiGraph}, isCyclic::Bool)
+    if (finishedEdges >= desiredEdges)
+        # now we are guaranteed to have all graphs have the correct number of edges
+        # and close the loop, so we can return this final result...
+        if (isCyclic)
+            graphs = filter!(g->ne(g)!=1, graphs)
+        end
+        query_graphs::Vector{QueryGraph} = []
+        for g in graphs
+            current_query = QueryGraph(g)
+            for edge in edges(g)
+                update_edge_labels!(current_query, (src(edge), dst(edge)), [-1])
+            end
+            push!(query_graphs, current_query)
+        end
+        return query_graphs
+    end
+    startNode = finishedEdges + 1 # the next edge starts at the end of the finished edge
+    nextNode::Int = startNode + 1
+    if desiredEdges == (finishedEdges + 1)
+        # if the graph is cyclic, the last edge should go back to the starting node
+        # if the graph isn't cyclic, the last edge should go to the last node remaining
+        nextNode = isCyclic ? 1 : nextNode
+    end
+    newGraphs::Vector{DiGraph} = []
+    # for each graph, add one edge going to the next node
+    # or one edge coming from the next node
+    for graph in graphs
+        graphWithForwardEdge = copy(graph)
+        add_edge!(graphWithForwardEdge, startNode, nextNode)
+        push!(newGraphs, graphWithForwardEdge)
+        graphWithBackEdge = copy(graph)
+        add_edge!(graphWithBackEdge, nextNode, startNode)
+        push!(newGraphs, graphWithBackEdge)
+    end
+    return generate_graphs(desiredEdges, finishedEdges + 1, newGraphs, isCyclic)
+end
+
+function shortestPathNotDirectlyConnected(startNode::Int, endNode::Int, query::QueryGraph)
+    copiedDiGraph = copy(query.graph)
+    # remove the edge we are trying to close in the query
+    rem_edge!(copiedDiGraph, startNode, endNode)
+    # find the shortest path between the start and end node
+    # start by removing directionality because we're just concerned with the shortest
+    # number of connections between the two nodes
+    undirectedGraph = Graph(copiedDiGraph)
+    ds = dijkstra_shortest_paths(undirectedGraph, startNode)
+    return ds.dists[endNode]
+end
+
+# work in progress
+function approximate_cycle_likelihood_with_color_sampling(data::DataGraph, cycleSize::Int, color_hash)
+    # Steps:
+
+    # Convert the color_hash into a mapping from color to nodes
+    color_nodes_mapping::Dict{Int32, Vector{Int32}} = Dict()
+    for node in keys(color_hash)
+        color = color_hash[node]
+        if (haskey(color, color_nodes_mapping))
+            push!(color_nodes_mapping[color], node)
+        else
+            color_nodes_mapping[color] = []
+        end
+    end
+
+    # Find all possible color combinations with the given cycle size
+    # make a bunch of paths and store them >:)
+    # Issue: this is a little hard to store
+    # What ends up happening is that we store c^n values, where c is # colors and n is chosen cycle size
+    # but when we need the 2/3/4/5 cycle sizes, the number of stored values inflates a bit
+    cycle_likelihood_mapping::Dict{Vector{Int32}, Int32} = Dict()
+    # then initialize a vector key for all possible paths of colors... which is c^n
+    for i in 1:cycleSize
+        for color in keys(color_nodes_mapping)
+            
+        end
+    end
+    # Sample some number of nodes from the given color
+    # for each starting node in the first color, see how many have a path that connects in a cycle
+    # (by using the data graph and checking neighbors?)
+    # compare this number to the total number of chains where all the colors are connected?
 end
 
 function get_color_summary_size(summary)
@@ -286,7 +414,7 @@ function sum_over_node!(partial_paths, current_query_nodes, node_to_remove)
     end
 end
 
-function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths, current_query_nodes, visited_query_edges)
+function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths, current_query_nodes, visited_query_edges, usingStoredStats::Bool)
     # To account for cyclic queries, we check whether there are any remaining edges that have not
     # been processed. If so, we set the lower bound to 0, reduce the average estimate accordingly, and leave
     # the upper bound unchanged.
@@ -323,7 +451,16 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                     && haskey(summary.edge_avg_out_deg[edge_label], child_label) # so we know that the child label is not appearing in the edge label table...
                         && haskey(summary.edge_avg_out_deg[edge_label][child_label], parent_color)
                             && haskey(summary.edge_avg_out_deg[edge_label][child_label][parent_color], child_color))
-                probability_of_edge = summary.edge_avg_out_deg[edge_label][child_label][parent_color][child_color]/summary.color_label_cardinality[child_color][child_label]
+                if usingStoredStats
+                    path_length = shortestPathNotDirectlyConnected(edge[1], edge[2], query)
+                    if (haskey(summary.cycle_probabilities, path_length))
+                        probability_of_edge = summary.cycle_probabilities[path_length]
+                    else
+                        probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
+                    end
+                else
+                    probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
+                end
             end
             average *= probability_of_edge
         end
@@ -390,7 +527,7 @@ function get_min_width_node_order(g::DiGraph)
     return min_order
 end
 
-function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_partial_sums = true, verbose = false)
+function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_partial_sums = true, verbose = false, usingStoredStats = false)
     node_order = get_min_width_node_order(query.graph)
     if verbose
         println("Node Order:", node_order)
@@ -518,7 +655,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                     if (new_data_label != -1)
                         # we have already confirmed that the data label is in the color, but if the data label isn't -1
                         # then we need to scale down the result since we only want to consider one of the many nodes in the new color
-                        new_bounds[2] = new_bounds[2] / summary.color_label_cardinality[new_color][new_label] # is this wrong because it divides by only a part of the color cardinality instead of the whole? still shouldn't result in 0 tho
+                        new_bounds[2] = new_bounds[2] / summary.color_label_cardinality[new_color][new_label]
                         # we also need to set the minimum to 0 but keep the maximum the same
                         new_bounds[1] = 0
                     end
@@ -527,12 +664,11 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
             end
         end
         partial_paths = new_partial_paths
-        handle_extra_edges!(query, summary, partial_paths, current_query_nodes, visited_query_edges)
+        handle_extra_edges!(query, summary, partial_paths, current_query_nodes, visited_query_edges, usingStoredStats)
     end
 
     # Sum over the calculated partial paths to get the final bounds.
     final_bounds = [0,0,0]
-    numZeroAvg = 0
     for path_and_bounds in partial_paths
         final_bounds = final_bounds .+ path_and_bounds[2]
     end
@@ -581,9 +717,6 @@ function handle_extra_edges_exact!(query::QueryGraph, data::DataGraph, partial_p
                 satisfies_cycles = false
                 break
             end
-#            if query_edge_label == -1
-#                weight *= length(data_edge_labels)
-#            end
         end 
         if satisfies_cycles
             push!(new_partial_paths, (path, weight))

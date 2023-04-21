@@ -70,3 +70,7 @@ function add_labeled_edge!(g::PropertyGraph, edge::Tuple{Int, Int}, edge_label::
     end
     push!(g.edge_labels[edge], edge_label)
 end
+
+function update_edge_labels!(g::QueryGraph, edge::Tuple{Int, Int}, edge_labels::Vector{Int})
+    g.edge_labels[edge] = edge_labels
+end
