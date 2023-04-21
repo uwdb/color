@@ -1,4 +1,4 @@
-include("../../Source/QuasiStableCardinalityEstimator.jl")
+include("../Source/QuasiStableCardinalityEstimator.jl")
 
 using Test
 using Graphs
