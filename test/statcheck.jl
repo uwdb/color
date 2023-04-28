@@ -118,8 +118,8 @@ using Graphs
         add_labeled_edge!(q_property, (3, 1), 1)
         summary = generate_color_summary(g_property, 16)
         exact_size = only(get_exact_size(q_property, g_property; verbose=false))
-        bounds_with_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums=true, verbose=false)
-        bounds_without_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums=false, verbose=false)
+        bounds_with_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums=true, verbose=false, usingStoredStats=true)
+        bounds_without_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums=false, verbose=false, usingStoredStats=true)
         println("Bounds: ", bounds_with_partial_agg)
         # test that partial aggregation doesn't affect results
         @test bounds_with_partial_agg ≈ bounds_without_partial_agg

@@ -23,7 +23,7 @@ struct QueryGraph <: PropertyGraph
 
     QueryGraph(num_vertices::Int) = QueryGraph(DiGraph(num_vertices))
     QueryGraph(g::DiGraph) = new(g, 
-                                    Dict((src(e), dst(e)) => Vector{Int64}() for e in edges(g)),
+                                    Dict((src(e), dst(e)) => Vector{Int64}([-1]) for e in edges(g)),
                                     [-1 for v in 1:nv(g)],
                                     [-1 for v in 1:nv(g)])
 end

@@ -19,19 +19,17 @@ struct ColorSummary
     edge_max_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_out_deg[e][v2][c1][c2] = max
     edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_in_deg[e][v2][c1][c2] = max
     color_filters::Dict{Int, BloomFilter} # color_filters[c] = filter
-    cycle_probabilities::Dict{Int, Float64}
+    # map path graph => likelihood of the path approximate_cycle_likelihood_with_color_sampling
+    cycle_probabilities::Dict{Vector{Bool}, Float64}
+    # cycle_probabilities::Dict{Int, Float64}
     # for outdegrees, c2 is the color of the outneighbor
     # for indegrees, c2 is the color of the inneighbor
     # v2 represents the label of the node in c1
 end
 
 function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, verbose=false)
-    # before doing coloring, calculate the probabilities of an edge existing?
-    cycle_probabilities::Dict{Int, Float64} = Dict()
-    maxCycleSize = 4
-    for cycleSize in 2:maxCycleSize
-        cycle_probabilities[cycleSize] = approximate_cycle_likelihood(cycleSize, g)
-    end
+    # before doing coloring, calculate the probabilities that cycles up to the given size close
+    cycle_probabilities::Dict{Vector{Bool}, Float64} = get_cycle_likelihoods(4, g)
 
     QSC = QuasiStableColors
     color_filters = Dict()
@@ -252,7 +250,73 @@ function get_independent_cycle_likelihood(edge_label, child_label, parent_color,
     summary.edge_avg_out_deg[edge_label][child_label][parent_color][child_color]/summary.color_label_cardinality[child_color][child_label]
 end
 
-# two ways to do it:
+function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
+    # convert the graph to be undirected
+    graph_copy = Graph(copy(query.graph))
+    # remove the edge closing the cycle
+    rem_edge!(graph_copy, start, finish)
+    # get a path from the start to finish node
+    edges = a_star(graph_copy, start, finish)
+    # currently assumes the edges go in order of the path,
+    # will have to debug through and see if it works
+    new_graph = DiGraph(length(edges) + 1)
+    current_start = 0
+    for edge in edges
+        current_start += 1
+        if src(edge) in outneighbors(query.graph, dst(edge))
+            # this is a backwards edge
+            add_edge!(new_graph, current_start + 1, current_start)
+        else
+            # this is a forwards edge
+            add_edge!(new_graph, current_start, current_start + 1)
+        end
+    end
+    return new_graph
+end
+
+function get_cycle_likelihoods(max_size::Int, data::DataGraph)
+    # we map the path that needs to be closed to its likelihood
+    # of actually closing
+    cycle_likelihoods::Dict{Vector{Bool}, Float64} = Dict()
+    if (max_size < 2)
+        return cycle_likelihoods
+    end
+    for i in 2:max_size
+        paths = generate_graphs(i - 1, 0, (Vector{DiGraph})([DiGraph(i)]), false)
+        for path in paths
+            cycle = copy(path.graph)
+            add_edge!(cycle, nv(cycle), 1)
+            if (ne(cycle) == 1)
+                # accounts for case where the two edges from one node
+                # point to the same destination node
+                continue
+            end
+            cycleGraph = QueryGraph(cycle)
+            likelihood = approximate_cycle_likelihood(path, cycleGraph, data)
+            cycle_likelihoods[convert_path_graph_to_bools(path.graph)] = likelihood
+        end
+    end
+    return cycle_likelihoods
+end
+
+# takes a path and converts it into a list of bools, each bool representing
+# whether or not the next edge is going forwards
+function convert_path_graph_to_bools(graph::DiGraph) 
+    # we say true = edge is going forwards
+    bool_representation::Vector{Bool} = []
+    for vertex in 1:(nv(graph)-1)
+        push!(bool_representation, vertex in inneighbors(graph, vertex + 1))
+    end
+    return bool_representation
+end
+
+# for a specific path, calculates the
+# probability that the cycle closes
+function approximate_cycle_likelihood(path::QueryGraph, cycle::QueryGraph, data::DataGraph)
+    numCycles::Float64 = get_exact_size(cycle, data)
+    numPaths::Float64 = get_exact_size(path, data)
+    return numPaths != 0 ? numCycles / numPaths : 0
+end
 
 # Given a cycle size, find the probability that a chain with the same number of nodes
 # will also have an edge closing the cycle
@@ -308,9 +372,12 @@ function generate_graphs(desiredEdges::Int, finishedEdges::Int, graphs::Vector{D
         graphWithForwardEdge = copy(graph)
         add_edge!(graphWithForwardEdge, startNode, nextNode)
         push!(newGraphs, graphWithForwardEdge)
-        graphWithBackEdge = copy(graph)
-        add_edge!(graphWithBackEdge, nextNode, startNode)
-        push!(newGraphs, graphWithBackEdge)
+        # if we're on the last edge of a cycle, don't do this since it results in duplicate graphs
+        if (!(isCyclic && desiredEdges == finishedEdges + 1))
+            graphWithBackEdge = copy(graph)
+            add_edge!(graphWithBackEdge, nextNode, startNode)
+            push!(newGraphs, graphWithBackEdge)
+        end
     end
     return generate_graphs(desiredEdges, finishedEdges + 1, newGraphs, isCyclic)
 end
@@ -452,9 +519,10 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                         && haskey(summary.edge_avg_out_deg[edge_label][child_label], parent_color)
                             && haskey(summary.edge_avg_out_deg[edge_label][child_label][parent_color], child_color))
                 if usingStoredStats
-                    path_length = shortestPathNotDirectlyConnected(edge[1], edge[2], query)
-                    if (haskey(summary.cycle_probabilities, path_length))
-                        probability_of_edge = summary.cycle_probabilities[path_length]
+                    path_graph = get_matching_graph(edge[2], edge[1], query)
+                    path_bools = convert_path_graph_to_bools(path_graph)
+                    if (haskey(summary.cycle_probabilities, path_bools))
+                        probability_of_edge = summary.cycle_probabilities[path_bools]
                     else
                         probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
                     end
