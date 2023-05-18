@@ -1,6 +1,6 @@
 using Graphs: SimpleDiGraphFromIterator, Edge
 
-function load_dataset(path)
+function load_dataset(path; subgraph_matching_data=false)
     n = 0
     edges::Array{Tuple{Tuple{Int, Int}, Int}} = []
     vertices::Array{Tuple{Int, Array{Int}}} = []
@@ -11,15 +11,25 @@ function load_dataset(path)
         if line[1] == 'v'
             parts = split(line)
             labels = []
-            for x in parts[3:length(parts)]
-                push!(labels, parse(Int, x))
+            if (subgraph_matching_data)
+                push!(labels, parse(Int, parts[3]))
+                push!(vertices, (parse(Int, parts[2])+1, labels))
+            else
+                for x in parts[3:length(parts)]
+                    push!(labels, parse(Int, x))
+                end
+                push!(vertices, (parse(Int,  parts[2]) + 1, labels))
             end
-            push!(vertices, (parse(Int,  parts[2]) + 1, labels))
             n += 1
         elseif line[1] == 'e'
             parts = split(line)
-            e1, e2, l1 = parse(Int, parts[2])+1, parse(Int, parts[3])+1, parse(Int, parts[4])
-            push!(edges, ((e1, e2), l1))
+            if (subgraph_matching_data)
+                e1, e2 = parse(Int, parts[2])+1, parse(Int, parts[3])+1
+                push!(edges, ((e1, e2), 0))
+            else
+                e1, e2, l1 = parse(Int, parts[2])+1, parse(Int, parts[3])+1, parse(Int, parts[4])
+                push!(edges, ((e1, e2), l1))
+            end
         end
     end
     g = DataGraph(n)
@@ -33,7 +43,7 @@ function load_dataset(path)
 end
 
 
-function load_query(path)
+function load_query(path; subgraph_matching_data=false)
     n = 0
     queryID = 0
     edges::Array{Tuple{Tuple{Int, Int}, Int}} = []
@@ -46,14 +56,25 @@ function load_query(path)
             continue
         elseif line[1] == 'v'
             parts = split(line)
-            data_label = parse(Int, parts[4])
-            label = parse(Int, parts[3])
+            if (subgraph_matching_data)
+                data_label = -1
+                label = parse(Int, parts[3])
+                push!(vertices, (parse(Int, parts[2]) + 1, label, data_label))
+            else
+                data_label = parse(Int, parts[4])
+                label = parse(Int, parts[3])
             push!(vertices, (parse(Int,  parts[2]) + 1, label, data_label))
+            end
             n += 1
         elseif line[1] == 'e'
             parts = split(line)
-            e1, e2, l1 = parse(Int, parts[2]) + 1, parse(Int, parts[3]) + 1, parse(Int, parts[4])
-            push!(edges, ((e1, e2), l1))
+            if (subgraph_matching_data)
+                e1, e2 = parse(Int, parts[2])+1, parse(Int, parts[3])+1
+                push!(edges, ((e1, e2), 0))
+            else
+                e1, e2, l1 = parse(Int, parts[2]) + 1, parse(Int, parts[3]) + 1, parse(Int, parts[4])
+                push!(edges, ((e1, e2), l1))
+            end
         end
     end
     g = QueryGraph(n)

@@ -108,7 +108,7 @@ end
 
 # We use the same general structure to calculate the exact size of the query by finding all paths
 # on the original data graph and giving each path a weight of 1. 
-function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = true, verbose=false, starting_nodes = nothing)
+function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = true, verbose=false, starting_nodes = nothing, ending_nodes = nothing)
     node_order = get_min_width_node_order(query.graph)
     partial_paths::Vector{Tuple{Vector{Int}, Int}} = []
     visited_query_edges = []
@@ -127,8 +127,8 @@ function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = t
     end
     for node in starting_nodes
         # if the id labels don't match, then don't initialize with this node
-        query_data_label = get_data_label(query, new_node)
-        if (query_data_label != -1 && query_data_label != get_data_label(data, node))
+        query_data_labels = get_data_label(query, new_node)
+        if (query_data_labels != [-1] && length(intersect(query_data_labels, get_data_label(data, node))) == 0)
             continue
         end
         node_labels = data.vertex_labels[node]
@@ -177,7 +177,7 @@ function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = t
             push!(visited_query_edges, (new_node, old_node))
         end 
         query_child_label = query.vertex_labels[new_node][1]
-        query_child_id_label = query.vertex_id_labels[new_node]
+        query_child_id_labels = query.vertex_id_labels[new_node]
         
         push!(current_query_nodes, new_node)
         new_partial_paths::Vector{Tuple{Vector{Int}, Int}} = []
@@ -192,7 +192,7 @@ function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = t
                     data_edge_labels = data.edge_labels[(old_node,data_new_node)]
                     data_child_labels = data.vertex_labels[data_new_node]
                     data_child_id_label = get_data_label(data, data_new_node)
-                    if (query_child_id_label != -1 && query_child_id_label != data_child_id_label)
+                    if (query_child_id_labels != [-1] && length(intersect(query_child_id_labels,data_child_id_label)) == 0)
                         continue
                     end
                     if (query_child_label == -1  || in(query_child_label, data_child_labels)) && 
@@ -204,13 +204,15 @@ function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = t
                 end
             else
                 for data_new_node in inneighbors(data.graph, old_node)
+                    if (!(ending_nodes === nothing) && !(data_new_node in ending_nodes))
+                    end
                     new_weight = weight
                     # Only add a new partial path if the edge label and node label match our query.
                     data_edge_labels = data.edge_labels[(data_new_node,old_node)]
                     data_child_labels = data.vertex_labels[data_new_node]
                     data_child_id_label = get_data_label(data, data_new_node)
-                    if (query_child_id_label != -1)
-                        if (query_child_id_label != data_child_id_label)
+                    if (query_child_id_labels != [-1])
+                        if (length(intersect(query_child_id_labels, data_child_id_label)) == 0)
                             continue
                         end
                     end
