@@ -1,5 +1,6 @@
 using DataStructures: counter, Dict, Set, Vector, inc!, Queue
 using Graphs
+using Plots, GraphRecipes
 
 abstract type PropertyGraph end
 
@@ -11,21 +12,22 @@ struct DataGraph <: PropertyGraph
     DataGraph(num_vertices::Int) = DataGraph(DiGraph(num_vertices))
 
     DataGraph(g::DiGraph) = new(g, 
-                                    Dict((src(e), dst(e)) => Vector{Int64}() for e in edges(g)),
-                                    [Vector{Int}() for v in 1:nv(g)])
+                                    Dict((src(e), dst(e)) => Vector{Int64}([-1]) for e in edges(g)),
+                                    [Vector{Int}([-1]) for v in 1:nv(g)])
 end
 
+# backup implementation using vertex label sets rather than singular labels per node
 struct QueryGraph <: PropertyGraph
     graph::DiGraph
     edge_labels::Dict{Tuple{Int, Int}, Vector{Int}} # edge_labels[n1][n2] = { labels }
-    vertex_labels::Vector{Int} # vertex_labels[n] = label
-    vertex_id_labels::Vector{Int} # vertex_id_labels[n] = label
+    vertex_labels::Vector{Vector{Int}} # vertex_labels[n] = labels
+    vertex_id_labels::Vector{Vector{Int}} # vertex_id_labels[n] = labels
 
     QueryGraph(num_vertices::Int) = QueryGraph(DiGraph(num_vertices))
     QueryGraph(g::DiGraph) = new(g, 
                                     Dict((src(e), dst(e)) => Vector{Int64}([-1]) for e in edges(g)),
-                                    [-1 for v in 1:nv(g)],
-                                    [-1 for v in 1:nv(g)])
+                                    [[-1] for v in 1:nv(g)],
+                                    [[-1] for v in 1:nv(g)])
 end
 
 # By default, node data labels are just their id - 1 in the G-Care benchmark.
@@ -41,7 +43,7 @@ end
 
 # Only Query graphs need to have their data labels updated
 function change_node_id!(g::QueryGraph, node::Int, id_label::Int)
-    g.vertex_id_labels[node] = id_label
+    g.vertex_id_labels[node] = [id_label]
 end
 
 # Replaces the node's labels
@@ -51,12 +53,17 @@ end
 
 # Replaces the node's labels
 function update_node_labels!(g::QueryGraph, node::Int, node_label::Int)
-    g.vertex_labels[node] = node_label
+    g.vertex_labels[node] = [node_label]
 end
 
 # Replaces the node's data labels
 function update_data_labels!(g::QueryGraph, node::Int, data_label::Int)
-    g.vertex_id_labels[node] = data_label
+    g.vertex_id_labels[node] = [data_label]
+end
+
+# Replaces the node's data labels
+function update_data_labels!(g::QueryGraph, node::Int, data_labels::Vector{Int})
+    g.vertex_id_labels[node] = data_labels
 end
 
 # Adds a new edge to the graph then adds the new label to the edge's list of labels
@@ -73,4 +80,16 @@ end
 
 function update_edge_labels!(g::QueryGraph, edge::Tuple{Int, Int}, edge_labels::Vector{Int})
     g.edge_labels[edge] = edge_labels
+end
+
+function display_graph!(g::PropertyGraph)
+    display(graphplot(g.graph, curves=false))
+end
+
+function print_graph!(g::PropertyGraph)
+    println("Edges in graph: ")
+    for edge in g.edge_labels
+        println(edge)
+    end
+    println()
 end
