@@ -21,36 +21,71 @@ struct ColorSummary
     color_filters::Dict{Int, BloomFilter} # color_filters[c] = filter
     # map path graph => likelihood of the path approximate_cycle_likelihood_with_color_sampling
     cycle_probabilities::Dict{Vector{Bool}, Float64}
+    total_edges::Int
+    total_nodes::Int
     # cycle_probabilities::Dict{Int, Float64}
     # for outdegrees, c2 is the color of the outneighbor
     # for indegrees, c2 is the color of the inneighbor
     # v2 represents the label of the node in c1
 end
 
-function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, verbose=false, max_size=4, num_sample_nodes=1000)
+function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, verbose=false, 
+                                max_size=4, num_sample_nodes=1000, partitioner ="QuasiStable")
     # before doing coloring, calculate the probabilities that cycles up to the given size close
     cycle_probabilities::Dict{Vector{Bool}, Float64} = get_cycle_likelihoods(max_size, g, num_sample_nodes)
-
-    QSC = QuasiStableColors
+    color_hash = nothing
+    color_sizes = [0 for _ in 1:numColors]
     color_filters = Dict()
     color_cardinality = Dict()
     color_label_cardinality = Dict()
-    if (verbose) 
-        println("Started coloring")
+    if partitioner == "QuasiStable"
+        QSC = QuasiStableColors
+        if (verbose) 
+            println("Started coloring")
+        end
+        C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting)
+        if (verbose)
+            println("Finished coloring")
+        end
+        color_hash = QSC.node_map(C)
+        color_sizes = [only(size(C.partitions[i])) for i in 1:numColors]
+    elseif partitioner == "Hash"
+        color_hash = Dict()
+        for i in 1:nv(g.graph)
+            color_hash[i] = (hash(i) % numColors) + 1
+            color_sizes[color_hash[i]] += 1
+        end
+    elseif partitioner == "Degree"
+        color_hash = Dict()
+        degrees = sort(degree(g.graph))
+        bucket_right_edges = []
+        for i in 1:numColors
+            degree_quantile = degrees[Int(floor(float(i)/numColors *length(degrees)))]
+            if i > 1 && bucket_right_edges[i-1] >= degree_quantile
+                push!(bucket_right_edges, bucket_right_edges[i-1] + 1)
+            else
+                push!(bucket_right_edges, degree_quantile)
+            end
+        end
+        for i in 1:nv(g.graph)
+            node_degree = only(degree(g.graph, [i]))
+            for j in 1:numColors
+                if node_degree <= bucket_right_edges[j]
+                    color_hash[i] = j
+                    color_sizes[color_hash[i]] += 1
+                    break
+                end
+            end
+        end
     end
-    C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting)
-    if (verbose)
-        println("Finished coloring")
-    end
-    color_hash = QSC.node_map(C)
 
     # initialize color filters for data labels
     current_color = 1;
     if (verbose)
         println("Started bloom filters")
     end
-    for color in C.partitions
-        num_nodes = only(size(color))
+    for color in 1:numColors
+        num_nodes = max(1, color_sizes[color])
         accepted_error = 0.00001
         parameters = constrain(BloomFilter, fpr=accepted_error, capacity=num_nodes)
         color_filters[current_color] = BloomFilter(parameters.m, parameters.k)
@@ -239,7 +274,8 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
     color_to_color_in_counter = Dict()
     color_to_color_out_counter = Dict()
     return ColorSummary(color_label_cardinality, edge_min_out_deg, edge_min_in_deg, 
-                                    edge_avg_out_deg, edge_avg_in_deg, edge_max_out_deg, edge_max_in_deg, color_filters, cycle_probabilities)
+                                    edge_avg_out_deg, edge_avg_in_deg, edge_max_out_deg, edge_max_in_deg, color_filters,
+                                     cycle_probabilities, ne(g.graph), nv(g.graph))
 end
 
 # when we generate the color summary, we need to have a method  to calculate the odds of a cycle 
@@ -529,6 +565,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                     path_graph = get_matching_graph(edge[2], edge[1], query)
                     path_bools = convert_path_graph_to_bools(path_graph)
                     if (haskey(summary.cycle_probabilities, path_bools))
+#                        probability_of_edge = summary.cycle_probabilities[path_bools] * get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)/(summary.total_edges/(summary.total_nodes^2))
                         probability_of_edge = summary.cycle_probabilities[path_bools]
                     else
                         probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
@@ -566,41 +603,54 @@ function sum_over_finished_query_nodes!(query::QueryGraph, partial_paths::Vector
 end
 
 function get_min_width_node_order(g::DiGraph)
-    min_width = nv(g)
-    min_order = []
-    for starting_node in vertices(g)
-        max_width = 0
-        visited_nodes = [starting_node]
-        while length(visited_nodes) < nv(g)
-            new_width = nv(g)
-            next_node = -1
-            for potential_node in vertices(g)
-                if potential_node in visited_nodes || !any([x in all_neighbors(g, potential_node) for x in visited_nodes])
-                    continue
-                end
-                potential_visited_nodes = []
-                copy!(potential_visited_nodes, visited_nodes)
-                push!(potential_visited_nodes, potential_node)
-                potential_num_active_nodes = 0
-                for v in potential_visited_nodes
-                    if ! all([x in potential_visited_nodes for x in all_neighbors(g, v)])
-                        potential_num_active_nodes += 1
+    nodes_processed = 1
+    partial_orders::Dict{Set{Int64}, Tuple{Vector{Int64}, Int64}} = Dict(Set([x]) =>([x], 0) for x in vertices(g))
+    while nodes_processed < nv(g)
+        for node_set in keys(partial_orders)
+            best_order, best_width = partial_orders[node_set]
+            neighbor_nodes = Set()
+            for existing_node in node_set
+                for neighbor in all_neighbors(g, existing_node)
+                    if !(neighbor in node_set)    
+                        push!(neighbor_nodes, neighbor)
                     end
                 end
-                if potential_num_active_nodes <= new_width
-                    next_node = potential_node
-                    new_width = potential_num_active_nodes
+            end
+            for next_node in neighbor_nodes
+                new_node_set::Set{Int32} = Set([next_node])
+                new_node_set = union(new_node_set, node_set)
+                new_order = []
+                copy!(new_order, best_order)
+                push!(new_order, next_node)
+                new_width = 0
+                for v in new_order
+                    if ! all([x in new_order for x in all_neighbors(g, v)])
+                        new_width += 1
+                    end
+                end
+                new_width = max(best_width, new_width)
+                if haskey(partial_orders, new_node_set) 
+                    if partial_orders[new_node_set][2] > new_width
+                        partial_orders[new_node_set] = (new_order, new_width)
+                    end
+                else
+                    partial_orders[new_node_set] = (new_order, new_width)
                 end
             end
-            push!(visited_nodes, next_node)
-            max_width = max(max_width, new_width)
         end
-        if max_width <= min_width
-            min_order = visited_nodes
-            min_width = max_width
+        nodes_processed += 1
+        for node_set in keys(partial_orders)
+            if length(node_set) < nodes_processed
+                delete!(partial_orders, node_set)
+            end
         end
     end
-    return min_order
+    min_width = minimum([x[2] for x in values(partial_orders)])
+    for node_order_and_width in values(partial_orders)
+        if node_order_and_width[2] == min_width
+            return node_order_and_width[1]
+        end
+    end
 end
 
 function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_partial_sums = true, verbose = false, usingStoredStats = false)
