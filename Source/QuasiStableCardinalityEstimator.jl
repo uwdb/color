@@ -69,7 +69,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             end
         end
         for i in 1:nv(g.graph)
-            node_degree = only(degree(g.graph, [i]))
+            node_degree = degree(g.graph, i)
             for j in 1:numColors
                 if node_degree <= bucket_right_edges[j]
                     color_hash[i] = j
@@ -77,6 +77,51 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
                     break
                 end
             end
+        end
+
+    elseif partitioner == "DirectedDegree"
+        color_hash = Dict()
+        num_degree_buckets = Int(floor(float(numColors)^.5))
+        indegrees = sort(indegree(g.graph))
+        in_bucket_right_edges = []
+        for i in 1:num_degree_buckets
+            degree_quantile = indegrees[Int(floor(float(i)/num_degree_buckets *length(indegrees)))]
+            if i > 1 && in_bucket_right_edges[i-1] >= degree_quantile
+                push!(in_bucket_right_edges, in_bucket_right_edges[i-1] + 1)
+            else
+                push!(in_bucket_right_edges, degree_quantile)
+            end
+        end
+
+        outdegrees = sort(outdegree(g.graph))
+        out_bucket_right_edges = []
+        for i in 1:num_degree_buckets
+            degree_quantile = outdegrees[Int(floor(float(i)/num_degree_buckets *length(outdegrees)))]
+            if i > 1 && out_bucket_right_edges[i-1] >= degree_quantile
+                push!(out_bucket_right_edges, out_bucket_right_edges[i-1] + 1)
+            else
+                push!(out_bucket_right_edges, degree_quantile)
+            end
+        end
+        for i in 1:nv(g.graph)
+            in_degree = indegree(g.graph, i)
+            in_bucket = 0
+            for j in 1:num_degree_buckets
+                if in_degree <= in_bucket_right_edges[j]
+                    in_bucket = j
+                    break
+                end
+            end
+            out_degree = outdegree(g.graph, i)
+            out_bucket = 0
+            for j in 1:num_degree_buckets
+                if out_degree <= out_bucket_right_edges[j]
+                    out_bucket = j
+                    break
+                end
+            end
+            color_hash[i] = in_bucket * num_degree_buckets + out_bucket
+            color_sizes[color_hash[i]] += 1
         end
     end
 
@@ -664,53 +709,92 @@ function sum_over_finished_query_nodes!(query::QueryGraph, partial_paths::Vector
 end
 
 function get_min_width_node_order(g::DiGraph)
-    nodes_processed = 1
-    partial_orders::Dict{Set{Int64}, Tuple{Vector{Int64}, Int64}} = Dict(Set([x]) =>([x], 0) for x in vertices(g))
-    while nodes_processed < nv(g)
-        for node_set in keys(partial_orders)
-            best_order, best_width = partial_orders[node_set]
-            neighbor_nodes = Set()
-            for existing_node in node_set
-                for neighbor in all_neighbors(g, existing_node)
-                    if !(neighbor in node_set)    
-                        push!(neighbor_nodes, neighbor)
+    if nv(g) < 10
+        nodes_processed = 1
+        partial_orders::Dict{Set{Int64}, Tuple{Vector{Int64}, Int64}} = Dict(Set([x]) =>([x], 0) for x in vertices(g))
+        while nodes_processed < nv(g)
+            for node_set in keys(partial_orders)
+                best_order, best_width = partial_orders[node_set]
+                neighbor_nodes = Set()
+                for existing_node in node_set
+                    for neighbor in all_neighbors(g, existing_node)
+                        if !(neighbor in node_set)    
+                            push!(neighbor_nodes, neighbor)
+                        end
                     end
                 end
-            end
-            for next_node in neighbor_nodes
-                new_node_set::Set{Int32} = Set([next_node])
-                new_node_set = union(new_node_set, node_set)
-                new_order = []
-                copy!(new_order, best_order)
-                push!(new_order, next_node)
-                new_width = 0
-                for v in new_order
-                    if ! all([x in new_order for x in all_neighbors(g, v)])
-                        new_width += 1
+                for next_node in neighbor_nodes
+                    new_node_set::Set{Int32} = Set([next_node])
+                    new_node_set = union(new_node_set, node_set)
+                    new_order = []
+                    copy!(new_order, best_order)
+                    push!(new_order, next_node)
+                    new_width = 0
+                    for v in new_order
+                        if ! all([x in new_order for x in all_neighbors(g, v)])
+                            new_width += 1
+                        end
                     end
-                end
-                new_width = max(best_width, new_width)
-                if haskey(partial_orders, new_node_set) 
-                    if partial_orders[new_node_set][2] > new_width
+                    new_width = max(best_width, new_width)
+                    if haskey(partial_orders, new_node_set) 
+                        if partial_orders[new_node_set][2] > new_width
+                            partial_orders[new_node_set] = (new_order, new_width)
+                        end
+                    else
                         partial_orders[new_node_set] = (new_order, new_width)
                     end
-                else
-                    partial_orders[new_node_set] = (new_order, new_width)
+                end
+            end
+            nodes_processed += 1
+            for node_set in keys(partial_orders)
+                if length(node_set) < nodes_processed
+                    delete!(partial_orders, node_set)
                 end
             end
         end
-        nodes_processed += 1
-        for node_set in keys(partial_orders)
-            if length(node_set) < nodes_processed
-                delete!(partial_orders, node_set)
+        min_width = minimum([x[2] for x in values(partial_orders)])
+        for node_order_and_width in values(partial_orders)
+            if node_order_and_width[2] == min_width
+                return node_order_and_width[1]
             end
         end
-    end
-    min_width = minimum([x[2] for x in values(partial_orders)])
-    for node_order_and_width in values(partial_orders)
-        if node_order_and_width[2] == min_width
-            return node_order_and_width[1]
+    else
+
+        min_width = nv(g)
+        min_order = []
+        for starting_node in vertices(g)
+            max_width = 0
+            visited_nodes = [starting_node]
+            while length(visited_nodes) < nv(g)
+                new_width = nv(g)
+                next_node = -1
+                for potential_node in vertices(g)
+                    if potential_node in visited_nodes || !any([x in all_neighbors(g, potential_node) for x in visited_nodes])
+                        continue
+                    end
+                    potential_visited_nodes = []
+                    copy!(potential_visited_nodes, visited_nodes)
+                    push!(potential_visited_nodes, potential_node)
+                    potential_num_active_nodes = 0
+                    for v in potential_visited_nodes
+                        if ! all([x in potential_visited_nodes for x in all_neighbors(g, v)])
+                            potential_num_active_nodes += 1
+                        end
+                    end
+                    if potential_num_active_nodes <= new_width
+                        next_node = potential_node
+                        new_width = potential_num_active_nodes
+                    end
+                end
+                push!(visited_nodes, next_node)
+                max_width = max(max_width, new_width)
+            end
+            if max_width <= min_width
+                min_order = visited_nodes
+                min_width = max_width
+            end
         end
+        return min_order
     end
 end
 
