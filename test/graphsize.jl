@@ -8,6 +8,34 @@ using Graphs
 
 @testset "exact symmetrical graphs" begin
 
+    @testset "multiple possible starting nodes" begin
+        g_property = DataGraph(8)
+        add_labeled_edge!(g_property, (1,2), -1)
+        add_labeled_edge!(g_property, (3,4), -1)
+        add_labeled_edge!(g_property, (5,6), -1)
+        add_labeled_edge!(g_property, (7,8), -1)
+        q_property = QueryGraph(2)
+        add_labeled_edge!(q_property, (1,2), -1)
+        update_data_labels!(q_property, 1, [0, 2, 6])
+        exact_size = only(get_exact_size(q_property, g_property))
+        predicted_size = 3
+        @test predicted_size == exact_size
+    end
+
+    @testset "multiple possible ending nodes" begin
+        g_property = DataGraph(8)
+        add_labeled_edge!(g_property, (1,2), -1)
+        add_labeled_edge!(g_property, (3,4), -1)
+        add_labeled_edge!(g_property, (5,6), -1)
+        add_labeled_edge!(g_property, (7,8), -1)
+        q_property = QueryGraph(2)
+        add_labeled_edge!(q_property, (1,2), -1)
+        update_data_labels!(q_property, 2, [3, 5, 7])
+        exact_size = only(get_exact_size(q_property, g_property))
+        predicted_size = 3
+        @test predicted_size == exact_size
+    end
+
     @testset "1-edge graph, unlabeled" begin
         g_property = DataGraph(2)
         update_node_labels!(g_property, 1, [1])

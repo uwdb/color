@@ -21,10 +21,10 @@ struct ColorSummary
     edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_in_deg[e][v2][c1][c2] = max
     color_filters::Dict{Int, BloomFilter} # color_filters[c] = filter
     # map path graph => likelihood of the path
-    # cycle_probabilities::Dict{Vector{Bool}, Float64} # [path] = likelihood
+    cycle_probabilities::Dict{Vector{Bool}, Float64} # [path] = likelihood
     # cycle_probabilities::Dict{Int, Float64} # [cycle_size] = likelihood
-    #cycle_probabilities::Dict{Int, Dict{Vector{Bool}, Float64}} # [start_color][path] = likelihood
-    cycle_probabilities::Dict{Vector{Bool}, Float64} # [start_color, end_color][path] = likelihood
+    # cycle_probabilities::Dict{Int, Dict{Vector{Bool}, Float64}} # [start_color][path] = likelihood
+    #cycle_probabilities::Dict{Vector{Bool}, Float64} # [start_color, end_color][path] = likelihood
     # for outdegrees, c2 is the color of the outneighbor
     # for indegrees, c2 is the color of the inneighbor
     # v2 represents the label of the node in c1
@@ -46,8 +46,8 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
         println("Finished coloring")
     end
     color_hash = QSC.node_map(C)
+    # cycle_probabilities::Dict{Int, Dict{Vector{Bool}, Float64}} = get_start_color_cycle_likelihoods(max_size, g, color_hash, num_samples_per_color=num_sample_nodes)
     cycle_probabilities::Dict{Vector{Bool}, Float64} = get_cycle_likelihoods(max_size, g, num_sample_nodes)
-
     # initialize color filters for data labels
     current_color = 1;
     if (verbose)
@@ -316,9 +316,7 @@ function get_start_color_cycle_likelihoods(max_cycle_size::Int, data::DataGraph,
     end
 
     cycle_likelihoods::Dict{Int, Dict{Vector{Bool}, Float64}} = Dict() # [c1][bool_path] = likelihood
-    # basically the same as the other method, except the query graph should now have a data label attached to it?
-    # this is where we make a new version of the get_exact_size where the data labels can be multiple
-    # now I can set the starting nodes to be the ones from the hash node >:)
+    # basically the same as the other method, except the query graph should now have a set of data labels attached to it
 
     for color in keys(color_nodes_mapping)
         cycle_likelihoods[color] = Dict()
