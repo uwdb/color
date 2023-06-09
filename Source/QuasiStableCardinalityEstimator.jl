@@ -120,7 +120,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
                     break
                 end
             end
-            color_hash[i] = in_bucket * num_degree_buckets + out_bucket
+            color_hash[i] = (in_bucket - 1) * num_degree_buckets + out_bucket
             color_sizes[color_hash[i]] += 1
         end
     end
@@ -651,11 +651,10 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
         new_node_idx = indexin(edge[2], current_query_nodes)
         child_label = only(query.vertex_labels[edge[2]])
         edge_label = only(query.edge_labels[(edge[1],edge[2])])
+        path_graph = get_matching_graph(edge[2], edge[1], query)
+        path_bools::Vector{Bool} = convert_path_graph_to_bools(path_graph)
         for i  in range(1, length(partial_paths))
             path = partial_paths[i][1]
-            bounds = partial_paths[i][2]
-            lower = 0
-            average = only(bounds[2])
             parent_color = only(path[parent_node_idx])
             child_color = only(path[new_node_idx][1])
             # don't have to check data label because these nodes are already in the
@@ -668,8 +667,6 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                 if usingStoredStats
                     # we flip this because the matching graph finds the path between two nodes,
                     # where the last node is the start of the closing edge
-                    path_graph = get_matching_graph(edge[2], edge[1], query)
-                    path_bools = convert_path_graph_to_bools(path_graph)
                     if (haskey(summary.cycle_probabilities, path_bools))
 #                        probability_of_edge = summary.cycle_probabilities[path_bools] * get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)/(summary.total_edges/(summary.total_nodes^2))
                         probability_of_edge = summary.cycle_probabilities[path_bools]
@@ -680,9 +677,8 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                     probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
                 end
             end
-            average *= probability_of_edge
-            upper = only(bounds[3])
-            partial_paths[i] = (path, [lower, average, upper])
+            partial_paths[i][2][1] = 0
+            partial_paths[i][2][2] *= probability_of_edge
         end
     end 
 end
@@ -759,7 +755,6 @@ function get_min_width_node_order(g::DiGraph)
             end
         end
     else
-
         min_width = nv(g)
         min_order = []
         for starting_node in vertices(g)
