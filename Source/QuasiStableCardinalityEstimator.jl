@@ -394,9 +394,7 @@ function get_start_color_cycle_likelihoods(max_cycle_size::Int, data::DataGraph,
     end
 
     cycle_likelihoods::Dict{Int, Dict{Vector{Bool}, Float64}} = Dict() # [c1][bool_path] = likelihood
-    # basically the same as the other method, except the query graph should now have a data label attached to it?
-    # this is where we make a new version of the get_exact_size where the data labels can be multiple
-    # now I can set the starting nodes to be the ones from the hash node >:)
+    # basically the same as the other method, except the query graph should now have a set of data labels attached to it
 
     for color in keys(color_nodes_mapping)
         cycle_likelihoods[color] = Dict()
