@@ -34,7 +34,7 @@ function sum_over_node_exact!(partial_paths::Vector{Tuple{Vector{Int},  Int}}, c
 end
 
 
-function sum_over_finished_query_nodes_exact!(query::QueryGraph, partial_paths::Vector{Tuple{Vector{Int},  Int}}, current_query_nodes, visited_query_edges)
+function sum_over_finished_query_nodes_exact!(query::QueryGraph, partial_paths::Vector{Tuple{Vector{Int},  Int}}, current_query_nodes, visited_query_edges; nodes_to_not_sum = [])
     prev_query_nodes = copy(current_query_nodes)
     for node in prev_query_nodes
         has_living_edges = false
@@ -48,7 +48,7 @@ function sum_over_finished_query_nodes_exact!(query::QueryGraph, partial_paths::
                 has_living_edges = true
             end
         end
-        if ! has_living_edges
+        if !(has_living_edges) && !(node in nodes_to_not_sum)
             sum_over_node_exact!(partial_paths, current_query_nodes, node)
         end
     end
@@ -108,7 +108,10 @@ end
 
 # We use the same general structure to calculate the exact size of the query by finding all paths
 # on the original data graph and giving each path a weight of 1. 
-function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = true, verbose=false, starting_nodes = nothing, ending_nodes = nothing)
+
+# rename to 'get_subgraph_counts'?
+# add a parameter 'nodes_to_keep' that shouldn't be aggregated
+function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sums = true, verbose=false, starting_nodes = nothing, including_cycles = true, nodes_to_keep = [])
     node_order = get_min_width_node_order(query.graph)
     partial_paths::Vector{Tuple{Vector{Int}, Int}} = []
     visited_query_edges = []
@@ -147,7 +150,8 @@ function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = t
         end
         handle_extra_edges_exact!(query, data, partial_paths, current_query_nodes, visited_query_edges)
         if use_partial_sums
-            sum_over_finished_query_nodes_exact!(query, partial_paths, current_query_nodes, visited_query_edges)
+            # pass nodes_to_keep here, just don't sum over it
+            sum_over_finished_query_nodes_exact!(query, partial_paths, current_query_nodes, visited_query_edges, nodes_to_not_sum = nodes_to_keep)
         end
         if verbose
             println("Number of Partial Paths After Sum: ", length(keys(partial_paths)))
@@ -204,8 +208,6 @@ function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = t
                 end
             else
                 for data_new_node in inneighbors(data.graph, old_node)
-                    if (!(ending_nodes === nothing) && !(data_new_node in ending_nodes))
-                    end
                     new_weight = weight
                     # Only add a new partial path if the edge label and node label match our query.
                     data_edge_labels = data.edge_labels[(data_new_node,old_node)]
@@ -227,11 +229,21 @@ function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = t
         end
         partial_paths = new_partial_paths
     end
-    handle_extra_edges_exact!(query, data, partial_paths, current_query_nodes, visited_query_edges)
+    if (including_cycles)
+        handle_extra_edges_exact!(query, data, partial_paths, current_query_nodes, visited_query_edges)
+    end
     
+    # have one final call to sum over sum_over_finished_query_nodes_exact
+    sum_over_finished_query_nodes_exact!(query, partial_paths, current_query_nodes, visited_query_edges, nodes_to_not_sum = nodes_to_keep)
+
+    return partial_paths # if we sum over everything, this will be empty
+end
+
+function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = true, verbose=false, starting_nodes = nothing, including_cycles = true, nodes_to_keep = [])
+    partial_paths = get_subgraph_counts(query, data; use_partial_sums = use_partial_sums, verbose=verbose, starting_nodes = starting_nodes, including_cycles = including_cycles, nodes_to_keep = nodes_to_keep)
     exact_size = 0
-    for path_and_weight in partial_paths 
-        exact_size +=  path_and_weight[2]
-    end 
+    for path_and_weight in partial_paths
+        exact_size += path_and_weight[2]
+    end
     return exact_size
 end

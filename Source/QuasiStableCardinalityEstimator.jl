@@ -7,6 +7,14 @@ using Probably
 using StatsBase
 using Plots, GraphRecipes
 
+BoolPath = Vector{Bool}
+StartEndColorPair = Vector{Int}
+
+struct CyclePathAndColors
+    path::BoolPath
+    colors::StartEndColorPair
+end
+
 # The ColorSummary struct holds statistical information associated with the colored graph.
 # It keeps detailed information about the number of edges between colors of a particular color and which land in
 # a particular color. Note that `-1` is used to represent a "wildcard" label. These do not appear in the data graph,
@@ -21,7 +29,8 @@ struct ColorSummary
     edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_in_deg[e][v2][c1][c2] = max
     color_filters::Dict{Int, BloomFilter} # color_filters[c] = filter
     # map path graph => likelihood of the path approximate_cycle_likelihood_with_color_sampling
-    cycle_probabilities::Dict{Vector{Bool}, Float64}
+    cycle_probabilities::Dict{CyclePathAndColors, Float64}
+    # cycle_probabilities[[c1, c2], path] = likelihood
     total_edges::Int
     total_nodes::Int
     # cycle_probabilities::Dict{Int, Float64}
@@ -32,8 +41,6 @@ end
 
 function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, verbose=false, 
                                 max_size=4, num_sample_nodes=1000, partitioner ="QuasiStable")
-    # before doing coloring, calculate the probabilities that cycles up to the given size close
-    cycle_probabilities::Dict{Vector{Bool}, Float64} = get_cycle_likelihoods(max_size, g, num_sample_nodes)
     color_hash = nothing
     color_sizes = [0 for _ in 1:numColors]
     color_filters = Dict()
@@ -49,7 +56,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             println("Finished coloring")
         end
         color_hash = QSC.node_map(C)
-        color_sizes = [only(size(C.partitions[i])) for i in 1:numColors]
+        color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
     elseif partitioner == "Hash"
         color_hash = Dict()
         for i in 1:nv(g.graph)
@@ -124,13 +131,18 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             color_sizes[color_hash[i]] += 1
         end
     end
+    
+    # cycle_probabilities::Dict{Int, Dict{Vector{Bool}, Float64}} = get_cycle_likelihoods(max_size, g, num_sample_nodes)
+    cycle_probabilities::Dict{CyclePathAndColors, Float64} = get_color_cycle_likelihoods(max_size, g, color_hash, num_sample_nodes)
+    # the color hash should map node => color
+    # have a paramter for the color hash, make changes to get_cycle_likelihoods
 
     # initialize color filters for data labels
     current_color = 1;
     if (verbose)
         println("Started bloom filters")
     end
-    for color in 1:numColors
+    for color in eachindex(color_sizes)
         num_nodes = max(1, color_sizes[color])
         accepted_error = 0.00001
         parameters = constrain(BloomFilter, fpr=accepted_error, capacity=num_nodes)
@@ -472,8 +484,32 @@ function get_cycle_likelihoods(max_size::Int, data::DataGraph, num_sample_nodes)
                 continue
             end
             cycleGraph = QueryGraph(cycle)
-            likelihood = approximate_cycle_likelihood(path, cycleGraph, data, num_sample_nodes)
+            likelihood = approximate_cycle_likelihood(path, cycleGraph, data, num_sample_nodes) # output a dictionary of start-end color pairs -> likelihood
             cycle_likelihoods[convert_path_graph_to_bools(path.graph)] = likelihood
+        end
+    end
+    return cycle_likelihoods
+end
+
+function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, num_sample_nodes)
+    # we map the path that needs to be closed to its likelihood
+    # of actually closing
+    # use type-aliases (path = Vector{Bool})
+    cycle_likelihoods::Dict{CyclePathAndColors, Float64} = Dict()
+    if (max_size < 2)
+        return cycle_likelihoods
+    end
+    for i in 2:max_size
+        paths = generate_graphs(i - 1, 0, (Vector{DiGraph})([DiGraph(i)]), false)
+        for path in paths
+            likelihoods = approximate_color_cycle_likelihood(path, data, color_hash, num_sample_nodes) # output a dictionary of start-end color pairs -> likelihood
+            for color_pair in keys(likelihoods)
+                bool_graph = convert_path_graph_to_bools(path.graph)
+                current_cycle_description = CyclePathAndColors(bool_graph, color_pair)
+                # likelihoods[c1, c2] = [num_paths, num_cycles]
+                cycle_likelihoods[current_cycle_description] = (likelihoods[color_pair][1] == 0) ?
+                                                            0 : (likelihoods[color_pair][2]) / likelihoods[color_pair][1]
+            end
         end
     end
     return cycle_likelihoods
@@ -497,9 +533,49 @@ function approximate_cycle_likelihood(path::QueryGraph, cycle::QueryGraph, data:
     if !(num_sample_nodes === nothing)
         sampled_starting_nodes = sample(1:nv(data.graph), num_sample_nodes, replace=false)
     end
-    numCycles::Float64 = get_exact_size(cycle, data, starting_nodes=sampled_starting_nodes)
+    numCycles::Float64 = get_exact_size(cycle, data, starting_nodes=sampled_starting_nodes) 
+    # add parameter for query nodes that shouldn't be aggregated out (the starting/ending nodes)
+    # will now output a vector of tuples where first thing is a path (should only have start/end nodes after aggregations), second is the weight of the path
+    # iterate through list to figure out cycle closure likelihoods
     numPaths::Float64 = get_exact_size(path, data, starting_nodes=sampled_starting_nodes)
+    # only find paths, use data graph to find closing edge if existing
     return numPaths != 0 ? numCycles / numPaths : 0
+end
+
+function approximate_color_cycle_likelihood(path::QueryGraph, data::DataGraph, color_hash, num_sample_nodes)
+    sampled_starting_nodes = nothing
+    if !(num_sample_nodes === nothing)
+        num_samples = min(nv(data.graph), num_sample_nodes)
+        sampled_starting_nodes = sample(1:nv(data.graph), num_samples, replace=false)
+    end
+    nodes_to_keep = [1, nv(path.graph)]
+    # add parameter for query nodes that shouldn't be aggregated out (the starting/ending nodes)
+    # will now output a vector of tuples where first thing is a path (should only have start/end nodes after aggregations), second is the weight of the path
+    # iterate through list to figure out cycle closure likelihoods
+    partial_paths::Vector{Tuple{Vector{Int64}, Int64}} = get_subgraph_counts(path, data, starting_nodes=sampled_starting_nodes, nodes_to_keep=nodes_to_keep)
+    color_matches::Dict{StartEndColorPair, Vector{Float64}} = Dict() # color_matches[c1,c2] = [num_paths, num_cycles]
+    for path_and_weight in partial_paths
+        # there should be only two nodes left in the path that aren't aggregated out
+        # the returned subgraphs are actual paths, not color matches
+        path = path_and_weight[1]
+        path_weight = path_and_weight[2]
+        # check the colors
+        current_start_node = path[1]
+        current_end_node = path[2]
+        current_colors::StartEndColorPair = [color_hash[current_start_node], color_hash[current_end_node]]
+        if !(haskey(color_matches, current_colors))
+            color_matches[current_colors] = [0, 0]
+        end
+        # if there is a closing edge, then count the entire weight of the path for the cycles as well
+        # The path has a predefined directionality so we want to only find the likelihood that the last
+        # node in the path wraps around to the beginning node
+        cycle_weight = (in(current_end_node, inneighbors(data.graph, current_start_node))) ? path_weight : 0
+        color_matches[current_colors][1] = color_matches[current_colors][1] + path_weight
+        color_matches[current_colors][2] = color_matches[current_colors][2] + cycle_weight
+    end
+
+    # return mapping of color pairs -> path/cycle likelihood
+    return color_matches
 end
 
 # Given a cycle size, find the probability that a chain with the same number of nodes
@@ -656,6 +732,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
             average = only(bounds[2])
             parent_color = only(path[parent_node_idx])
             child_color = only(path[new_node_idx][1])
+            current_colors::StartEndColorPair = [child_color, parent_color]
             # don't have to check data label because these nodes are already in the
             # partial path, so we have already ensured that the colors are appropriate
             probability_of_edge = 0
@@ -668,9 +745,11 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                     # where the last node is the start of the closing edge
                     path_graph = get_matching_graph(edge[2], edge[1], query)
                     path_bools = convert_path_graph_to_bools(path_graph)
-                    if (haskey(summary.cycle_probabilities, path_bools))
+                    current_cycle_description = CyclePathAndColors(path_bools, current_colors)
+                    if haskey(summary.cycle_probabilities, current_cycle_description) # TODO: CONVERT THIS TUPLE TO A 'PATH_SIGNATURE' STRUCT
 #                        probability_of_edge = summary.cycle_probabilities[path_bools] * get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)/(summary.total_edges/(summary.total_nodes^2))
-                        probability_of_edge = summary.cycle_probabilities[path_bools]
+                        println("found it")                        
+                        probability_of_edge = summary.cycle_probabilities[current_cycle_description]
                     else
                         probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
                     end
@@ -796,7 +875,7 @@ function get_min_width_node_order(g::DiGraph)
     end
 end
 
-function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_partial_sums = true, verbose = false, usingStoredStats = false)
+function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_partial_sums = true, verbose = false, usingStoredStats = false, include_cycles = true)
     node_order = get_min_width_node_order(query.graph)
     if verbose
         println("Node Order:", node_order)
@@ -963,7 +1042,9 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
             end
         end
         partial_paths = new_partial_paths
-        handle_extra_edges!(query, summary, partial_paths, current_query_nodes, visited_query_edges, usingStoredStats)
+        if (include_cycles)
+            handle_extra_edges!(query, summary, partial_paths, current_query_nodes, visited_query_edges, usingStoredStats)
+        end
     end
 
     # Sum over the calculated partial paths to get the final bounds.
@@ -973,4 +1054,3 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
     end
     return final_bounds
 end
-
