@@ -26,6 +26,7 @@ function load_dataset(path; subgraph_matching_data=false)
             if (subgraph_matching_data)
                 e1, e2 = parse(Int, parts[2])+1, parse(Int, parts[3])+1
                 push!(edges, ((e1, e2), 0))
+                push!(edges, ((e2, e1), 0))
             else
                 e1, e2, l1 = parse(Int, parts[2])+1, parse(Int, parts[3])+1, parse(Int, parts[4])
                 push!(edges, ((e1, e2), l1))
@@ -63,7 +64,7 @@ function load_query(path; subgraph_matching_data=false)
             else
                 data_label = parse(Int, parts[4])
                 label = parse(Int, parts[3])
-            push!(vertices, (parse(Int,  parts[2]) + 1, label, data_label))
+                push!(vertices, (parse(Int,  parts[2]) + 1, label, data_label))
             end
             n += 1
         elseif line[1] == 'e'

@@ -17,7 +17,7 @@ struct DataGraph <: PropertyGraph
 end
 
 # backup implementation using vertex label sets rather than singular labels per node
-struct QueryGraph <: PropertyGraph
+mutable struct QueryGraph <: PropertyGraph
     graph::DiGraph
     edge_labels::Dict{Tuple{Int, Int}, Vector{Int}} # edge_labels[n1][n2] = { labels }
     vertex_labels::Vector{Vector{Int}} # vertex_labels[n] = labels
