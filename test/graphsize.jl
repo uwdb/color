@@ -8,121 +8,30 @@ using Graphs
 
 @testset "exact symmetrical graphs" begin
 
-    @testset "multiple possible starting nodes" begin
-        g_property = DataGraph(8)
-        add_labeled_edge!(g_property, (1,2), -1)
-        add_labeled_edge!(g_property, (3,4), -1)
-        add_labeled_edge!(g_property, (5,6), -1)
-        add_labeled_edge!(g_property, (7,8), -1)
-        q_property = QueryGraph(2)
-        add_labeled_edge!(q_property, (1,2), -1)
-        update_data_labels!(q_property, 1, [0, 2, 6])
-        exact_size = only(get_exact_size(q_property, g_property))
-        predicted_size = 3
-        @test predicted_size == exact_size
-    end
-
-    @testset "multiple possible ending nodes" begin
-        g_property = DataGraph(8)
-        add_labeled_edge!(g_property, (1,2), -1)
-        add_labeled_edge!(g_property, (3,4), -1)
-        add_labeled_edge!(g_property, (5,6), -1)
-        add_labeled_edge!(g_property, (7,8), -1)
-        q_property = QueryGraph(2)
-        add_labeled_edge!(q_property, (1,2), -1)
-        update_data_labels!(q_property, 2, [3, 5, 7])
-        exact_size = only(get_exact_size(q_property, g_property))
-        predicted_size = 3
-        @test predicted_size == exact_size
-    end
-
     @testset "1-edge graph, unlabeled" begin
-        g_property = DataGraph(2)
-        update_node_labels!(g_property, 1, [1])
-        update_node_labels!(g_property, 2, [1])
+        g_property = PropertyGraph(2)
+        add_labeled_node!(g_property, 1, [1])
+        add_labeled_node!(g_property, 2, [1])
         add_labeled_edge!(g_property, (1, 2), 1)
-        q_property = QueryGraph(2)
-        update_node_labels!(q_property, 1, 1)
-        update_node_labels!(q_property, 2, 1)
+        q_property = PropertyGraph(2)
+        add_labeled_node!(q_property, 1, [1])
+        add_labeled_node!(q_property, 2, [1])
         add_labeled_edge!(q_property, (1, 2), 1)
         exact_size = only(get_exact_size(q_property, g_property; verbose=false))
         predicted_size = 1
         @test predicted_size == exact_size
     end
 
-    @testset "1-edge graph, no matching data node" begin
-        g_property = DataGraph(2)
-        update_node_labels!(g_property, 1, [1])
-        update_node_labels!(g_property, 2, [1])
-        add_labeled_edge!(g_property, (1, 2), 1)
-        q_property = QueryGraph(2)
-        update_node_labels!(q_property, 1, 1)
-        update_node_labels!(q_property, 2, 1)
-        add_labeled_edge!(q_property, (1, 2), 1)
-        change_node_id!(q_property, 1, 1)
-        change_node_id!(q_property, 2, 0)
-        exact_size = only(get_exact_size(q_property, g_property; verbose=false))
-        predicted_size = 0
-        @test predicted_size == exact_size
-    end
-
-    @testset "looped query, no data labels" begin
-        g_property = DataGraph(4)
-        update_node_labels!(g_property, 1, [1])
-        update_node_labels!(g_property, 2, [1])
-        update_node_labels!(g_property, 3, [1])
-        update_node_labels!(g_property, 4, [1])
-        add_labeled_edge!(g_property, (1, 2), 1)
-        add_labeled_edge!(g_property, (2, 3), 1)
-        add_labeled_edge!(g_property, (2, 4), 1)
-        add_labeled_edge!(g_property, (3, 1), 1)
-        add_labeled_edge!(g_property, (4, 1), 1)
-        q_property = QueryGraph(3)
-        update_node_labels!(q_property, 1, 1)
-        update_node_labels!(q_property, 2, 1)
-        update_node_labels!(q_property, 3, 1)
-        add_labeled_edge!(q_property, (1, 2), 1)
-        add_labeled_edge!(q_property, (2, 3), 1)
-        add_labeled_edge!(q_property, (3, 1), 1)
-        exact_size = only(get_exact_size(q_property, g_property; verbose=false))
-        predicted_size = 6
-        @test predicted_size == exact_size
-    end
-
-    @testset "looped query, specific data labels" begin
-        g_property = DataGraph(4)
-        update_node_labels!(g_property, 1, [1])
-        update_node_labels!(g_property, 2, [1])
-        update_node_labels!(g_property, 3, [1])
-        update_node_labels!(g_property, 4, [1])
-        add_labeled_edge!(g_property, (1, 2), 1)
-        add_labeled_edge!(g_property, (2, 3), 1)
-        add_labeled_edge!(g_property, (2, 4), 1)
-        add_labeled_edge!(g_property, (3, 1), 1)
-        add_labeled_edge!(g_property, (4, 1), 1)
-        q_property = QueryGraph(3)
-        update_node_labels!(q_property, 1, 1)
-        update_node_labels!(q_property, 2, 1)
-        update_node_labels!(q_property, 3, 1)
-        add_labeled_edge!(q_property, (1, 2), 1)
-        add_labeled_edge!(q_property, (2, 3), 1)
-        add_labeled_edge!(q_property, (3, 1), 1)
-        change_node_id!(q_property, 1, 0)
-        exact_size = only(get_exact_size(q_property, g_property; verbose=false))
-        predicted_size = 2
-        @test predicted_size == exact_size
-    end
-
     @testset "query larger than 1-edge graph" begin
          numVertices = 2
-         g = DataGraph(numVertices)
-         update_node_labels!(g, 1, [1])
-         update_node_labels!(g, 2, [1])
+         g = PropertyGraph(numVertices)
+         add_labeled_node!(g, 1, [1])
+         add_labeled_node!(g, 2, [1])
          add_labeled_edge!(g, (1, 2), 1)
-         query_graph = QueryGraph(3)
-         update_node_labels!(query_graph, 1, 1)
-         update_node_labels!(query_graph, 2, 1)
-         update_node_labels!(query_graph, 3, 1)
+         query_graph = PropertyGraph(3)
+         add_labeled_node!(query_graph, 1, [1])
+         add_labeled_node!(query_graph, 2, [1])
+         add_labeled_node!(query_graph, 3, [1])
          add_labeled_edge!(query_graph, (1, 2), 1)
          add_labeled_edge!(query_graph, (2, 3), 1)
          exact_size = only(get_exact_size(query_graph, g; verbose=false))
@@ -132,17 +41,17 @@ using Graphs
     
      @testset "cycle graph, 1 edge query" begin
          numVertices = 1000
-         g = DataGraph(numVertices)
+         g = PropertyGraph(numVertices)
          for i in range(1,1000)
-            update_node_labels!(g, i, [1])
+            add_labeled_node!(g, i, [1])
          end
          for i in range(1,999)
             add_labeled_edge!(g, (i, i+1), 1)
          end
          add_labeled_edge!(g, (1000, 1), 1)
-         query_graph = QueryGraph(2)
-         update_node_labels!(query_graph, 1, 1)
-         update_node_labels!(query_graph, 2, 1)
+         query_graph = PropertyGraph(2)
+         add_labeled_node!(query_graph, 1, [1])
+         add_labeled_node!(query_graph, 2, [1])
          add_labeled_edge!(query_graph, (1, 2), 1)
          exact_size = only(get_exact_size(query_graph, g; verbose=false))
          predicted_size = 1000
@@ -153,11 +62,11 @@ using Graphs
          numVertices = 12
          numPartitions = 4
          g = turan_graph(numVertices, numPartitions)
-         g = DataGraph(DiGraph(g))
-         query_graph = QueryGraph(3)
-         update_node_labels!(query_graph, 1, -1)
-         update_node_labels!(query_graph, 2, -1)
-         update_node_labels!(query_graph, 3, -1)
+         g = PropertyGraph(DiGraph(g))
+         query_graph = PropertyGraph(3)
+         add_labeled_node!(query_graph, 1, [-1])
+         add_labeled_node!(query_graph, 2, [-1])
+         add_labeled_node!(query_graph, 3, [-1])
          add_labeled_edge!(query_graph, (1, 2), -1)
          add_labeled_edge!(query_graph, (2, 3), -1)
          exact_size = only(get_exact_size(query_graph, g; verbose=false))
@@ -168,11 +77,11 @@ using Graphs
     @testset "undirected cycle graph, 2 edge query" begin
         numVertices = 1000
         g = cycle_graph(numVertices)
-        g = DataGraph(DiGraph(g))
-        query_graph = QueryGraph(3)
-        update_node_labels!(query_graph, 1, -1)
-        update_node_labels!(query_graph, 2, -1)
-        update_node_labels!(query_graph, 3, -1)
+        g = PropertyGraph(DiGraph(g))
+        query_graph = PropertyGraph(3)
+        add_labeled_node!(query_graph, 1, [-1])
+        add_labeled_node!(query_graph, 2, [-1])
+        add_labeled_node!(query_graph, 3, [-1])
         add_labeled_edge!(query_graph, (1, 2), -1)
         add_labeled_edge!(query_graph, (2, 3), -1)
         exact_size_partial = only(get_exact_size(query_graph, g; use_partial_sums=true, verbose=false))
@@ -184,10 +93,10 @@ using Graphs
 
     @testset "query larger than cycle graph" begin
          numVertices = 1000
-         g = DataGraph(cycle_digraph(numVertices))
-         query_graph = QueryGraph(2)
-         update_node_labels!(query_graph, 1, -1)
-         update_node_labels!(query_graph, 2, -1)
+         g = PropertyGraph(cycle_digraph(numVertices))
+         query_graph = PropertyGraph(2)
+         add_labeled_node!(query_graph, 1, [-1])
+         add_labeled_node!(query_graph, 2, [-1])
          add_labeled_edge!(query_graph, (1, 2), -1)
          exact_size = only(get_exact_size(query_graph, g; verbose=false))
          predicted_size = 1000
@@ -197,11 +106,11 @@ using Graphs
     @testset "Dorogovtsev-Mendes graph" begin
          numVertices = 4
          g = dorogovtsev_mendes(numVertices)
-         g = DataGraph(DiGraph(g))
-         query_graph = QueryGraph(3)
-         update_node_labels!(query_graph, 1, -1)
-         update_node_labels!(query_graph, 2, -1)
-         update_node_labels!(query_graph, 3, -1)
+         g = PropertyGraph(DiGraph(g))
+         query_graph = PropertyGraph(3)
+         add_labeled_node!(query_graph, 1, [-1])
+         add_labeled_node!(query_graph, 2, [-1])
+         add_labeled_node!(query_graph, 3, [-1])
          add_labeled_edge!(query_graph, (1, 2), -1)
          add_labeled_edge!(query_graph, (2, 3), -1)
          exact_size = only(get_exact_size(query_graph, g; verbose=false))
@@ -212,11 +121,11 @@ using Graphs
     @testset "undirected binary tree graph" begin
         depth = 3
         g = binary_tree(depth)
-        g = DataGraph(DiGraph(g))
-        query_graph = QueryGraph(3)
-        update_node_labels!(query_graph, 1, -1)
-        update_node_labels!(query_graph, 2, -1)
-        update_node_labels!(query_graph, 3, -1)
+        g = PropertyGraph(DiGraph(g))
+        query_graph = PropertyGraph(3)
+        add_labeled_node!(query_graph, 1, [-1])
+        add_labeled_node!(query_graph, 2, [-1])
+        add_labeled_node!(query_graph, 3, [-1])
         add_labeled_edge!(query_graph, (1, 2), -1)
         add_labeled_edge!(query_graph, (2, 3), -1)
         exact_size = only(get_exact_size(query_graph, g; verbose=false))
@@ -226,9 +135,9 @@ using Graphs
 
     @testset "directed binary tree graph" begin
          numVertices = 7
-         g = DataGraph(numVertices)
+         g = PropertyGraph(numVertices)
          for i in range(1, 7)
-            update_node_labels!(g, i, [1])
+            add_labeled_node!(g, i, [1])
          end
          add_labeled_edge!(g, (1, 2), 1)
          add_labeled_edge!(g, (1, 3), 1)
@@ -236,10 +145,10 @@ using Graphs
          add_labeled_edge!(g, (2, 5), 1)
          add_labeled_edge!(g, (3, 6), 1)
          add_labeled_edge!(g, (3, 7), 1)
-         query_graph = QueryGraph(3)
-         update_node_labels!(query_graph, 1, -1)
-         update_node_labels!(query_graph, 2, -1)
-         update_node_labels!(query_graph, 3, -1)
+         query_graph = PropertyGraph(3)
+         add_labeled_node!(query_graph, 1, [-1])
+         add_labeled_node!(query_graph, 2, [-1])
+         add_labeled_node!(query_graph, 3, [-1])
          add_labeled_edge!(query_graph, (1, 2), -1)
          add_labeled_edge!(query_graph, (2, 3), -1)
          exact_size = only(get_exact_size(query_graph, g; verbose=false))
@@ -250,11 +159,11 @@ using Graphs
     @testset "star graph" begin
          numVertices = 4
          g = star_graph(numVertices)
-         g = DataGraph(DiGraph(g))
-         query_graph = QueryGraph(3)
-         update_node_labels!(query_graph, 1, -1)
-         update_node_labels!(query_graph, 2, -1)
-         update_node_labels!(query_graph, 3, -1)
+         g = PropertyGraph(DiGraph(g))
+         query_graph = PropertyGraph(3)
+         add_labeled_node!(query_graph, 1, [-1])
+         add_labeled_node!(query_graph, 2, [-1])
+         add_labeled_node!(query_graph, 3, [-1])
          add_labeled_edge!(query_graph, (1, 2), -1)
          add_labeled_edge!(query_graph, (2, 3), -1)
          exact_size = only(get_exact_size(query_graph, g; verbose=false))
@@ -264,15 +173,15 @@ using Graphs
 
     @testset "disconnected graph" begin
          numVertices = 4
-         g = DataGraph(numVertices)
+         g = PropertyGraph(numVertices)
          for i in range(1, 4)
-            update_node_labels!(g, i, [1])
+            add_labeled_node!(g, i, [1])
          end
          add_labeled_edge!(g, (1, 2), 1)
          add_labeled_edge!(g, (3, 4), 1)
-         query_graph = QueryGraph(2)
-         update_node_labels!(query_graph, 1, 1)
-         update_node_labels!(query_graph, 2, 1)
+         query_graph = PropertyGraph(2)
+         add_labeled_node!(query_graph, 1, [1])
+         add_labeled_node!(query_graph, 2, [1])
          add_labeled_edge!(query_graph, (1, 2), -1)
          exact_size = only(get_exact_size(query_graph, g; verbose=false))
          predicted_size = 2
@@ -281,11 +190,11 @@ using Graphs
 
 
     @testset "directed triangle query on undirected triangle data" begin
-        g = DataGraph(DiGraph(cycle_graph(3)))
-        query_graph = QueryGraph(3)
-        update_node_labels!(query_graph, 1, -1)
-        update_node_labels!(query_graph, 2, -1)
-        update_node_labels!(query_graph, 3, -1)
+        g = PropertyGraph(DiGraph(cycle_graph(3)))
+        query_graph = PropertyGraph(3)
+        add_labeled_node!(query_graph, 1, [-1])
+        add_labeled_node!(query_graph, 2, [-1])
+        add_labeled_node!(query_graph, 3, [-1])
         add_labeled_edge!(query_graph, (1,2), -1)
         add_labeled_edge!(query_graph, (2,3), -1)
         add_labeled_edge!(query_graph, (3,1), -1)
@@ -295,11 +204,11 @@ using Graphs
     end
 
     @testset "directed triangle query on undirected 4-cycle data" begin
-        g = DataGraph(DiGraph(cycle_graph(4)))
-        query_graph = QueryGraph(3)
-        update_node_labels!(query_graph, 1, -1)
-        update_node_labels!(query_graph, 2, -1)
-        update_node_labels!(query_graph, 3, -1)
+        g = PropertyGraph(DiGraph(cycle_graph(4)))
+        query_graph = PropertyGraph(3)
+        add_labeled_node!(query_graph, 1, [-1])
+        add_labeled_node!(query_graph, 2, [-1])
+        add_labeled_node!(query_graph, 3, [-1])
         add_labeled_edge!(query_graph, (1,2), -1)
         add_labeled_edge!(query_graph, (2,3), -1)
         add_labeled_edge!(query_graph, (3,1), -1)
@@ -309,29 +218,29 @@ using Graphs
     end
 
     @testset "directed triangle query on undirected 10 clique data" begin
-        g = DataGraph(DiGraph(clique_graph(10, 1)))
+        g = PropertyGraph(DiGraph(clique_graph(10, 1)))
         for i in range(2,10)
             add_labeled_edge!(g, (i, i), -1) # The clique_graph constructor doesn't include self-edges, except for node 1...
         end
-        query_graph = QueryGraph(3)
-        update_node_labels!(query_graph, 1, -1)
-        update_node_labels!(query_graph, 2, -1)
-        update_node_labels!(query_graph, 3, -1)
+        query_graph = PropertyGraph(3)
+        add_labeled_node!(query_graph, 1, [-1])
+        add_labeled_node!(query_graph, 2, [-1])
+        add_labeled_node!(query_graph, 3, [-1])
         add_labeled_edge!(query_graph, (1,2), -1)
         add_labeled_edge!(query_graph, (2,3), -1)
         add_labeled_edge!(query_graph, (3,1), -1)
-        exact_size = only(get_exact_size(query_graph, g; verbose=false))
+        exact_size = only(get_exact_size(query_graph, g; verbose=true))
         predicted_size = 10*10*10
 
         @test predicted_size == exact_size
     end
 
     @testset "1-vertex query" begin
-         g = DataGraph(DiGraph(path_graph(2)))
-         update_node_labels!(g, 1, [1])
-         update_node_labels!(g, 2, [1])
-         query_graph = QueryGraph(1)
-         update_node_labels!(query_graph, 1, -1)
+         g = PropertyGraph(DiGraph(path_graph(2)))
+         add_labeled_node!(g, 1, [1])
+         add_labeled_node!(g, 2, [1])
+         query_graph = PropertyGraph(1)
+         add_labeled_node!(query_graph, 1, [-1])
          exact_size = only(get_exact_size(query_graph, g; verbose=false))
          predicted_size = 2
          @test predicted_size == exact_size
@@ -347,11 +256,11 @@ end
          add_edge!(g, 1, 4)
          add_edge!(g, 1, 5)
          add_edge!(g, 5, 6)
-         g = DataGraph(DiGraph(g))
-         query_graph = QueryGraph(3)
-         update_node_labels!(query_graph, 1, -1)
-         update_node_labels!(query_graph, 2, -1)
-         update_node_labels!(query_graph, 3, -1)
+         g = PropertyGraph(DiGraph(g))
+         query_graph = PropertyGraph(3)
+         add_labeled_node!(query_graph, 1, [-1])
+         add_labeled_node!(query_graph, 2, [-1])
+         add_labeled_node!(query_graph, 3, [-1])
          add_labeled_edge!(query_graph, (1, 2), -1)
          add_labeled_edge!(query_graph, (2, 3), -1)
          exact_size = only(get_exact_size(query_graph, g; verbose=false))
@@ -370,11 +279,11 @@ end
          add_edge!(g, 5, 7)
          add_edge!(g, 5, 6)
          add_edge!(g, 6, 7)
-         g = DataGraph(DiGraph(g))
-         query_graph = QueryGraph(3)
-         update_node_labels!(query_graph, 1, -1)
-         update_node_labels!(query_graph, 2, -1)
-         update_node_labels!(query_graph, 3, -1)
+         g = PropertyGraph(DiGraph(g))
+         query_graph = PropertyGraph(3)
+         add_labeled_node!(query_graph, 1, [-1])
+         add_labeled_node!(query_graph, 2, [-1])
+         add_labeled_node!(query_graph, 3, [-1])
          add_labeled_edge!(query_graph, (1, 2), -1)
          add_labeled_edge!(query_graph, (2, 3), -1)
          exact_size = only(get_exact_size(query_graph, g; verbose=false))

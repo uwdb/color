@@ -1,0 +1,3 @@
+# qColoringCardinality
+
+*Documentation goes here.*
