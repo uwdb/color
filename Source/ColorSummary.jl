@@ -1,4 +1,5 @@
 include("PropertyGraph.jl")
+using AutoHashEquals
 
 BoolPath = Vector{Bool}
 StartEndColorPair = Vector{Int}

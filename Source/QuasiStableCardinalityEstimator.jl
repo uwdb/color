@@ -83,7 +83,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                     path_graph = get_matching_graph(edge[2], edge[1], query)
                     path_bools = convert_path_graph_to_bools(path_graph)
                     current_cycle_description = CyclePathAndColors(path_bools, current_colors)
-                    if haskey(summary.cycle_probabilities, current_cycle_description) # TODO: CONVERT THIS TUPLE TO A 'PATH_SIGNATURE' STRUCT
+                    if haskey(summary.cycle_probabilities, current_cycle_description)
 #                        probability_of_edge = summary.cycle_probabilities[path_bools] * get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)/(summary.total_edges/(summary.total_nodes^2))
                         probability_of_edge = summary.cycle_probabilities[current_cycle_description]
                     else
@@ -220,8 +220,6 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
     partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = [] # each tuple contains a pairing of color paths -> bounds
     visited_query_edges::Vector{Tuple{Int,Int}} = []
     current_query_nodes::Vector{Int} = []
-    # Change this to initialize the partial_paths as 1-node paths with bounds corresponding to the 
-    # number of nodes of the particular label within each color.
 
     old_node = popfirst!(node_order)
     parent_label = query.vertex_labels[old_node][1]
@@ -273,7 +271,6 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
         for neighbor in all_neighbors(query.graph, new_node)
             if neighbor in current_query_nodes
                 old_node = neighbor
-                # Gets the index of the parent in the list of current nodes.
                 parent_idx = indexin(neighbor, current_query_nodes)
                 if old_node in inneighbors(query.graph, new_node)
                     outEdge = true
