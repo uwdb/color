@@ -365,6 +365,8 @@ function get_independent_cycle_likelihood(edge_label, child_label, parent_color,
     summary.edge_avg_out_deg[edge_label][child_label][parent_color][child_color]/summary.color_label_cardinality[child_color][child_label]
 end
 
+# approximates the probability of a cycle existing based on the starting color of the path to be closed and the
+# directionality of the path that will be closed
 function get_start_color_cycle_likelihoods(max_cycle_size::Int, data::DataGraph, color_hash; num_samples_per_color::Int=0)
     # right now the color hash is a mapping of node -> color, but we want to invert that:
     color_nodes_mapping::Dict{Int, Vector{Int}} = Dict()
@@ -435,6 +437,7 @@ function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
     return new_graph
 end
 
+# approximates the probability of a cycle existing based on the directionality of the path that will be closed
 function get_cycle_likelihoods(max_size::Int, data::DataGraph, num_sample_nodes)
     # we map the path that needs to be closed to its likelihood
     # of actually closing
