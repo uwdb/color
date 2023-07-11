@@ -40,6 +40,43 @@ function sum_over_node!(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}
     end
 end
 
+function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}, num_samples::Int)
+    # partial_path[x] = (color path, bounds)
+
+    # sum up all of the bounds
+    overall_bounds_sum::Vector{Float64} = [0,0,0]
+    for path_and_bounds in partial_paths
+        overall_bounds_sum = overall_bounds_sum .+ path_and_bounds[2]
+    end
+
+    # choose a sample of the paths
+    path_samples::Vector{Tuple{Vector{Int}, Vector{Float64}}} = sample(partial_paths, num_samples)
+
+    # sum up the sampled bounds
+    sampled_bounds_sum::Vector{Float64} = [0,0,0]
+    for path_and_bounds in path_samples
+        sampled_bounds_sum = sampled_bounds_sum .+ path_and_bounds[2]
+    end
+
+    # get the difference between the overall and sampled bound sum_over_finished_query_nodes
+    bound_diff::Vector{Float64} = overall_bounds_sum .- sampled_bounds_sum
+
+    # for each sampled path...
+    for i in eachindex(path_samples)
+        # figure out what fraction of the sampled bounds is in the current Bounds
+        # higher bounds will have more weight redistributed to them
+        bound_fractions = path_samples[i][2] ./ sampled_bounds_sum
+        # use that fraction of the difference (i.e. the removed path weights) and add it to the partial path
+        redistributed_weights = bound_fractions .* bound_diff
+        path_samples[i][2][1] = path_samples[i][2][1] + redistributed_weights[1]
+        path_samples[i][2][2] = path_samples[i][2][2] + redistributed_weights[2]
+        path_samples[i][2][3] = path_samples[i][2][3] + redistributed_weights[3]
+        # path_samples[i][2] = path_samples[i][2] .+ redistributed_weights
+    end
+
+    return path_samples
+end
+
 function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}, 
                                 current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int,Int}}, usingStoredStats::Bool)
     # To account for cyclic queries, we check whether there are any remaining edges that have not
