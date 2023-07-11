@@ -1,4 +1,4 @@
-include("../Source/UnlabeledCardinalityEstimator.jl")
+include("../Source/QuasiStableCardinalityEstimator.jl")
 using Distributions
 using DataStructures: counter, Dict, Set, Vector, inc!
 
@@ -13,24 +13,19 @@ using Graphs
 
     @testset "1-edge graph" begin
         g = DiGraph(2)
-        add_edge!(g, (1, 2))
-        g_edge_labels::Dict{Int, Dict{Int, Array{Int}}} = Dict()
-        g_edge_labels[1] = Dict()
-        g_edge_labels[1][2] = Array([1])
-        g_vertex_labels::Dict{Int, Array{Int}} = Dict()
-        g_vertex_labels[1] = Array([1])
-        g_vertex_labels[2] = Array([1])
-        g_property = PropertyGraph(g, g_edge_labels, g_vertex_labels)
+        g_property = DataGraph(g)
+        update_node_labels!(g_property, 1, Array([1]))
+        update_node_labels!(g_property, 2, Array([1]))
+        add_labeled_edge!(g_property, Tuple([1, 2]), 1)
         summary = generate_color_summary(g_property, 16)
         query_graph = DiGraph(2)
-        add_edge!(query_graph, (1, 2))
-        q_edge_labels::Dict{Int, Dict{Int, Array{Int}}} = Dict()
-        q_edge_labels[1] = Dict()
-        q_edge_labels[1][2] = Array([1])
-        q_vertex_labels::Dict{Int, Array{Int}} = Dict()
-        q_vertex_labels[1] = Array([1])
-        q_vertex_labels[2] = Array([1])
-        q_property = PropertyGraph(query_graph, q_edge_labels, q_vertex_labels)
+        # q_property = DataGraph(query_graph, q_edge_labels, q_vertex_labels)
+        q_property = QueryGraph(query_graph)
+        update_node_labels!(q_property, 1, 1)
+        update_node_labels!(q_property, 2, 1)
+        change_node_id!(q_property, 1, 0)
+        change_node_id!(q_property, 2, 1)
+        add_labeled_edge!(q_property, Tuple([1, 2]), 1)
         exact_size = only(get_exact_size(q_property, g_property; verbose=false))
         bounds_without_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums = false, verbose = false);
         bounds_with_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums = true, verbose = false);
@@ -48,6 +43,33 @@ using Graphs
         @test abs(bounds_without_partial_agg[1] - bounds_with_partial_agg[1]) <= 1
         @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
         @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
+    end
+
+    @testset "1-edge graph, no data label matches" begin
+        g = DiGraph(2)
+        g_property = DataGraph(g)
+        update_node_labels!(g_property, 1, Array([1]))
+        update_node_labels!(g_property, 2, Array([1]))
+        add_labeled_edge!(g_property, Tuple([1, 2]), 1)
+        summary = generate_color_summary(g_property, 16)
+        query_graph = DiGraph(2)
+        # q_property = DataGraph(query_graph, q_edge_labels, q_vertex_labels)
+        q_property = QueryGraph(query_graph)
+        update_node_labels!(q_property, 1, 1)
+        update_node_labels!(q_property, 2, 1)
+        change_node_id!(q_property, 1, 1)
+        change_node_id!(q_property, 2, 0)
+        add_labeled_edge!(q_property, Tuple([1, 2]), 1)
+        exact_size = only(get_exact_size(q_property, g_property; verbose=false))
+        bounds_without_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums = false, verbose = false);
+        bounds_with_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums = true, verbose = false);
+        # test that partial aggregation doesn't affect results
+        @test bounds_with_partial_agg ≈ bounds_without_partial_agg
+        # test that min/avg/max are reasonable
+        @test bounds_without_partial_agg[1] <= bounds_without_partial_agg[2]
+        @test bounds_without_partial_agg[2] <= bounds_without_partial_agg[3]
+        @test bounds_without_partial_agg[1] <= exact_size
+        @test exact_size <= bounds_without_partial_agg[3]
     end
 
     # @testset "query larger than 1-edge graph" begin
@@ -75,6 +97,70 @@ using Graphs
     #     @test abs(bounds_without_partial_agg[2] - bounds_with_partial_agg[2]) <= 1
     #     @test abs(bounds_without_partial_agg[3] - bounds_with_partial_agg[3]) <= 1
     # end
+
+    @testset "looped query, no data labels" begin
+        g_property = DataGraph(4)
+        update_node_labels!(g_property, 1, [1])
+        update_node_labels!(g_property, 2, [1])
+        update_node_labels!(g_property, 3, [1])
+        update_node_labels!(g_property, 4, [1])
+        add_labeled_edge!(g_property, (1, 2), 1)
+        add_labeled_edge!(g_property, (2, 3), 1)
+        add_labeled_edge!(g_property, (2, 4), 1)
+        add_labeled_edge!(g_property, (3, 1), 1)
+        add_labeled_edge!(g_property, (4, 1), 1)
+        q_property = QueryGraph(3)
+        update_node_labels!(q_property, 1, 1)
+        update_node_labels!(q_property, 2, 1)
+        update_node_labels!(q_property, 3, 1)
+        add_labeled_edge!(q_property, (1, 2), 1)
+        add_labeled_edge!(q_property, (2, 3), 1)
+        add_labeled_edge!(q_property, (3, 1), 1)
+        summary = generate_color_summary(g_property, 16)
+        exact_size = only(get_exact_size(q_property, g_property; verbose=false))
+        bounds_with_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums=true, verbose=false, usingStoredStats=true)
+        bounds_without_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums=false, verbose=false, usingStoredStats=true)
+        println("Bounds: ", bounds_with_partial_agg)
+        # test that partial aggregation doesn't affect results
+        @test bounds_with_partial_agg ≈ bounds_without_partial_agg
+        # test that min/avg/max are reasonable
+        @test bounds_without_partial_agg[1] <= bounds_without_partial_agg[2]
+        @test bounds_without_partial_agg[2] <= bounds_without_partial_agg[3]
+        @test bounds_without_partial_agg[1] <= exact_size
+        @test exact_size <= bounds_without_partial_agg[3]
+    end
+
+    @testset "looped query, specific data labels" begin
+        g_property = DataGraph(4)
+        update_node_labels!(g_property, 1, [1])
+        update_node_labels!(g_property, 2, [1])
+        update_node_labels!(g_property, 3, [1])
+        update_node_labels!(g_property, 4, [1])
+        add_labeled_edge!(g_property, (1, 2), 1)
+        add_labeled_edge!(g_property, (2, 3), 1)
+        add_labeled_edge!(g_property, (2, 4), 1)
+        add_labeled_edge!(g_property, (3, 1), 1)
+        add_labeled_edge!(g_property, (4, 1), 1)
+        q_property = QueryGraph(3)
+        update_node_labels!(q_property, 1, 1)
+        update_node_labels!(q_property, 2, 1)
+        update_node_labels!(q_property, 3, 1)
+        add_labeled_edge!(q_property, (1, 2), 1)
+        add_labeled_edge!(q_property, (2, 3), 1)
+        add_labeled_edge!(q_property, (3, 1), 1)
+        change_node_id!(q_property, 1, 0)
+        summary = generate_color_summary(g_property, 16)
+        exact_size = only(get_exact_size(q_property, g_property; verbose=false))
+        bounds_with_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums=true, verbose=false)
+        bounds_without_partial_agg = get_cardinality_bounds(q_property, summary; use_partial_sums=false, verbose=false)
+        # test that partial aggregation doesn't affect results
+        @test bounds_with_partial_agg ≈ bounds_without_partial_agg
+        # test that min/avg/max are reasonable
+        @test bounds_without_partial_agg[1] <= bounds_without_partial_agg[2]
+        @test bounds_without_partial_agg[2] <= bounds_without_partial_agg[3]
+        @test bounds_without_partial_agg[1] <= exact_size
+        @test exact_size <= bounds_without_partial_agg[3]
+    end
     
     # @testset "cycle graph" begin
     #     numVertices = 1000
