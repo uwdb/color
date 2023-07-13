@@ -122,7 +122,7 @@ function sum_over_finished_query_nodes!(query::QueryGraph, partial_paths::Vector
 end
 
 function get_min_width_node_order(g::DiGraph)
-    if (nv(g) < 10) && false
+    if (nv(g) < 10)
         nodes_processed = 1
         partial_orders::Dict{Set{Int64}, Tuple{Vector{Int64}, Int64}} = Dict(Set([x]) =>([x], 0) for x in vertices(g))
         while nodes_processed < nv(g)
