@@ -43,6 +43,11 @@ end
 function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}, num_samples::Int)
     # partial_path[x] = (color path, bounds)
 
+    # if we want to sample more paths than there are existing, then just return the original partial paths
+    if (num_samples > length(partial_paths))
+        return partial_paths
+    end
+
     # sum up all of the bounds
     overall_bounds_sum::Vector{Float64} = [0,0,0]
     for path_and_bounds in partial_paths
@@ -50,7 +55,7 @@ function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}
     end
 
     # choose a sample of the paths
-    path_samples::Vector{Tuple{Vector{Int}, Vector{Float64}}} = sample(partial_paths, num_samples)
+    path_samples::Vector{Tuple{Vector{Int}, Vector{Float64}}} = sample(partial_paths, num_samples; replace=false)
 
     # sum up the sampled bounds
     sampled_bounds_sum::Vector{Float64} = [0,0,0]
@@ -72,6 +77,12 @@ function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}
         path_samples[i][2][2] = path_samples[i][2][2] + redistributed_weights[2]
         path_samples[i][2][3] = path_samples[i][2][3] + redistributed_weights[3]
         # path_samples[i][2] = path_samples[i][2] .+ redistributed_weights
+
+        # not sure if I'm doing this right
+        # if the weights go in terms of min/avg/max
+        # if you combine two paths
+        # what does the min/avg/max become?
+        # does it become the min/avg/max of the two
     end
 
     return path_samples
@@ -247,7 +258,7 @@ function get_min_width_node_order(g::DiGraph)
     end
 end
 
-function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_partial_sums = true, verbose = false, usingStoredStats = false, include_cycles = true)
+function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_partial_paths = nothing, use_partial_sums = true, verbose = false, usingStoredStats = false, include_cycles = true)
     node_order = get_min_width_node_order(query.graph) #spanning tree to cut out cycles
     if verbose
         println("Node Order:", node_order)
@@ -335,6 +346,11 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
 
         # Update the partial paths using the parent-child combo that comes next from the query.
         new_partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = []
+        if (max_partial_paths !== nothing)
+            if (length(partial_paths) > max_partial_paths)
+                partial_paths = sample_paths(partial_paths, max_partial_paths)
+            end
+        end
         for path_and_bounds in partial_paths
             path = path_and_bounds[1]
             running_bounds = path_and_bounds[2]
