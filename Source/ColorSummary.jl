@@ -36,7 +36,7 @@ struct ColorSummary
 end
 
 function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, verbose=false, 
-                                max_size=4, num_sample_nodes=1000, partitioner ="QuasiStable")
+                                max_size=4, max_partial_paths=1000, partitioner ="QuasiStable")
     color_hash = nothing
     color_sizes = [0 for _ in 1:numColors]
     color_filters = Dict()
@@ -129,7 +129,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
     end
     
     # cycle_probabilities::Dict{Int, Dict{Vector{Bool}, Float64}} = get_cycle_likelihoods(max_size, g, num_sample_nodes)
-    cycle_probabilities::Dict{CyclePathAndColors, Float64} = get_color_cycle_likelihoods(max_size, g, color_hash, num_sample_nodes)
+    cycle_probabilities::Dict{CyclePathAndColors, Float64} = get_color_cycle_likelihoods(max_size, g, color_hash, max_partial_paths)
     # the color hash should map node => color
     # have a paramter for the color hash, make changes to get_cycle_likelihoods
 
@@ -398,8 +398,8 @@ function get_start_color_cycle_likelihoods(max_cycle_size::Int, data::DataGraph,
                     sample_size = min(num_samples_per_color, length(color_nodes_mapping[color]))
                     current_starting_nodes = sample(color_nodes_mapping[color], sample_size, replace=false)
                 end
-                numCycles::Float64 = get_exact_size(cycle_query, data, starting_nodes=current_starting_nodes)
-                numPaths::Float64 = get_exact_size(path_query, data, starting_nodes=current_starting_nodes)
+                numCycles::Float64 = get_exact_size(cycle_query, data, max_partial_paths=max_partial_paths)
+                numPaths::Float64 = get_exact_size(path_query, data, max_partial_paths=max_partial_paths)
                 bool_representation = convert_path_graph_to_bools(path_query.graph)
                 likelihood = numCycles / numPaths
                 cycle_likelihoods[color][bool_representation] = likelihood
@@ -465,7 +465,7 @@ function get_cycle_likelihoods(max_size::Int, data::DataGraph, num_sample_nodes)
 end
 
 # returns a mapping from start/end-colors => cycle-likelihood
-function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, num_sample_nodes)
+function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, max_partial_paths)
     # we map the path that needs to be closed to its likelihood
     # of actually closing
     # use type-aliases (path = Vector{Bool})
@@ -476,7 +476,7 @@ function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash,
     for i in 2:max_size
         paths = generate_graphs(i - 1, 0, (Vector{DiGraph})([DiGraph(i)]), false)
         for path in paths
-            likelihoods = approximate_color_cycle_likelihood(path, data, color_hash, num_sample_nodes) # output a dictionary of start-end color pairs -> likelihood
+            likelihoods = approximate_color_cycle_likelihood(path, data, color_hash, max_partial_paths) # output a dictionary of start-end color pairs -> likelihood
             for color_pair in keys(likelihoods)
                 bool_graph = convert_path_graph_to_bools(path.graph)
                 current_cycle_description = CyclePathAndColors(bool_graph, color_pair)
@@ -503,32 +503,23 @@ end
 
 # for a specific path, calculates the
 # probability that the cycle closes
-function approximate_cycle_likelihood(path::QueryGraph, cycle::QueryGraph, data::DataGraph, num_sample_nodes)
-    sampled_starting_nodes = nothing
-    if !(num_sample_nodes === nothing)
-        sampled_starting_nodes = sample(1:nv(data.graph), num_sample_nodes, replace=false)
-    end
-    numCycles::Float64 = get_exact_size(cycle, data, starting_nodes=sampled_starting_nodes) 
+function approximate_cycle_likelihood(path::QueryGraph, cycle::QueryGraph, data::DataGraph, max_partial_paths)
+    numCycles::Float64 = get_exact_size(cycle, data, max_partial_paths=max_partial_paths) 
     # add parameter for query nodes that shouldn't be aggregated out (the starting/ending nodes)
     # will now output a vector of tuples where first thing is a path (should only have start/end nodes after aggregations), second is the weight of the path
     # iterate through list to figure out cycle closure likelihoods
-    numPaths::Float64 = get_exact_size(path, data, starting_nodes=sampled_starting_nodes)
+    numPaths::Float64 = get_exact_size(path, data, max_partial_paths=max_partial_paths)
     # only find paths, use data graph to find closing edge if existing
     return numPaths != 0 ? numCycles / numPaths : 0
 end
 
 # returns a mapping of start/end-colors => path-count/cycle-count
-function approximate_color_cycle_likelihood(path::QueryGraph, data::DataGraph, color_hash, num_sample_nodes)
-    sampled_starting_nodes = nothing
-    if !(num_sample_nodes === nothing)
-        num_samples = min(nv(data.graph), num_sample_nodes)
-        sampled_starting_nodes = sample(1:nv(data.graph), num_samples, replace=false)
-    end
+function approximate_color_cycle_likelihood(path::QueryGraph, data::DataGraph, color_hash, max_partial_paths)
     nodes_to_keep = [1, nv(path.graph)]
     # add parameter for query nodes that shouldn't be aggregated out (the starting/ending nodes)
     # will now output a vector of tuples where first thing is a path (should only have start/end nodes after aggregations), second is the weight of the path
     # iterate through list to figure out cycle closure likelihoods
-    partial_paths = get_subgraph_counts(path, data, starting_nodes=sampled_starting_nodes, nodes_to_keep=nodes_to_keep)
+    partial_paths = get_subgraph_counts(path, data, max_partial_paths=max_partial_paths, nodes_to_keep=nodes_to_keep)
     color_matches::Dict{StartEndColorPair, Vector{Float64}} = Dict() # color_matches[c1,c2] = [num_paths, num_cycles]
     for path_and_weight in partial_paths
         # there should be only two nodes left in the path that aren't aggregated out
