@@ -35,7 +35,7 @@ struct ColorSummary
     # v2 represents the label of the node in c1
 end
 
-function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, verbose=false, 
+function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, verbose=false,
                                 max_size=4, max_partial_paths=1000, partitioner ="QuasiStable")
     color_hash = nothing
     color_sizes = [0 for _ in 1:numColors]
@@ -44,7 +44,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
     color_label_cardinality = Dict()
     if partitioner == "QuasiStable"
         QSC = QuasiStableColors
-        if (verbose) 
+        if (verbose)
             println("Started coloring")
         end
         C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting)
@@ -127,11 +127,9 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             color_sizes[color_hash[i]] += 1
         end
     end
-    
+
     # cycle_probabilities::Dict{Int, Dict{Vector{Bool}, Float64}} = get_cycle_likelihoods(max_size, g, num_sample_nodes)
     cycle_probabilities::Dict{CyclePathAndColors, Float64} = get_color_cycle_likelihoods(max_size, g, color_hash, max_partial_paths)
-    # the color hash should map node => color
-    # have a paramter for the color hash, make changes to get_cycle_likelihoods
 
     # initialize color filters for data labels
     current_color = 1;
@@ -179,7 +177,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
     if (verbose)
         println("Finished cardinality counts")
     end
-    
+
     if (verbose)
         println("Started tracking statistics")
     end
@@ -195,9 +193,9 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             vertex_labels = []
             copy!(vertex_labels, g.vertex_labels[y])
             push!(vertex_labels, -1)
-            
+
             # Since each edge/vertex can have multiple labels associated with it,
-            # we must count each edge/vertex label separately in our counter. 
+            # we must count each edge/vertex label separately in our counter.
             # Additionally, we need to include a count for the implicit `-1` wildcard label.
             for edge_label in edge_labels
                 if !haskey(color_to_color_out_counter, edge_label)
@@ -230,7 +228,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             edge_min_out_deg[edge_label][vertex_label] = Dict()
             edge_avg_out_deg[edge_label][vertex_label] = Dict()
             edge_max_out_deg[edge_label][vertex_label] = Dict()
-            for c1 in keys(color_to_color_out_counter[edge_label][vertex_label]) 
+            for c1 in keys(color_to_color_out_counter[edge_label][vertex_label])
                 edge_min_out_deg[edge_label][vertex_label][c1] = Dict()
                 edge_avg_out_deg[edge_label][vertex_label][c1] = Dict()
                 edge_max_out_deg[edge_label][vertex_label][c1] = Dict()
@@ -242,7 +240,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
                         edge_max_out_deg[edge_label][vertex_label][c1][c2] = max(v, edge_max_out_deg[edge_label][vertex_label][c1][c2])
                     end
                     edge_avg_out_deg[edge_label][vertex_label][c1][c2] = sum(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) / color_cardinality[c1]
-                    
+
                     # if the number of connections is less than the number of vertices in the color,
                     # we can't guarantee the minimum bounds since they won't all map to the same vertex
                     if length(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) < color_cardinality[c1]
@@ -265,9 +263,9 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             vertex_labels = []
             copy!(vertex_labels, g.vertex_labels[y])
             push!(vertex_labels, -1)
-            
+
             # Since each edge/vertex can have multiple labels associated with it,
-            # we must count each edge/vertex label separately in our counter. 
+            # we must count each edge/vertex label separately in our counter.
             # Additionally, we need to include a count for the implicit `-1` wildcard label.
             for edge_label in edge_labels
                 if !haskey(color_to_color_in_counter, edge_label)
@@ -300,7 +298,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             edge_min_in_deg[edge_label][vertex_label] = Dict()
             edge_avg_in_deg[edge_label][vertex_label] = Dict()
             edge_max_in_deg[edge_label][vertex_label] = Dict()
-            for c1 in keys(color_to_color_in_counter[edge_label][vertex_label]) 
+            for c1 in keys(color_to_color_in_counter[edge_label][vertex_label])
                 edge_min_in_deg[edge_label][vertex_label][c1] = Dict()
                 edge_avg_in_deg[edge_label][vertex_label][c1] = Dict()
                 edge_max_in_deg[edge_label][vertex_label][c1] = Dict()
@@ -312,7 +310,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
                         edge_max_in_deg[edge_label][vertex_label][c1][c2] = max(v, edge_max_in_deg[edge_label][vertex_label][c1][c2])
                     end
                     edge_avg_in_deg[edge_label][vertex_label][c1][c2] = sum(values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])) / color_cardinality[c1]
-                    
+
                     # if the number of connections is less than the number of vertices in the color,
                     # we can't guarantee the minimum bounds since they won't all map to the same vertex
                     if length(values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])) < color_cardinality[c1]
@@ -327,7 +325,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
     end
     color_to_color_in_counter = Dict()
     color_to_color_out_counter = Dict()
-    return ColorSummary(color_label_cardinality, edge_min_out_deg, edge_min_in_deg, 
+    return ColorSummary(color_label_cardinality, edge_min_out_deg, edge_min_in_deg,
                                     edge_avg_out_deg, edge_avg_in_deg, edge_max_out_deg, edge_max_in_deg, color_filters,
                                      cycle_probabilities, ne(g.graph), nv(g.graph))
 end
@@ -354,10 +352,10 @@ function get_color_summary_size(summary)
     end
     numEntries = numEntries*3 # To account for min, avg, and max stats
     numEntries += length(summary.cycle_probabilities)
-    return 
+    return
 end
 
-# when we generate the color summary, we need to have a method  to calculate the odds of a cycle 
+# when we generate the color summary, we need to have a method  to calculate the odds of a cycle
 
 # approximates the probability of the cycle existing by using the degree into the landing node
 # and the total number of nodes in the landing node
@@ -467,15 +465,17 @@ end
 # returns a mapping from start/end-colors => cycle-likelihood
 function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, max_partial_paths)
     # we map the path that needs to be closed to its likelihood
-    # of actually closing
-    # use type-aliases (path = Vector{Bool})
+    # of actually closing use type-aliases (path = Vector{Bool})
     cycle_likelihoods::Dict{CyclePathAndColors, Float64} = Dict()
     if (max_size < 2)
         return cycle_likelihoods
     end
+    default_color_pair = (-1, -1)
     for i in 2:max_size
         paths = generate_graphs(i - 1, 0, (Vector{DiGraph})([DiGraph(i)]), false)
         for path in paths
+            total_path_weight, total_cycle_weight = 0
+            default_cycle_description = CyclePathAndColors(bool_graph, default_color_pair)
             likelihoods = approximate_color_cycle_likelihood(path, data, color_hash, max_partial_paths) # output a dictionary of start-end color pairs -> likelihood
             for color_pair in keys(likelihoods)
                 if likelihoods[color_pair][1] == 0 || likelihoods[color_pair][2] == 0
@@ -486,7 +486,10 @@ function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash,
                 # likelihoods[c1, c2] = [num_paths, num_cycles]
                 cycle_likelihoods[current_cycle_description] = (likelihoods[color_pair][1] == 0) ?
                                                             0 : (likelihoods[color_pair][2]) / likelihoods[color_pair][1]
+                total_path_weight += likelihoods[color_pair][1]
+                total_cycle_weight += likelihoods[color_pair][1]
             end
+            cycle_likelihoods[default_cycle_description] = total_cycle_weight/total_path_weight
         end
     end
     return cycle_likelihoods
@@ -495,7 +498,7 @@ end
 # takes a path and converts it into a list of bools, each bool representing
 # whether or not the next edge is going forwards
 # ex: a => b => c <= d would become {true, true, false}
-function convert_path_graph_to_bools(graph::DiGraph) 
+function convert_path_graph_to_bools(graph::DiGraph)
     # we say true = edge is going forwards
     bool_representation::Vector{Bool} = []
     for vertex in 1:(nv(graph)-1)
@@ -507,7 +510,7 @@ end
 # for a specific path, calculates the
 # probability that the cycle closes
 function approximate_cycle_likelihood(path::QueryGraph, cycle::QueryGraph, data::DataGraph, max_partial_paths)
-    numCycles::Float64 = get_exact_size(cycle, data, max_partial_paths=max_partial_paths) 
+    numCycles::Float64 = get_exact_size(cycle, data, max_partial_paths=max_partial_paths)
     # add parameter for query nodes that shouldn't be aggregated out (the starting/ending nodes)
     # will now output a vector of tuples where first thing is a path (should only have start/end nodes after aggregations), second is the weight of the path
     # iterate through list to figure out cycle closure likelihoods
