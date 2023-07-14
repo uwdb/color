@@ -470,18 +470,18 @@ function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash,
     if (max_size < 2)
         return cycle_likelihoods
     end
-    default_color_pair = (-1, -1)
+    default_color_pair = [-1, -1]
     for i in 2:max_size
         paths = generate_graphs(i - 1, 0, (Vector{DiGraph})([DiGraph(i)]), false)
         for path in paths
-            total_path_weight, total_cycle_weight = 0
+            total_path_weight, total_cycle_weight = (0,0)
+            bool_graph = convert_path_graph_to_bools(path.graph)
             default_cycle_description = CyclePathAndColors(bool_graph, default_color_pair)
             likelihoods = approximate_color_cycle_likelihood(path, data, color_hash, max_partial_paths) # output a dictionary of start-end color pairs -> likelihood
             for color_pair in keys(likelihoods)
                 if likelihoods[color_pair][1] == 0 || likelihoods[color_pair][2] == 0
                     continue
                 end
-                bool_graph = convert_path_graph_to_bools(path.graph)
                 current_cycle_description = CyclePathAndColors(bool_graph, color_pair)
                 # likelihoods[c1, c2] = [num_paths, num_cycles]
                 cycle_likelihoods[current_cycle_description] = (likelihoods[color_pair][1] == 0) ?

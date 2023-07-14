@@ -133,7 +133,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                     path_graph = get_matching_graph(edge[2], edge[1], query)
                     path_bools = convert_path_graph_to_bools(path_graph)
                     current_cycle_description = CyclePathAndColors(path_bools, current_colors)
-                    default_cycle_description = CyclePathAndColors(path_bools, (-1, -1))
+                    default_cycle_description = CyclePathAndColors(path_bools, [-1, -1])
                     if haskey(summary.cycle_probabilities, current_cycle_description)
                         probability_of_edge = summary.cycle_probabilities[current_cycle_description]
                     elseif haskey(summary.cycle_probabilities, default_cycle_description)
