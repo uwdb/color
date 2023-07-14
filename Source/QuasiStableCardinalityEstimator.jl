@@ -42,12 +42,14 @@ end
 
 function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}, num_samples::Int)
     # partial_path[x] = (color path, bounds)
+    partial_paths = [x for x  in partial_paths if x[2][2] > 0]
 
     # if we want to sample more paths than there are existing, then just return the original partial paths
     if (num_samples > length(partial_paths))
         return partial_paths
     end
 
+    
     # sum up all of the bounds
     overall_bounds_sum::Vector{Float64} = [0,0,0]
     for path_and_bounds in partial_paths
@@ -55,7 +57,9 @@ function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}
     end
 
     # choose a sample of the paths
-    path_samples::Vector{Tuple{Vector{Int}, Vector{Float64}}} = sample(partial_paths, num_samples; replace=false)
+    sample_weights = [x[2][2] for x in partial_paths]
+    sample_weights =AnalyticWeights(sample_weights./sum(sample_weights))    
+    path_samples::Vector{Tuple{Vector{Int}, Vector{Float64}}} = sample(partial_paths, sample_weights,  num_samples; replace=false)
 
     # sum up the sampled bounds
     sampled_bounds_sum::Vector{Float64} = [0,0,0]
@@ -65,7 +69,7 @@ function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}
 
     # get the difference between the overall and sampled bound sum_over_finished_query_nodes
     bound_diff::Vector{Float64} = overall_bounds_sum .- sampled_bounds_sum
-
+    
     # for each sampled path...
     for i in eachindex(path_samples)
         # figure out what fraction of the sampled bounds is in the current Bounds
@@ -126,8 +130,6 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                 if usingStoredStats
                     # we flip this because the matching graph finds the path between two nodes,
                     # where the last node is the start of the closing edge
-                    start_node = current_query_nodes[new_node_idx]
-                    end_node = current_query_nodes[parent_node_idx]
                     path_graph = get_matching_graph(edge[2], edge[1], query)
                     path_bools = convert_path_graph_to_bools(path_graph)
                     current_cycle_description = CyclePathAndColors(path_bools, current_colors)
