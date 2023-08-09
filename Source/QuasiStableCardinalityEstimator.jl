@@ -7,7 +7,6 @@ using Graphs
 using QuasiStableColors
 using Probably
 using StatsBase
-using Plots, GraphRecipes
 
 # The following two functions sum over all paths which have the same color assigned to a particular node in the query graph.
 # Equivalently, they perform a groupby on all other nodes of the query graph. The goal of this is to prevent

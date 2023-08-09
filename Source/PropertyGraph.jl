@@ -1,6 +1,5 @@
 using DataStructures: counter, Dict, Set, Vector, inc!, Queue
 using Graphs
-using Plots, GraphRecipes
 
 abstract type PropertyGraph end
 
@@ -11,7 +10,7 @@ struct DataGraph <: PropertyGraph
 
     DataGraph(num_vertices::Int) = DataGraph(DiGraph(num_vertices))
 
-    DataGraph(g::DiGraph) = new(g, 
+    DataGraph(g::DiGraph) = new(g,
                                     Dict((src(e), dst(e)) => Vector{Int64}([-1]) for e in edges(g)),
                                     [Vector{Int}([-1]) for v in 1:nv(g)])
 end
@@ -24,7 +23,7 @@ mutable struct QueryGraph <: PropertyGraph
     vertex_id_labels::Vector{Vector{Int}} # vertex_id_labels[n] = labels
 
     QueryGraph(num_vertices::Int) = QueryGraph(DiGraph(num_vertices))
-    QueryGraph(g::DiGraph) = new(g, 
+    QueryGraph(g::DiGraph) = new(g,
                                     Dict((src(e), dst(e)) => Vector{Int64}([-1]) for e in edges(g)),
                                     [[-1] for v in 1:nv(g)],
                                     [[-1] for v in 1:nv(g)])
