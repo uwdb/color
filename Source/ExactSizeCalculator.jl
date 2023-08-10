@@ -61,13 +61,13 @@ function sum_over_finished_query_nodes_exact!(query::QueryGraph, partial_paths::
     end
 end
 
-function handle_extra_edges_exact!(query::QueryGraph, data::DataGraph, 
-                                    partial_paths::Vector{Tuple{Vector{Int}, Int}}, 
+function handle_extra_edges_exact!(query::QueryGraph, data::DataGraph,
+                                    partial_paths::Vector{Tuple{Vector{Int}, Int}},
                                     current_query_nodes, visited_query_edges,
                                     timeout, start_time)
     remaining_edges::Vector{Tuple{Int, Int}} = []
     for edge in edges(query.graph)
-        # since the edge's nodes are already processed, we don't have to check 
+        # since the edge's nodes are already processed, we don't have to check
         if ! ((src(edge), dst(edge)) in visited_query_edges) &&
                  (src(edge) in current_query_nodes && dst(edge) in current_query_nodes)
             push!(remaining_edges, (src(edge), dst(edge)))
@@ -77,7 +77,7 @@ function handle_extra_edges_exact!(query::QueryGraph, data::DataGraph,
     if length(remaining_edges) == 0
         return
     end
-    for i in eachindex(partial_paths) 
+    for i in eachindex(partial_paths)
         if timeout > 0 && time() - start_time > timeout
             println("Timeout Reached")
             return
@@ -105,14 +105,14 @@ function handle_extra_edges_exact!(query::QueryGraph, data::DataGraph,
             data_child_vertex_labels = data.vertex_labels[child_data_node]
             query_edge_label = only(query.edge_labels[(edge[1],edge[2])])
             query_child_vertex_label = only(query.vertex_labels[edge[2]])
-            if !((query_edge_label == -1 || in(query_edge_label, data_edge_labels)) && 
+            if !((query_edge_label == -1 || in(query_edge_label, data_edge_labels)) &&
                     (query_child_vertex_label == -1 || in(query_child_vertex_label, data_child_vertex_labels)))
                 weight = 0
                 break
             end
-        end 
+        end
         partial_paths[i] = (path, weight)
-    end 
+    end
     filter!(x -> x[2] > 0, partial_paths)
 end
 
@@ -156,7 +156,7 @@ function sample_paths_exact(partial_paths, num_samples::Int)
 end
 
 # We use the same general structure to calculate the exact size of the query by finding all paths
-# on the original data graph and giving each path a weight of 1. 
+# on the original data graph and giving each path a weight of 1.
 function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sums = true, verbose=false,
                                                                 max_partial_paths = nothing,
                                                                 timeout = -1, nodes_to_keep = [])
@@ -226,14 +226,14 @@ function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sum
         else
             query_edge_label =  only(query.edge_labels[(new_node,old_node)])
             push!(visited_query_edges, (new_node, old_node))
-        end 
+        end
         query_child_label = query.vertex_labels[new_node][1]
         query_child_id_labels = query.vertex_id_labels[new_node]
-        
+
         push!(current_query_nodes, new_node)
         path_type = Vector{Int}
         new_partial_paths::Vector{Tuple{path_type, Int}} = []
-        if (max_partial_paths !== nothing)
+        if !(isnothing(max_partial_paths))
             if (length(partial_paths) > max_partial_paths)
                 partial_paths = sample_paths_exact(partial_paths, max_partial_paths)
             end
@@ -257,7 +257,7 @@ function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sum
                     if (query_child_id_labels != [-1] && length(intersect(query_child_id_labels,data_child_id_label)) == 0)
                         continue
                     end
-                    if (query_child_label == -1  || in(query_child_label, data_child_labels)) && 
+                    if (query_child_label == -1  || in(query_child_label, data_child_labels)) &&
                         (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
                         push!(new_partial_paths, ([path..., data_new_node], new_weight))
                     end
@@ -274,7 +274,7 @@ function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sum
                             continue
                         end
                     end
-                    if (query_child_label == -1  || in(query_child_label, data_child_labels)) && 
+                    if (query_child_label == -1  || in(query_child_label, data_child_labels)) &&
                         (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
                         push!(new_partial_paths, ([path..., data_new_node], new_weight))
                     end
@@ -284,15 +284,18 @@ function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sum
         partial_paths = new_partial_paths
     end
     handle_extra_edges_exact!(query, data, partial_paths, current_query_nodes, visited_query_edges, timeout, start_time)
-    
+
     # have one final call to sum over sum_over_finished_query_nodes_exact
     sum_over_finished_query_nodes_exact!(query, partial_paths, current_query_nodes, visited_query_edges, timeout, time(), nodes_to_not_sum = nodes_to_keep)
 
     return partial_paths # if we sum over everything, this will be empty
 end
 
-function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = true, verbose=false, max_partial_paths = -1, timeout = -1, nodes_to_keep = [])
+function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = true, verbose=false, max_partial_paths = nothing, timeout = -1, nodes_to_keep = [])
     partial_paths = get_subgraph_counts(query, data; use_partial_sums=use_partial_sums, verbose=verbose, max_partial_paths = max_partial_paths, timeout=timeout, nodes_to_keep = nodes_to_keep)
+    if partial_paths  == -1
+        return -1
+    end
     exact_size = 0
     for path_and_weight in partial_paths
         exact_size += path_and_weight[2]
