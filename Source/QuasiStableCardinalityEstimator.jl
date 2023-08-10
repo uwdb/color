@@ -81,12 +81,6 @@ function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}
         path_samples[i][2][2] = path_samples[i][2][2] + redistributed_weights[2]
         path_samples[i][2][3] = path_samples[i][2][3] + redistributed_weights[3]
         # path_samples[i][2] = path_samples[i][2] .+ redistributed_weights
-
-        # not sure if I'm doing this right
-        # if the weights go in terms of min/avg/max
-        # if you combine two paths
-        # what does the min/avg/max become?
-        # does it become the min/avg/max of the two
     end
 
     return path_samples

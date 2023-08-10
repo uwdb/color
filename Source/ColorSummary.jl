@@ -126,6 +126,12 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             color_hash[i] = (in_bucket - 1) * num_degree_buckets + out_bucket
             color_sizes[color_hash[i]] += 1
         end
+    elseif partitioner == "Simple Label"
+        color_hash = label_color(numColors, g)
+        println("Color hash was ", length(color_hash))
+        for i in eachindex(color_hash)
+            color_sizes[color_hash[i]] += 1
+        end
     end
 
     # cycle_probabilities::Dict{Int, Dict{Vector{Bool}, Float64}} = get_cycle_likelihoods(max_size, g, num_sample_nodes)
@@ -328,6 +334,93 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
     return ColorSummary(color_label_cardinality, edge_min_out_deg, edge_min_in_deg,
                                     edge_avg_out_deg, edge_avg_in_deg, edge_max_out_deg, edge_max_in_deg, color_filters,
                                      cycle_probabilities, ne(g.graph), nv(g.graph))
+end
+
+# first function: group by labels, then combine groups of labels as needed
+function label_color(numColors::Int, g::DataGraph)
+    # returns a color hash mapping a node to its color
+    color_hash = Dict()
+    
+    # first get a list of labels by iterating through all of the vertices
+    overall_labels::Set{Int} = Set()
+    for v in 1:nv(g.graph)
+        current_labels = g.vertex_labels[v]
+        for label in current_labels
+            push!(overall_labels, label)
+        end
+    end
+    label_groups::Vector{Vector{Int}} = [[x] for x in overall_labels]
+    println("Label groups: ", label_groups)
+
+    # condense the labels into groups until the number of "colors" is less than the requirement
+    new_label_groups::Vector{Vector{Int}} = []
+    num_groups = length(label_groups)
+    while (num_groups > numColors && num_groups >= 2)
+        if length(label_groups) <= 1
+            for label_group in new_label_groups
+                push!(label_groups, label_group)
+            end
+            new_label_groups = []
+        end
+        first_label_group = pop!(label_groups)
+        second_label_group = pop!(label_groups)
+        # combine the two label groups we popped and push them to the new label groups
+        for label in second_label_group
+            push!(first_label_group, label)
+        end
+        push!(new_label_groups, first_label_group)
+        num_groups = length(label_groups) + length(new_label_groups)
+    end
+    for label_group in new_label_groups
+        push!(label_groups, label_group)
+    end
+
+    # for each label, map to an arbitrary color
+    # label_colors[label] = color
+    label_colors::Dict{Int, Int} = Dict()
+    for x in eachindex(label_groups)
+        for label in label_groups[x]
+            label_colors[label] = x;
+        end
+    end
+
+    # for each node in the graph, map it to its color based on a random label
+    color_hash::Dict{Int, Int} = Dict()
+    for v in 1:nv(g.graph)
+        color_hash[v] = label_colors[g.vertex_labels[v][1]]
+    end
+
+    # return the color hash
+    return color_hash
+end
+
+# second function: group by labels and number of edges, then combine 
+
+# uses node/edge labels to color the graph
+function label_coloring(numColors::Int, g::DataGraph)
+    # map a color to a label
+    # color hash using the color-label mappings
+
+    # maps a node to its color
+    color_hash::Dict{Int, Int} = Dict()
+
+    # sumrdf looks like it keeps track of the color and node type, each unique label is its own group
+    # how to combine labels?
+    
+    # step 1: go through all the nodes and figure out all the unique types of node labels
+    # since each label is already represented as an int, we can just say that the color is the label lol
+    # however this means that one node can have multiple colors potentially.
+
+    # step 2: go through and create combinations of node labels until numCombos == numColors
+    # step 2a: create mappings of color combinations -> color
+    # step 2b: create mappings of color -> count
+    # step 3: go through each node and for each label that belongs to it, add to the color count
+
+    # for each node in the graph...
+
+    # return the color hash
+    # when this is returned, will need to create a color_sizes object too..
+    # outside of this method, the colors + edge labels are used to generate statistics
 end
 
 function get_color_summary_size(summary)
