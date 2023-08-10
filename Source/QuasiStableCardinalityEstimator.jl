@@ -7,7 +7,6 @@ using Graphs
 using QuasiStableColors
 using Probably
 using StatsBase
-using Plots, GraphRecipes
 
 # The following two functions sum over all paths which have the same color assigned to a particular node in the query graph.
 # Equivalently, they perform a groupby on all other nodes of the query graph. The goal of this is to prevent
@@ -18,7 +17,7 @@ function sum_over_node!(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}
     for node in current_query_nodes
         if node == node_to_remove
             break
-        end 
+        end
         nodeIdx += 1
     end
     new_partial_paths::Dict{Vector{Int}, Union{Vector{Float64}, Int}} = Dict()
@@ -40,7 +39,53 @@ function sum_over_node!(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}
     end
 end
 
-function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}, 
+function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}, num_samples::Int)
+    # partial_path[x] = (color path, bounds)
+    partial_paths = [x for x  in partial_paths if x[2][2] > 0]
+
+    # if we want to sample more paths than there are existing, then just return the original partial paths
+    if (num_samples > length(partial_paths))
+        return partial_paths
+    end
+
+
+    # sum up all of the bounds
+    overall_bounds_sum::Vector{Float64} = [0,0,0]
+    for path_and_bounds in partial_paths
+        overall_bounds_sum = overall_bounds_sum .+ path_and_bounds[2]
+    end
+
+    # choose a sample of the paths
+    sample_weights = [x[2][2] for x in partial_paths]
+    sample_weights =AnalyticWeights(sample_weights./sum(sample_weights))
+    path_samples::Vector{Tuple{Vector{Int}, Vector{Float64}}} = sample(partial_paths, sample_weights,  num_samples; replace=false)
+
+    # sum up the sampled bounds
+    sampled_bounds_sum::Vector{Float64} = [0,0,0]
+    for path_and_bounds in path_samples
+        sampled_bounds_sum = sampled_bounds_sum .+ path_and_bounds[2]
+    end
+
+    # get the difference between the overall and sampled bound sum_over_finished_query_nodes
+    bound_diff::Vector{Float64} = overall_bounds_sum .- sampled_bounds_sum
+
+    # for each sampled path...
+    for i in eachindex(path_samples)
+        # figure out what fraction of the sampled bounds is in the current Bounds
+        # higher bounds will have more weight redistributed to them
+        bound_fractions = path_samples[i][2] ./ sampled_bounds_sum
+        # use that fraction of the difference (i.e. the removed path weights) and add it to the partial path
+        redistributed_weights = bound_fractions .* bound_diff
+        path_samples[i][2][1] = path_samples[i][2][1] + redistributed_weights[1]
+        path_samples[i][2][2] = path_samples[i][2][2] + redistributed_weights[2]
+        path_samples[i][2][3] = path_samples[i][2][3] + redistributed_weights[3]
+        # path_samples[i][2] = path_samples[i][2] .+ redistributed_weights
+    end
+
+    return path_samples
+end
+
+function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}},
                                 current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int,Int}}, usingStoredStats::Bool)
     # To account for cyclic queries, we check whether there are any remaining edges that have not
     # been processed. If so, we set the lower bound to 0, reduce the average estimate accordingly, and leave
@@ -71,23 +116,21 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
             # don't have to check data label because these nodes are already in the
             # partial path, so we have already ensured that the colors are appropriate
             probability_of_edge = 0
-            if (haskey(summary.edge_avg_out_deg, edge_label) 
+            if (haskey(summary.edge_avg_out_deg, edge_label)
                     && haskey(summary.edge_avg_out_deg[edge_label], child_label) # so we know that the child label is not appearing in the edge label table...
                         && haskey(summary.edge_avg_out_deg[edge_label][child_label], parent_color)
                             && haskey(summary.edge_avg_out_deg[edge_label][child_label][parent_color], child_color))
                 if usingStoredStats
                     # we flip this because the matching graph finds the path between two nodes,
                     # where the last node is the start of the closing edge
-                    start_node = current_query_nodes[new_node_idx]
-                    end_node = current_query_nodes[parent_node_idx]
                     path_graph = get_matching_graph(edge[2], edge[1], query)
                     path_bools = convert_path_graph_to_bools(path_graph)
                     current_cycle_description = CyclePathAndColors(path_bools, current_colors)
+                    default_cycle_description = CyclePathAndColors(path_bools, [-1, -1])
                     if haskey(summary.cycle_probabilities, current_cycle_description)
-#                        probability_of_edge = summary.cycle_probabilities[path_bools] * get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)/(summary.total_edges/(summary.total_nodes^2))
                         probability_of_edge = summary.cycle_probabilities[current_cycle_description]
-                    else
-                        probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
+                    elseif haskey(summary.cycle_probabilities, default_cycle_description)
+                        probability_of_edge = summary.cycle_probabilities[default_cycle_description]
                     end
                 else
                     probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
@@ -97,10 +140,10 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
             upper = only(bounds[3])
             partial_paths[i] = (path, [lower, average, upper])
         end
-    end 
+    end
 end
 
-function sum_over_finished_query_nodes!(query::QueryGraph, partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}, 
+function sum_over_finished_query_nodes!(query::QueryGraph, partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}},
                                             current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int, Int}})
     prev_query_nodes = copy(current_query_nodes)
     for node in prev_query_nodes
@@ -131,7 +174,7 @@ function get_min_width_node_order(g::DiGraph)
                 neighbor_nodes = Set()
                 for existing_node in node_set
                     for neighbor in all_neighbors(g, existing_node)
-                        if !(neighbor in node_set)    
+                        if !(neighbor in node_set)
                             push!(neighbor_nodes, neighbor)
                         end
                     end
@@ -149,7 +192,7 @@ function get_min_width_node_order(g::DiGraph)
                         end
                     end
                     new_width = max(best_width, new_width)
-                    if haskey(partial_orders, new_node_set) 
+                    if haskey(partial_orders, new_node_set)
                         if partial_orders[new_node_set][2] > new_width
                             partial_orders[new_node_set] = (new_order, new_width)
                         end
@@ -210,7 +253,7 @@ function get_min_width_node_order(g::DiGraph)
     end
 end
 
-function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_partial_sums = true, verbose = false, usingStoredStats = false, include_cycles = true)
+function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_partial_paths = nothing, use_partial_sums = true, verbose = false, usingStoredStats = false, include_cycles = true)
     node_order = get_min_width_node_order(query.graph) #spanning tree to cut out cycles
     if verbose
         println("Node Order:", node_order)
@@ -244,7 +287,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                 push!(partial_paths, ([color], [summary.color_label_cardinality[color][parent_label],
                                                             summary.color_label_cardinality[color][parent_label],
                                                             summary.color_label_cardinality[color][parent_label]]))
-            end                                    
+            end
         end
     end
 
@@ -279,9 +322,9 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
             end
         end
         # Push the current edge and nodes to the visited lists.
-        if outEdge 
+        if outEdge
             push!(visited_query_edges, (old_node, new_node))
-        else 
+        else
             push!(visited_query_edges, (new_node, old_node))
         end
         push!(current_query_nodes, new_node)
@@ -292,19 +335,24 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
             edge_label = only(query.edge_labels[(old_node,new_node)])
         else
             edge_label =  only(query.edge_labels[(new_node,old_node)])
-        end 
+        end
         new_label = only(query.vertex_labels[new_node])
         new_data_labels = get_data_label(query, new_node)
 
         # Update the partial paths using the parent-child combo that comes next from the query.
         new_partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = []
+        if (max_partial_paths !== nothing)
+            if (length(partial_paths) > max_partial_paths)
+                partial_paths = sample_paths(partial_paths, max_partial_paths)
+            end
+        end
         for path_and_bounds in partial_paths
             path = path_and_bounds[1]
             running_bounds = path_and_bounds[2]
             old_color = only(path[parent_idx])
             # Account for colors with no outgoing children.
-            if outEdge && haskey(summary.edge_avg_out_deg, edge_label) && 
-                haskey(summary.edge_avg_out_deg[edge_label], new_label) && 
+            if outEdge && haskey(summary.edge_avg_out_deg, edge_label) &&
+                haskey(summary.edge_avg_out_deg[edge_label], new_label) &&
                 haskey(summary.edge_avg_out_deg[edge_label][new_label], old_color)
                 for new_color in keys(summary.edge_avg_out_deg[edge_label][new_label][old_color])
                     # revamp the logic to use a set of labels rather than just one
@@ -325,7 +373,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                     end
 
                     new_path = copy(path)
-                    push!(new_path, new_color)   
+                    push!(new_path, new_color)
                     new_bounds = [running_bounds[1]*summary.edge_min_out_deg[edge_label][new_label][old_color][new_color],
                                     running_bounds[2]*summary.edge_avg_out_deg[edge_label][new_label][old_color][new_color],
                                     running_bounds[3]*summary.edge_max_out_deg[edge_label][new_label][old_color][new_color],
@@ -339,8 +387,8 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                     end
                     push!(new_partial_paths, (new_path, new_bounds))
                 end
-            elseif !outEdge && haskey(summary.edge_avg_in_deg, edge_label) && 
-                    haskey(summary.edge_avg_in_deg[edge_label], new_label) && 
+            elseif !outEdge && haskey(summary.edge_avg_in_deg, edge_label) &&
+                    haskey(summary.edge_avg_in_deg[edge_label], new_label) &&
                     haskey(summary.edge_avg_in_deg[edge_label][new_label], old_color)
                 for new_color in keys(summary.edge_avg_in_deg[edge_label][new_label][old_color])
                     data_label_in_color = false
@@ -355,7 +403,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; use_pa
                     end
                     if !data_label_in_color
                         continue
-                    end           
+                    end
                     new_path = copy(path)
                     push!(new_path, new_color)
                     new_bounds = [running_bounds[1]*summary.edge_min_in_deg[edge_label][new_label][old_color][new_color],
