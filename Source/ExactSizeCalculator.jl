@@ -174,10 +174,10 @@ function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sum
     old_node = popfirst!(node_order)
     new_node = old_node
     parent_label = only(query.vertex_labels[old_node])
+    query_data_labels = get_data_label(query, new_node)
     push!(current_query_nodes, old_node)
-    for node in 1:nv(query.graph)
+    for node in 1:nv(data.graph)
         # if the id labels don't match, then don't initialize with this node
-        query_data_labels = get_data_label(query, new_node)
         if (query_data_labels != [-1] && length(intersect(query_data_labels, get_data_label(data, node))) == 0)
             continue
         end
