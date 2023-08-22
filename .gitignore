@@ -7,3 +7,6 @@
 /docs/Manifest.toml
 /test/coverage/Manifest.toml
 /.ipynb_checkpoints/
+/queryset/
+/dataset/
+/TrueCardinalities/
