@@ -1,6 +1,3 @@
-include("PropertyGraph.jl")
-using AutoHashEquals
-
 BoolPath = Vector{Bool}
 StartEndColorPair = Vector{Int}
 abstract type Comparable end
@@ -35,31 +32,32 @@ struct ColorSummary
     # v2 represents the label of the node in c1
 end
 
-function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, verbose=false,
-                                max_size=4, max_partial_paths=1000, partitioner ="QuasiStable")
+@enum PARTITIONER QuasiStable Hash Degree DirectedDegree SimpleLabel
+
+function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, verbose=0,
+                                max_size=4, max_partial_paths=1000, partitioner::PARTITIONER = QuasiStable)
     color_hash = nothing
     color_sizes = [0 for _ in 1:numColors]
     color_filters = Dict()
     color_cardinality = Dict()
     color_label_cardinality = Dict()
-    if partitioner == "QuasiStable"
-        QSC = QuasiStableColors
-        if (verbose)
+    if partitioner == QuasiStable
+        if (verbose > 0)
             println("Started coloring")
         end
         C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting)
-        if (verbose)
+        if (verbose > 0)
             println("Finished coloring")
         end
         color_hash = QSC.node_map(C)
         color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
-    elseif partitioner == "Hash"
+    elseif partitioner == Hash
         color_hash = Dict()
         for i in 1:nv(g.graph)
             color_hash[i] = (hash(i) % numColors) + 1
             color_sizes[color_hash[i]] += 1
         end
-    elseif partitioner == "Degree"
+    elseif partitioner == Degree
         color_hash = Dict()
         degrees = sort(degree(g.graph))
         bucket_right_edges = []
@@ -82,7 +80,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             end
         end
 
-    elseif partitioner == "DirectedDegree"
+    elseif partitioner == DirectedDegree
         color_hash = Dict()
         num_degree_buckets = Int(floor(float(numColors)^.5))
         indegrees = sort(indegree(g.graph))
@@ -126,7 +124,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             color_hash[i] = (in_bucket - 1) * num_degree_buckets + out_bucket
             color_sizes[color_hash[i]] += 1
         end
-    elseif partitioner == "Simple Label"
+    elseif partitioner == SimpleLabel
         color_hash = label_color(numColors, g)
         println("Color hash was ", length(color_hash))
         for i in eachindex(color_hash)
@@ -139,7 +137,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
 
     # initialize color filters for data labels
     current_color = 1;
-    if (verbose)
+    if (verbose > 0)
         println("Started bloom filters")
     end
     for color in eachindex(color_sizes)
@@ -149,11 +147,11 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
         color_filters[current_color] = BloomFilter(parameters.m, parameters.k)
         current_color += 1
     end
-    if (verbose)
+    if (verbose > 0)
         println("Finished bloom filters")
     end
 
-    if (verbose)
+    if (verbose > 0)
         println("Started cardinality counts")
     end
     for node in keys(color_hash)
@@ -180,11 +178,11 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             inc!(color_label_cardinality[color], label)
         end
     end
-    if (verbose)
+    if (verbose > 0)
         println("Finished cardinality counts")
     end
 
-    if (verbose)
+    if (verbose > 0)
         println("Started tracking statistics")
     end
     # We keep separate degree statistics for in-degree and out-degree.
@@ -326,7 +324,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             end
         end
     end
-    if (verbose)
+    if (verbose > 0)
         println("Finished tracking statistics")
     end
     color_to_color_in_counter = Dict()
@@ -340,7 +338,7 @@ end
 function label_color(numColors::Int, g::DataGraph)
     # returns a color hash mapping a node to its color
     color_hash = Dict()
-    
+
     # first get a list of labels by iterating through all of the vertices
     overall_labels::Set{Int} = Set()
     for v in 1:nv(g.graph)
@@ -394,7 +392,7 @@ function label_color(numColors::Int, g::DataGraph)
     return color_hash
 end
 
-# second function: group by labels and number of edges, then combine 
+# second function: group by labels and number of edges, then combine
 
 # uses node/edge labels to color the graph
 function label_coloring(numColors::Int, g::DataGraph)
@@ -406,7 +404,7 @@ function label_coloring(numColors::Int, g::DataGraph)
 
     # sumrdf looks like it keeps track of the color and node type, each unique label is its own group
     # how to combine labels?
-    
+
     # step 1: go through all the nodes and figure out all the unique types of node labels
     # since each label is already represented as an int, we can just say that the color is the label lol
     # however this means that one node can have multiple colors potentially.

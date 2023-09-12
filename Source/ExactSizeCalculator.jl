@@ -1,10 +1,4 @@
 # This file contains a prototype implementation of exact sub-graph counting.
-include("PropertyGraph.jl")
-using Graphs
-using QuasiStableColors
-using Probably
-using StatsBase
-
 
 function sum_over_node_exact!(partial_paths::Vector{Tuple{Vector{Int},  Int}},
                                  current_query_nodes, node_to_remove,

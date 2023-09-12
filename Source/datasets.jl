@@ -1,5 +1,3 @@
-using Graphs: SimpleDiGraphFromIterator, Edge
-
 function load_dataset(path; subgraph_matching_data=false)
     n = 0
     edges::Array{Tuple{Tuple{Int, Int}, Int}} = []
@@ -53,7 +51,7 @@ function load_query(path; subgraph_matching_data=false)
         if length(line) == 0
             continue
         end
-        if line[1] == 't'  
+        if line[1] == 't'
             continue
         elseif line[1] == 'v'
             parts = split(line)
