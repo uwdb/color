@@ -5,7 +5,8 @@ using QuasiStableColors
 using StatsBase
 
 QSC = QuasiStableColors
-using Graphs: SimpleDiGraphFromIterator, Edge
+using Graphs: SimpleDiGraphFromIterator, Edge, DiGraph, edges, nv, add_edge!,
+                add_vertex!, vertices, all_neighbors, src, dst, outneighbors, inneighbors
 
 
 
