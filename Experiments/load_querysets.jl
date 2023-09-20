@@ -66,6 +66,8 @@ function load_querysets(datasets::Vector{DATASET}=Vector{DATASET}();require_true
     query_directories[hprd] = ["/queryset/hprd"]
     query_directories[wordnet] = ["/queryset/wordnet"]
     query_directories[youtube] = ["/queryset/youtube"]
+    query_directories[patents] = ["/queryset/patents"]
+    query_directories[eu2005] = ["/queryset/eu2005"]
     query_directories[dblp] = ["/queryset/dblp"]
 
     query_paths = Dict()

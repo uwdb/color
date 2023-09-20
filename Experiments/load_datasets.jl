@@ -1,9 +1,9 @@
 include("../Source/CardinalityWithColors.jl")
 
-@enum DATASET  aids human lubm80 yago yeast hprd wordnet dblp youtube
+@enum DATASET  aids human lubm80 yago yeast hprd wordnet dblp youtube eu2005 patents
 
 const IS_GCARE_DATASET = Dict(aids=>true, human=>true, lubm80=>true, yago=>true,
-     yeast=>false, hprd=>false, wordnet=>false, dblp=>false, youtube=>false)
+     yeast=>false, hprd=>false, wordnet=>false, dblp=>false, youtube=>false, eu2005=>false, patents=>false)
 
 function load_dataset(dataset::DATASET)
     if dataset == aids
@@ -33,5 +33,11 @@ function load_dataset(dataset::DATASET)
     elseif dataset == youtube
         youtube_data_file_path = "dataset/youtube/youtube.graph"
         return load_dataset(youtube_data_file_path, subgraph_matching_data=true)
+    elseif dataset == patents
+        patents_data_file_path = "dataset/patents/patents.graph"
+        return load_dataset(patents_data_file_path, subgraph_matching_data=true)
+    elseif dataset == eu2005
+        eu2005_data_file_path = "dataset/eu2005/eu2005.graph"
+        return load_dataset(eu2005_data_file_path, subgraph_matching_data=true)
     end
 end
