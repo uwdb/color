@@ -7,7 +7,7 @@ struct ExperimentParams
     inference_max_paths::Int
     use_partial_sums::Bool
 
-    function ExperimentParams(;dataset::Dataset,  num_colors::Int=64, max_cycle_size=4, summary_max_paths=1000,
+    function ExperimentParams(;dataset::DATASET,  num_colors::Int=64, max_cycle_size=4, summary_max_paths=1000,
         partitioner::PARTITIONER = QuasiStable, weighting=true, inference_max_paths=500, use_partial_sums=true)
         return new(dataset, ColorSummaryParams(num_colors=num_colors,
                                                        max_cycle_size=max_cycle_size,
@@ -30,6 +30,6 @@ end
 
 function params_to_summary_filename(experiment_params::ExperimentParams)
     name = string(experiment_params.dataset) * "_"
-    name *= string(experiment_params.summary_params) *  ".obj"
+    name *= params_to_string(experiment_params.summary_params) *  ".obj"
     return name
 end
