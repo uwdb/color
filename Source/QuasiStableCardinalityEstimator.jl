@@ -382,6 +382,9 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
                         # we have already confirmed that the data label is in the color, but if the data label isn't -1
                         # then we need to scale down the result since we only want to consider one of the many nodes in the new color
                         new_bounds[2] = new_bounds[2] / summary.color_label_cardinality[new_color][new_label]
+                        if (summary.color_label_cardinality[new_color][new_label] == 0)
+                            println("issue with scaling down")
+                        end
                         # we also need to set the minimum to 0 but keep the maximum the same
                         new_bounds[1] = 0
                     end
@@ -414,6 +417,9 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
                         # we have already confirmed that the data label is in the color, but if the data label isn't -1
                         # then we need to scale down the result since we only want to consider one of the many nodes in the new color
                         new_bounds[2] = new_bounds[2] / summary.color_label_cardinality[new_color][new_label]
+                        if (summary.color_label_cardinality[new_color][new_label] == 0)
+                            println("issue with scaling down again")
+                        end
                         # we also need to set the minimum to 0 but keep the maximum the same
                         new_bounds[1] = 0
                     end
