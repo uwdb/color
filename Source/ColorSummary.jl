@@ -607,7 +607,7 @@ function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash,
                 total_path_weight += likelihoods[color_pair][1]
                 total_cycle_weight += likelihoods[color_pair][1]
             end
-            if total_path_weight > 10
+            if total_path_weight > min(100, nv(data.graph))
                 cycle_likelihoods[default_cycle_description] = total_cycle_weight/total_path_weight
             end
         end
