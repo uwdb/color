@@ -5,7 +5,7 @@ using Graphs
 # This test suite aims to determine the correctness of the 'get_exact_size' function.
 # We compare the results of the function with the exact sizes of known graphs.
 
-@testset "exact symmetrical graphs" begin
+@testset "exact symmetric graphs" begin
 
     @testset "1-edge graph, unlabeled" begin
         g = DataGraph(2)
@@ -177,7 +177,7 @@ using Graphs
         add_labeled_edge!(query_graph, (1,2), -1)
         add_labeled_edge!(query_graph, (2,3), -1)
         add_labeled_edge!(query_graph, (3,1), -1)
-        exact_size = only(get_exact_size(query_graph, g; verbose=true))
+        exact_size = only(get_exact_size(query_graph, g; verbose=false))
         predicted_size = 10*10*10
 
         @test predicted_size == exact_size
@@ -194,8 +194,8 @@ using Graphs
      end
 end
 
- @testset "asymmetrical graphs" begin
-     @testset "undirected asymmetrical star graph" begin
+ @testset "asymmetric graphs" begin
+     @testset "undirected asymmetric star graph" begin
          numVertices = 6
          g = Graph(numVertices)
          add_edge!(g, 1, 2)
@@ -212,7 +212,7 @@ end
          @test predicted_size == exact_size
      end
 
-     @testset "undirected asymmetrical barbell graph" begin
+     @testset "undirected asymmetric barbell graph" begin
          numVertices = 7
          g = Graph(numVertices)
          add_edge!(g, 1, 2)

@@ -2,7 +2,7 @@
 # We compare the results of the function with the exact sizes and make sure the min/avg/max are appropriate.
 # We also test to make sure partial aggregation has a minimal effect on the results.
 
-@testset "exact symmetrical graphs" begin
+@testset "exact symmetric graphs" begin
 
     @testset "1-edge graph" begin
         g = DiGraph(2)
