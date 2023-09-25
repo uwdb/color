@@ -1,5 +1,3 @@
-using DataStructures: counter, Dict, Set, Vector, inc!, Queue
-using Graphs
 
 abstract type PropertyGraph end
 

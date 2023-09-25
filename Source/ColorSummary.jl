@@ -1,6 +1,3 @@
-include("PropertyGraph.jl")
-using AutoHashEquals
-
 BoolPath = Vector{Bool}
 StartEndColorPair = Vector{Int}
 abstract type Comparable end
@@ -11,6 +8,29 @@ end
 @auto_hash_equals mutable struct CyclePathAndColors
     path::BoolPath
     colors::StartEndColorPair
+end
+
+@enum PARTITIONER QuasiStable Hash Degree DirectedDegree SimpleLabel InOut LabelInOut NeighborEdges MostNeighbors
+
+struct ColorSummaryParams
+    num_colors::Int
+    max_cycle_size::Int
+    max_partial_paths::Int
+    partitioner::PARTITIONER
+    weighting::Bool
+
+    function ColorSummaryParams(;num_colors::Int=64, max_cycle_size=4, max_partial_paths=1000,
+         partitioner::PARTITIONER = QuasiStable, weighting=true)
+        return new(num_colors, max_cycle_size, max_partial_paths, partitioner, weighting)
+    end
+end
+
+function params_to_string(params::ColorSummaryParams)
+    summary_name = "ColorSummary_" * string(params.partitioner) * "_"
+    summary_name *= string(params.num_colors) * "_"
+    summary_name *= string(params.max_cycle_size) * "_"
+    summary_name *= string(params.max_partial_paths)
+    return summary_name
 end
 
 # The ColorSummary struct holds statistical information associated with the colored graph.
@@ -35,36 +55,39 @@ struct ColorSummary
     # v2 represents the label of the node in c1
 end
 
-function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, verbose=false,
-                                max_size=4, max_partial_paths=1000, partitioner ="QuasiStable", precolor=false)
+
+function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0)
+    num_colors = params.num_colors
+    weighting = params.weighting
+    partitioner = params.partitioner
+
     color_hash = nothing
-    color_sizes = [0 for _ in 1:numColors]
+    color_sizes = [0 for _ in 1:num_colors]
     color_filters = Dict()
     color_cardinality = Dict()
     color_label_cardinality = Dict()
-    if partitioner == "QuasiStable"
-        QSC = QuasiStableColors
-        if (verbose)
+    if partitioner == QuasiStable
+        if (verbose > 0)
             println("Started coloring")
         end
-        C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting)
-        if (verbose)
+        C = QSC.q_color(g.graph, n_colors=num_colors, weighting=weighting)
+        if (verbose > 0)
             println("Finished coloring")
         end
         color_hash = QSC.node_map(C)
         color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
-    elseif partitioner == "Hash"
+    elseif partitioner == Hash
         color_hash = Dict()
         for i in 1:nv(g.graph)
-            color_hash[i] = (hash(i) % numColors) + 1
+            color_hash[i] = (hash(i) % num_colors) + 1
             color_sizes[color_hash[i]] += 1
         end
-    elseif partitioner == "Degree"
+    elseif partitioner == Degree
         color_hash = Dict()
         degrees = sort(degree(g.graph))
         bucket_right_edges = []
-        for i in 1:numColors
-            degree_quantile = degrees[Int(floor(float(i)/numColors *length(degrees)))]
+        for i in 1:num_colors
+            degree_quantile = degrees[Int(floor(float(i)/num_colors *length(degrees)))]
             if i > 1 && bucket_right_edges[i-1] >= degree_quantile
                 push!(bucket_right_edges, bucket_right_edges[i-1] + 1)
             else
@@ -73,7 +96,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
         end
         for i in 1:nv(g.graph)
             node_degree = degree(g.graph, i)
-            for j in 1:numColors
+            for j in 1:num_colors
                 if node_degree <= bucket_right_edges[j]
                     color_hash[i] = j
                     color_sizes[color_hash[i]] += 1
@@ -81,15 +104,10 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
                 end
             end
         end
-        if (precolor)
-            QSC = QuasiStableColors
-            C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting, warm_start=[i for i in color_hash_to_groups(color_hash, numColors) if length(i) != 0])
-            color_hash = QSC.node_map(C)
-            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
-        end
-    elseif partitioner == "DirectedDegree"
+
+    elseif partitioner == DirectedDegree
         color_hash = Dict()
-        num_degree_buckets = Int(floor(float(numColors)^.5))
+        num_degree_buckets = Int(floor(float(num_colors)^.5))
         indegrees = sort(indegree(g.graph))
         in_bucket_right_edges = []
         for i in 1:num_degree_buckets
@@ -137,7 +155,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             color_hash = QSC.node_map(C)
             color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
         end
-    elseif partitioner == "Simple Label"
+    elseif partitioner == SimpleLabel
         if (precolor)
             presort_colors = ceil(Int, numColors / 4)
             color_hash = label_color(presort_colors, g) # messing around with how many colors should be in the precoloring
@@ -150,18 +168,18 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             color_hash = QSC.node_map(C)
             color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
         else
-            color_hash = label_color(numColors, g)
+            color_hash = label_color(num_colors, g)
             for i in eachindex(color_hash)
                 color_sizes[color_hash[i]] += 1
             end
         end
         # println("Color hash was ", length(color_hash))
-    elseif partitioner == "In Out Ratio"
+    elseif partitioner == InOut
         color_hash = edge_ratio_color(numColors, g)
         for i in eachindex(color_hash)
             color_sizes[color_hash[i]] += 1
         end
-    elseif partitioner == "Label In Out Ratio"
+    elseif partitioner == LabelInOut
         if (precolor)
             presort_colors = ceil(Int, numColors / 4)
             color_hash = label_edge_ratio_color(presort_colors, g)
@@ -178,7 +196,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
                 color_sizes[color_hash[i]] += 1
             end
         end
-    elseif partitioner == "Neighbor Num Edges"
+    elseif partitioner == NeighborEdges
         if (precolor)
             presort_colors = ceil(Int, numColors / 4)
             color_hash = label_num_edges_color(presort_colors, g)
@@ -193,7 +211,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
                 color_sizes[color_hash[i]] += 1
             end
         end
-    elseif partitioner == "Most Neighbors"
+    elseif partitioner == MostNeighbors
         if (precolor)
             presort_colors = ceil(Int, numColors / 4)
             color_hash = most_neighbors_color(presort_colors, g)
@@ -211,26 +229,28 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
     end
 
 
-    # cycle_probabilities::Dict{Int, Dict{Vector{Bool}, Float64}} = get_cycle_likelihoods(max_size, g, num_sample_nodes)
-    cycle_probabilities::Dict{CyclePathAndColors, Float64} = get_color_cycle_likelihoods(max_size, g, color_hash, max_partial_paths)
+    cycle_probabilities::Dict{CyclePathAndColors, Float64} = get_color_cycle_likelihoods(params.max_cycle_size,
+                                                                                         g,
+                                                                                         color_hash,
+                                                                                         params.max_partial_paths)
 
     # initialize color filters for data labels
     current_color = 1;
-    if (verbose)
+    if (verbose > 0)
         println("Started bloom filters")
     end
     for color in eachindex(color_sizes)
         num_nodes = max(1, color_sizes[color])
         accepted_error = 0.00001
-        parameters = constrain(BloomFilter, fpr=accepted_error, capacity=num_nodes)
-        color_filters[current_color] = BloomFilter(parameters.m, parameters.k)
+        bloom_params = constrain(BloomFilter, fpr=accepted_error, capacity=num_nodes)
+        color_filters[current_color] = BloomFilter(bloom_params.m, bloom_params.k)
         current_color += 1
     end
-    if (verbose)
+    if (verbose > 0)
         println("Finished bloom filters")
     end
 
-    if (verbose)
+    if (verbose > 0)
         println("Started cardinality counts")
     end
     for node in keys(color_hash)
@@ -257,11 +277,11 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             inc!(color_label_cardinality[color], label)
         end
     end
-    if (verbose)
+    if (verbose > 0)
         println("Finished cardinality counts")
     end
 
-    if (verbose)
+    if (verbose > 0)
         println("Started tracking statistics")
     end
     # We keep separate degree statistics for in-degree and out-degree.
@@ -403,7 +423,7 @@ function generate_color_summary(g::DataGraph, numColors::Int; weighting=true, ve
             end
         end
     end
-    if (verbose)
+    if (verbose > 0)
         println("Finished tracking statistics")
     end
     color_to_color_in_counter = Dict()
@@ -423,10 +443,10 @@ function color_hash_to_groups(color_hash, num_colors)
 end
 
 # first function: group by labels, then combine groups of labels as needed
-function label_color(numColors::Int, g::DataGraph)
+function label_color(num_colors::Int, g::DataGraph)
     # returns a color hash mapping a node to its color
     color_hash = Dict()
-    
+
     # first get a list of labels by iterating through all of the vertices
     overall_labels::Set{Int} = Set()
     for v in 1:nv(g.graph)
@@ -440,7 +460,7 @@ function label_color(numColors::Int, g::DataGraph)
     # condense the labels into groups until the number of "colors" is less than the requirement
     new_label_groups::Vector{Vector{Int}} = []
     num_groups = length(label_groups)
-    while (num_groups > numColors && num_groups >= 2)
+    while (num_groups > num_colors && num_groups >= 2)
         if length(label_groups) <= 1
             for label_group in new_label_groups
                 push!(label_groups, label_group)
