@@ -1,8 +1,11 @@
 using qColoringCardinality
+using Distributions
+using DataStructures: counter, Dict, Set, Vector, inc!
 using Test
+using Graphs
+include("../Source/CardinalityWithColors.jl")
+
 
 # run subtests
 include("graphsize.jl")
-
-# TODO: fix broken tests
-# include("statcheck.jl")
+include("statcheck.jl")
