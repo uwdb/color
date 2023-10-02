@@ -1,3 +1,4 @@
+using Graphs
 BoolPath = Vector{Bool}
 StartEndColorPair = Vector{Int}
 abstract type Comparable end
@@ -10,7 +11,7 @@ end
     colors::StartEndColorPair
 end
 
-@enum PARTITIONER QuasiStable Hash Degree DirectedDegree SimpleLabel
+@enum PARTITIONER QuasiStable Hash Degree DirectedDegree SimpleLabel InOut LabelInOut NeighborEdges MostNeighbors
 
 struct ColorSummaryParams
     num_colors::Int
@@ -56,7 +57,7 @@ struct ColorSummary
 end
 
 
-function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0)
+function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, precolor=false)
     num_colors = params.num_colors
     weighting = params.weighting
     partitioner = params.partitioner
@@ -70,6 +71,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         if (verbose > 0)
             println("Started coloring")
         end
+        QSC = QuasiStableColors
         C = QSC.q_color(g.graph, n_colors=num_colors, weighting=weighting)
         if (verbose > 0)
             println("Finished coloring")
@@ -149,13 +151,85 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
             color_hash[i] = (in_bucket - 1) * num_degree_buckets + out_bucket
             color_sizes[color_hash[i]] += 1
         end
+        if (precolor)
+            QSC = QuasiStableColors
+            C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting, warm_start=[i for i in color_hash_to_groups(color_hash, numColors) if length(i) != 0])
+            color_hash = QSC.node_map(C)
+            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
+        end
     elseif partitioner == SimpleLabel
-        color_hash = label_color(num_colors, g)
-        println("Color hash was ", length(color_hash))
+        if (precolor)
+            presort_colors = ceil(Int, numColors / 4)
+            color_hash = label_color(presort_colors, g) # messing around with how many colors should be in the precoloring
+            println("group sizes: ")
+            for group in color_hash_to_groups(color_hash, presort_colors)
+                println(length(group))
+            end
+            QSC = QuasiStableColors
+            C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting, warm_start=[i for i in color_hash_to_groups(color_hash, numColors) if length(i) != 0])
+            color_hash = QSC.node_map(C)
+            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
+        else
+            color_hash = label_color(num_colors, g)
+            for i in eachindex(color_hash)
+                color_sizes[color_hash[i]] += 1
+            end
+        end
+        # println("Color hash was ", length(color_hash))
+    elseif partitioner == InOut
+        color_hash = edge_ratio_color(numColors, g)
         for i in eachindex(color_hash)
             color_sizes[color_hash[i]] += 1
         end
+    elseif partitioner == LabelInOut
+        if (precolor)
+            presort_colors = ceil(Int, numColors / 4)
+            color_hash = label_edge_ratio_color(presort_colors, g)
+            for group in color_hash_to_groups(color_hash, presort_colors)
+                println(length(group))
+            end
+            QSC = QuasiStableColors
+            C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting, warm_start=[i for i in color_hash_to_groups(color_hash, numColors) if length(i) != 0])
+            color_hash = QSC.node_map(C)
+            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
+        else
+            color_hash = label_edge_ratio_color(numColors, g)
+            for i in eachindex(color_hash)
+                color_sizes[color_hash[i]] += 1
+            end
+        end
+    elseif partitioner == NeighborEdges
+        if (precolor)
+            presort_colors = ceil(Int, numColors / 4)
+            color_hash = label_num_edges_color(presort_colors, g)
+            QSC = QuasiStableColors
+            C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting, warm_start=[i for i in color_hash_to_groups(color_hash, numColors) if length(i) != 0])
+            color_hash = QSC.node_map(C)
+            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
+        else
+            color_hash = label_num_edges_color(numColors, g)
+            # println("neighbor num edges color hash: ", color_hash)
+            for i in eachindex(color_hash)
+                color_sizes[color_hash[i]] += 1
+            end
+        end
+    elseif partitioner == MostNeighbors
+        if (precolor)
+            presort_colors = ceil(Int, numColors / 4)
+            color_hash = most_neighbors_color(presort_colors, g)
+            QSC = QuasiStableColors
+            C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting, warm_start=[i for i in color_hash_to_groups(color_hash, numColors) if length(i) != 0])
+            color_hash = QSC.node_map(C)
+            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
+        else
+            color_hash = most_neighbors_color(numColors, g)
+            for i in eachindex(color_hash)
+                color_sizes[color_hash[i]] += 1
+            end
+        end
+        
     end
+
 
     cycle_probabilities::Dict{CyclePathAndColors, Float64} = get_color_cycle_likelihoods(params.max_cycle_size,
                                                                                          g,
@@ -361,6 +435,15 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
                                      cycle_probabilities, ne(g.graph), nv(g.graph))
 end
 
+function color_hash_to_groups(color_hash, num_colors)
+    # the color hash maps from a node to its assigned color
+    node_groups::Vector{Vector{Int}} = [[] for color in 1:num_colors]
+    for node in keys(color_hash)
+        push!(node_groups[color_hash[node]], node)
+    end
+    return node_groups
+end
+
 # first function: group by labels, then combine groups of labels as needed
 function label_color(num_colors::Int, g::DataGraph)
     # returns a color hash mapping a node to its color
@@ -375,7 +458,6 @@ function label_color(num_colors::Int, g::DataGraph)
         end
     end
     label_groups::Vector{Vector{Int}} = [[x] for x in overall_labels]
-    println("Label groups: ", label_groups)
 
     # condense the labels into groups until the number of "colors" is less than the requirement
     new_label_groups::Vector{Vector{Int}} = []
@@ -419,33 +501,161 @@ function label_color(num_colors::Int, g::DataGraph)
     return color_hash
 end
 
-# second function: group by labels and number of edges, then combine
+# another function: find the top n - 1 vertices with the most neighbors
+# each of their neighbors are in that color, the rest are in a different color
+function most_neighbors_color(numColors::Int, g::DataGraph)
+    # map each node to how many vertices they are connected to
+    vertex_mapping::Dict{Int, Int} = Dict()
+    for v in 1:nv(g.graph)
+        vertex_mapping[v] = length(neighbors(g.graph, v))
+    end
 
-# uses node/edge labels to color the graph
-function label_coloring(num_colors::Int, g::DataGraph)
-    # map a color to a label
-    # color hash using the color-label mappings
+    # sort into an array of node-neighbors pairs
+    sorted_nodes = sort(collect(vertex_mapping), by=x->x[2], rev=true)
 
-    # maps a node to its color
-    color_hash::Dict{Int, Int} = Dict()
+    # keep track of the top n - 1 vertices
+    num_groups::Int = numColors - 1
 
-    # sumrdf looks like it keeps track of the color and node type, each unique label is its own group
-    # how to combine labels?
+    # for each node, go through the top n - 1 vertices to determine which group it belongs in (1...n -1)
+    num_processed = 0;
+    for node_number_pair in vertex_mapping
+        # if it doesn't neighbor any of the top vertices, its color will now be the "last" possible color
+        current_color::Int = numColors
+        found_supernode = false;
+        for supernode in 1:num_groups
+            if (!found_supernode)
+                if (node_number_pair[1] == supernode) || (node_number_pair[1] in neighbors(g.graph, sorted_nodes[supernode][1]))
+                    current_color = supernode
+                end
+            end
+        end
+        vertex_mapping[node_number_pair[1]] = current_color
+        num_processed+=1;
+    end
+    return vertex_mapping;
+end
 
-    # step 1: go through all the nodes and figure out all the unique types of node labels
-    # since each label is already represented as an int, we can just say that the color is the label lol
-    # however this means that one node can have multiple colors potentially.
+# another function: color by label, sort labels by their avg number of edges, hash partition based on # edges
+function label_num_edges_color(numColors::Int, g::DataGraph)
+    # returns a color hash mapping a node to its color
+    color_hash = Dict()
+    
+    # map each label to the set of all the nodes with that label
+    label_node_mapping::Dict{Int, Vector{Int}} = Dict()
+    for v in 1:nv(g.graph)
+        current_labels = g.vertex_labels[v]
+        for label in current_labels
+            if !(label in keys(label_node_mapping))
+                label_node_mapping[label] = []
+            end
+            push!(label_node_mapping[label], v)
+        end
+    end
 
-    # step 2: go through and create combinations of node labels until numCombos == num_colors
-    # step 2a: create mappings of color combinations -> color
-    # step 2b: create mappings of color -> count
-    # step 3: go through each node and for each label that belongs to it, add to the color count
+    # create a new mapping of label -> avg number of edges for each node within it
+    label_edges_mapping::Dict{Int, Float64} = Dict()
+    for label in keys(label_node_mapping)
+        total_edges = 0
+        for node in label_node_mapping[label]
+            total_edges += length(neighbors(g.graph, node))
+        end
+        label_edges_mapping[label] = total_edges / length(label_node_mapping[label])
+    end
 
-    # for each node in the graph...
+    # now create a sorted list of labels based on their average number of edges
+    sorted_labels = [x[1] for x in sort(collect(label_edges_mapping), by=x->x[2])]
+    println("sorted labels")
+    # now do very simple hash partition on the sorted list
+    group_size::Int = (numColors > length(sorted_labels)) ? 1 : ceil(Int, length(sorted_labels) / numColors)
 
-    # return the color hash
-    # when this is returned, will need to create a color_sizes object too..
-    # outside of this method, the colors + edge labels are used to generate statistics
+    # now for each node, assign a color based on the label group it belongs to
+    for node in 1:nv(g.graph)
+        labels = g.vertex_labels[node]
+        # choose the label with the highest number of edges
+        current_label = labels[1]
+        for label in labels
+            if label_edges_mapping[label] > label_edges_mapping[current_label]
+                current_label = label
+            end
+        end
+        color_hash[node] = (ceil(Int, indexin(current_label, sorted_labels)[1] / group_size))
+    end
+    return color_hash
+end
+
+# another function: color by label, sort labels by avg in/out ratio, hash partition based on # colors
+function label_edge_ratio_color(numColors::Int, g::DataGraph)
+    # returns a color hash mapping a node to its color
+    color_hash = Dict()
+    
+    # map each label to the set of all the nodes with that label (each node is randomly assigned to one of its labels)
+    label_node_mapping::Dict{Int, Vector{Int}} = Dict()
+    for v in 1:nv(g.graph)
+        current_labels = g.vertex_labels[v]
+        for label in current_labels
+            if !(label in keys(label_node_mapping))
+                label_node_mapping[label] = []
+            end
+            push!(label_node_mapping[label], v)
+        end        
+    end
+
+    # create a new mapping of label -> avg in/out ratio for each node within it
+    label_edges_mapping::Dict{Int, Float64} = Dict()
+    for label in keys(label_node_mapping)
+        total_ratio::Float64 = 0
+        for node in label_node_mapping[label]
+            in_out_ratio::Float64 = length(inneighbors(g.graph, node)) / length(outneighbors(g.graph, node))
+            total_ratio += in_out_ratio
+        end
+        label_edges_mapping[label] = total_ratio / length(label_node_mapping[label])
+    end
+
+    # now create a sorted list of labels based on their average in/out ratio
+    sorted_labels = [x[1] for x in sort(collect(label_edges_mapping), by=x->x[2])]
+    println("sorted labels")
+    # now do very simple hash partition on the sorted list
+    group_size::Int = (numColors > length(sorted_labels)) ? 1 : ceil(Int, length(sorted_labels) / numColors)
+
+    # now for each node, assign a color based on the label group it belongs to
+    for node in 1:nv(g.graph)
+        labels = g.vertex_labels[node]
+        # choose the label with the highest number of edges
+        current_label = labels[1]
+        for label in labels
+            if label_edges_mapping[label] > label_edges_mapping[current_label]
+                current_label = label
+            end
+        end
+        color_hash[node] = (ceil(Int, indexin(current_label, sorted_labels)[1] / group_size))
+    end
+
+    # now return the color mapping.
+    return color_hash
+end
+
+# edge ratio without grouping by labels beforehand
+function edge_ratio_color(numColors::Int, g::DataGraph)
+    # returns a color hash mapping a node to its color
+    color_hash = Dict()
+
+    # map each node to its average in/out ratio
+    node_ratio_mapping::Dict{Int, Float64} = Dict()
+    for v in 1:nv(g.graph)
+        in_out_ratio::Float64 = length(inneighbors(g.graph, v)) / length(outneighbors(g.graph, v))
+        node_ratio_mapping[v] = in_out_ratio
+    end
+
+    # sort the nodes by their in/out ratio
+    sorted_nodes = [x[1] for x in sort(collect(node_ratio_mapping), by=x->x[2])]
+
+    # create a color hash based on the sorted nodes and the number of desired colors
+    group_size::Int = (numColors > length(sorted_nodes)) ? 1 : ceil(Int, length(sorted_nodes) / numColors)
+    for v in 1:nv(g.graph)    
+        color_hash[v] = (ceil(Int, indexin(v, sorted_nodes)[1] / group_size))
+    end
+    # now return the color mapping.
+    return color_hash
 end
 
 function get_color_summary_size(summary)
@@ -478,7 +688,11 @@ end
 # approximates the probability of the cycle existing by using the degree into the landing node
 # and the total number of nodes in the landing node
 function get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary::ColorSummary)
-    summary.edge_avg_out_deg[edge_label][child_label][parent_color][child_color]/summary.color_label_cardinality[child_color][child_label]
+    if (summary.color_label_cardinality[child_color][child_label] == 0)
+        println("issue with independent cycle likelihood")
+    end
+    return summary.edge_avg_out_deg[edge_label][child_label][parent_color][child_color]/summary.color_label_cardinality[child_color][child_label]
+    
 end
 
 # approximates the probability of a cycle existing based on the starting color of the path to be closed and the
@@ -517,6 +731,9 @@ function get_start_color_cycle_likelihoods(max_cycle_size::Int, data::DataGraph,
                 numCycles::Float64 = get_exact_size(cycle_query, data, max_partial_paths=max_partial_paths)
                 numPaths::Float64 = get_exact_size(path_query, data, max_partial_paths=max_partial_paths)
                 bool_representation = convert_path_graph_to_bools(path_query.graph)
+                if (numPaths == 0)
+                    println("issue with start color cycle likelihood")
+                end
                 likelihood = numCycles / numPaths
                 cycle_likelihoods[color][bool_representation] = likelihood
             end
@@ -527,12 +744,8 @@ end
 
 # gets the directed path from the start to finish node
 function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
-    # remove the edge closing the cycle
-    directed_graph_copy = copy(query.graph)
-    rem_edge!(directed_graph_copy, start, finish)
-
     # convert the graph to be undirected
-    graph_copy = Graph(copy(directed_graph_copy))
+    graph_copy = Graph(copy(query.graph))
     rem_edge!(graph_copy, start, finish)
     # get a path from the start to finish node
     edges = a_star(graph_copy, start, finish)
@@ -581,7 +794,7 @@ function get_cycle_likelihoods(max_size::Int, data::DataGraph, num_sample_nodes)
 end
 
 # returns a mapping from start/end-colors => cycle-likelihood
-function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, max_partial_paths)
+function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, max_partial_paths, min_partial_paths=100)
     # we map the path that needs to be closed to its likelihood
     # of actually closing use type-aliases (path = Vector{Bool})
     cycle_likelihoods::Dict{CyclePathAndColors, Float64} = Dict()
@@ -600,14 +813,17 @@ function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash,
                 if likelihoods[color_pair][1] == 0 || likelihoods[color_pair][2] == 0
                     continue
                 end
-                current_cycle_description = CyclePathAndColors(bool_graph, color_pair)
-                # likelihoods[c1, c2] = [num_paths, num_cycles]
-                cycle_likelihoods[current_cycle_description] = (likelihoods[color_pair][1] == 0) ?
-                                                            0 : (likelihoods[color_pair][2]) / likelihoods[color_pair][1]
+                # if the number of paths is less than the minimum, we want to remove it from the likelihoods so it uses default instead
+                if likelihoods[color_pair][1] >= min_partial_paths
+                    current_cycle_description = CyclePathAndColors(bool_graph, color_pair)
+                    # likelihoods[c1, c2] = [num_paths, num_cycles]
+                    cycle_likelihoods[current_cycle_description] = (likelihoods[color_pair][1] == 0) ?
+                                                                0 : (likelihoods[color_pair][2]) / likelihoods[color_pair][1]
+                end
                 total_path_weight += likelihoods[color_pair][1]
                 total_cycle_weight += likelihoods[color_pair][1]
             end
-            if total_path_weight > min(100, nv(data.graph))
+            if total_path_weight > min_partial_paths
                 cycle_likelihoods[default_cycle_description] = total_cycle_weight/total_path_weight
             end
         end
