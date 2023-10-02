@@ -105,7 +105,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
             parent_color = only(path[parent_node_idx])
             child_color = only(path[new_node_idx][1])
             current_colors::StartEndColorPair = [child_color, parent_color]
-            # don't have to check data label because these nodes are already in the
+            # We don't have to check data label because these nodes are already in the
             # partial path, so we have already ensured that the colors are appropriate
             probability_of_edge = 0
             if (haskey(summary.edge_avg_out_deg, edge_label)
@@ -123,6 +123,8 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                         probability_of_edge = summary.cycle_probabilities[current_cycle_description]
                     elseif haskey(summary.cycle_probabilities, default_cycle_description)
                         probability_of_edge = summary.cycle_probabilities[default_cycle_description]
+                    else
+                        probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
                     end
                 else
                     probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
