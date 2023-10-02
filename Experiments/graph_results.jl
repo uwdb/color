@@ -1,15 +1,11 @@
-using StatsPlots
-using CSV, DataFrames
-include("utils.jl")
-
 @enum GROUP dataset technique cycle_size summary_paths inference_paths
 #todo: query type
 
 @enum VALUE error runtime
 
-function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}; 
+function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams};
                                         x_type::GROUP=dataset, y_type::VALUE=error,
-                                        grouping::GROUP=technique, 
+                                        grouping::GROUP=technique,
                                         x_label=nothing, y_label=nothing, filename=nothing)
     # for now let's just use the dataset as the x-values and the cycle size as the groups
     x_values = []

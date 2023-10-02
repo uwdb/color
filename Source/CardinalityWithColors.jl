@@ -12,9 +12,9 @@ using Graphs: SimpleDiGraphFromIterator, Edge, DiGraph, edges, nv, ne, add_edge!
 
 
 
-include("PropertyGraph.jl")
-include("datasets.jl")
-include("utils.jl")
-include("ExactSizeCalculator.jl")
-include("ColorSummary.jl")
-include("QuasiStableCardinalityEstimator.jl")
+include(pwd() * "/Source/PropertyGraph.jl")
+include(pwd() * "/Source/datasets.jl")
+include(pwd() * "/Source/utils.jl")
+include(pwd() * "/Source/ExactSizeCalculator.jl")
+include(pwd() * "/Source/ColorSummary.jl")
+include(pwd() * "/Source/QuasiStableCardinalityEstimator.jl")

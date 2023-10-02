@@ -1,5 +1,7 @@
-include("load_datasets.jl")
+@enum DATASET  aids human lubm80 yago yeast hprd wordnet dblp youtube eu2005 patents
 
+const IS_GCARE_DATASET = Dict(aids=>true, human=>true, lubm80=>true, yago=>true,
+     yeast=>false, hprd=>false, wordnet=>false, dblp=>false, youtube=>false, eu2005=>false, patents=>false)
 
 struct ExperimentParams
     dataset::DATASET

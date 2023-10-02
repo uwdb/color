@@ -9,14 +9,8 @@
 # - turn sampling up/down
 # - cycle length effects
 
-using Plots.PlotMeasures 
-include("Experiments/build_color_summaries.jl")
-include("Experiments/get_true_cardinalities.jl")
-include("Experiments/load_datasets.jl")
-include("Experiments/load_querysets.jl")
-include("Experiments/run_estimators.jl")
-include("Experiments/graph_results.jl")
-include("Experiments/utils.jl")
+using Plots.PlotMeasures
+include("Experiments/Experiments.jl")
 
 # datasets::Vector{DATASET} = [aids, wordnet, lubm80, human]
 # max_partial_paths = 10000
