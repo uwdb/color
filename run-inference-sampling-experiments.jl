@@ -21,10 +21,8 @@ experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=aid
                                                     ExperimentParams(dataset=aids, partitioner=QuasiStable, inference_max_paths=250),
                                                     ExperimentParams(dataset=aids, partitioner=QuasiStable, inference_max_paths=1250)]
 
-# build_experiments(experiment_params_list)
+build_experiments(experiment_params_list)
 
-# run_estimation_experiments(experiment_params_list)
+run_estimation_experiments(experiment_params_list)
 
 graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=error, grouping=inference_paths, filename="inferencesamples")
-
-# tmux new -A -s experiments
