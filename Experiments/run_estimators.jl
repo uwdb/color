@@ -11,6 +11,7 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
         summary_file_location = "Experiments/SerializedSummaries/" * params_to_summary_filename(experiment_params)
         !isfile(summary_file_location) && error("The summary has not been built yet! \n Attempted File Location: $(summary_file_location)")
         summary::ColorSummary = deserialize(summary_file_location)
+        println("cycle probability size: ", length(summary.cycle_probabilities))
         experiment_results = []
         push!(experiment_results, ("UpperBound", "Estimate", "LowerBound", "TrueCard", "EstimationTime"))
         for i in 1:length(all_queries[dataset])
@@ -18,7 +19,7 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
             exact_size = all_queries[dataset][i].exact_size
             results = @timed get_cardinality_bounds(query, summary;
                                 max_partial_paths = experiment_params.inference_max_paths,
-                                use_partial_sums=experiment_params.use_partial_sums)
+                                use_partial_sums=experiment_params.use_partial_sums, usingStoredStats=true)
             upper_bound = results.value[3]
             estimate = max(1, results.value[2])
             lower_bound = results.value[1]

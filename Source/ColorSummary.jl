@@ -1,3 +1,4 @@
+using Graphs
 BoolPath = Vector{Bool}
 StartEndColorPair = Vector{Int}
 abstract type Comparable end
@@ -56,7 +57,7 @@ struct ColorSummary
 end
 
 
-function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0)
+function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, precolor=false)
     num_colors = params.num_colors
     weighting = params.weighting
     partitioner = params.partitioner
@@ -70,6 +71,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         if (verbose > 0)
             println("Started coloring")
         end
+        QSC = QuasiStableColors
         C = QSC.q_color(g.graph, n_colors=num_colors, weighting=weighting)
         if (verbose > 0)
             println("Finished coloring")
@@ -742,12 +744,33 @@ end
 
 # gets the directed path from the start to finish node
 function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
-    # remove the edge closing the cycle
-    directed_graph_copy = copy(query.graph)
-    rem_edge!(directed_graph_copy, start, finish)
+    # use yen's algorithm to find the shortest distances between source and target vertex
+    # ys = yen_k_shortest_paths(query.graph, start, finish, K=3)
+    # # find the first path that isn't a direct connections
+    # index = 1
+    # for i in eachindex(ys.dists)
+    #     if ys.dists[i] > 1
+    #         index = i
+    #         break
+    #     end
+    # end
+    # # this new path is a series of vertices
+    # shortest_path = ys.paths[index]
+    # new_graph = DiGraph(length(shortest_path))
+    # current_start = 0
+    # for path_index in 1:(length(shortest_path)-1)
+    #     current_start += 1
+    #     if shortest_path[path_index] in outneighbors(query.graph, shortest_path[path_index + 1])
+    #         # this is a backwards edge
+    #         add_edge!(new_graph, current_start + 1, current_start)
+    #     else
+    #         # this is a forwards edge
+    #         add_edge!(new_graph, current_start, current_start + 1)
+    #     end
+    # end
 
     # convert the graph to be undirected
-    graph_copy = Graph(copy(directed_graph_copy))
+    graph_copy = Graph(copy(query.graph))
     rem_edge!(graph_copy, start, finish)
     # get a path from the start to finish node
     edges = a_star(graph_copy, start, finish)
