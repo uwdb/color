@@ -1,6 +1,3 @@
-include("load_datasets.jl")
-
-
 function load_querysets(datasets::Vector{DATASET}=Vector{DATASET}();require_true_cardinality=true)
     if length(datasets) == 0
         datasets = instances(DATASET)

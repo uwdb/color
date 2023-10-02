@@ -1,6 +1,3 @@
-include("load_querysets.jl")
-
-
 function calculate_true_cardinalities(datasets::Vector{DATASET}; timeout=120, query_types_to_exclude=[])
     queries = load_querysets(datasets; require_true_cardinality=false)
     for dataset in datasets

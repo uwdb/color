@@ -227,7 +227,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
                 color_sizes[color_hash[i]] += 1
             end
         end
-        
+
     end
 
 
@@ -539,7 +539,7 @@ end
 function label_num_edges_color(numColors::Int, g::DataGraph)
     # returns a color hash mapping a node to its color
     color_hash = Dict()
-    
+
     # map each label to the set of all the nodes with that label
     label_node_mapping::Dict{Int, Vector{Int}} = Dict()
     for v in 1:nv(g.graph)
@@ -587,7 +587,7 @@ end
 function label_edge_ratio_color(numColors::Int, g::DataGraph)
     # returns a color hash mapping a node to its color
     color_hash = Dict()
-    
+
     # map each label to the set of all the nodes with that label (each node is randomly assigned to one of its labels)
     label_node_mapping::Dict{Int, Vector{Int}} = Dict()
     for v in 1:nv(g.graph)
@@ -597,7 +597,7 @@ function label_edge_ratio_color(numColors::Int, g::DataGraph)
                 label_node_mapping[label] = []
             end
             push!(label_node_mapping[label], v)
-        end        
+        end
     end
 
     # create a new mapping of label -> avg in/out ratio for each node within it
@@ -651,7 +651,7 @@ function edge_ratio_color(numColors::Int, g::DataGraph)
 
     # create a color hash based on the sorted nodes and the number of desired colors
     group_size::Int = (numColors > length(sorted_nodes)) ? 1 : ceil(Int, length(sorted_nodes) / numColors)
-    for v in 1:nv(g.graph)    
+    for v in 1:nv(g.graph)
         color_hash[v] = (ceil(Int, indexin(v, sorted_nodes)[1] / group_size))
     end
     # now return the color mapping.
@@ -692,7 +692,7 @@ function get_independent_cycle_likelihood(edge_label, child_label, parent_color,
         println("issue with independent cycle likelihood")
     end
     return summary.edge_avg_out_deg[edge_label][child_label][parent_color][child_color]/summary.color_label_cardinality[child_color][child_label]
-    
+
 end
 
 # approximates the probability of a cycle existing based on the starting color of the path to be closed and the
