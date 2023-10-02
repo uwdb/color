@@ -32,7 +32,7 @@ using Graphs
      @testset "cycle graph, 1 edge query" begin
          numVertices = 1000
          g = DataGraph(numVertices)
-         for i in range(1,999)
+         for i in 1:999
             add_labeled_edge!(g, (i, i+1), 1)
          end
          add_labeled_edge!(g, (1000, 1), 1)
