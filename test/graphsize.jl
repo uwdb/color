@@ -170,7 +170,7 @@ using Graphs
 
     @testset "directed triangle query on undirected 10 clique data" begin
         g = DataGraph(DiGraph(clique_graph(10, 1)))
-        for i in range(2,10)
+        for i in 2:10
             add_labeled_edge!(g, (i, i), -1) # The clique_graph constructor doesn't include self-edges, except for node 1...
         end
         query_graph = QueryGraph(3)
