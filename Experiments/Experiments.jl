@@ -1,5 +1,6 @@
 # Overall Experiments Harness Include File
 using Serialization: serialize, deserialize
+using Plots
 using StatsPlots
 using CSV, DataFrames
 using DelimitedFiles: writedlm

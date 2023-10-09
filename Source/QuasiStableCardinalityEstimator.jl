@@ -49,7 +49,8 @@ function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}
 
     # choose a sample of the paths
     sample_weights = [x[2][2] for x in partial_paths]
-    sample_weights =AnalyticWeights(sample_weights./sum(sample_weights))
+    total_weight = sum(sample_weights)
+    sample_weights =AnalyticWeights(sample_weights./total_weight)
     path_samples::Vector{Tuple{Vector{Int}, Vector{Float64}}} = sample(partial_paths, sample_weights,  num_samples; replace=false)
 
     # sum up the sampled bounds

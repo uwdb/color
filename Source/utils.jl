@@ -18,8 +18,8 @@ function get_spanning_tree(query::QueryGraph)
 end
 
 
-function get_min_width_node_order(g::DiGraph)
-    if (nv(g) < 10)
+function get_min_width_node_order(g::DiGraph; max_exact_width = 10, return_width=false)
+    if (nv(g) < max_exact_width)
         nodes_processed = 1
         partial_orders::Dict{Set{Int64}, Tuple{Vector{Int64}, Int64}} = Dict(Set([x]) =>([x], 0) for x in vertices(g))
         while nodes_processed < nv(g)
@@ -63,8 +63,12 @@ function get_min_width_node_order(g::DiGraph)
             end
         end
         min_width = minimum([x[2] for x in values(partial_orders)])
+        if min_width == 1
+            println(g)
+        end
         for node_order_and_width in values(partial_orders)
             if node_order_and_width[2] == min_width
+                return_width && return node_order_and_width[2]
                 return node_order_and_width[1]
             end
         end
@@ -103,6 +107,7 @@ function get_min_width_node_order(g::DiGraph)
                 min_width = max_width
             end
         end
+        return_width && return min_width
         return min_order
     end
 end

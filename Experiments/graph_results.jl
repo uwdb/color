@@ -1,7 +1,7 @@
 @enum GROUP dataset technique cycle_size summary_paths inference_paths
 #todo: query type
 
-@enum VALUE error runtime
+@enum VALUE estimate_error runtime
 
 function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams};
                                         x_type::GROUP=dataset, y_type::VALUE=error,
@@ -24,7 +24,7 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
         # keep track of the data points
         for i in 1:nrow(results_df)
             current_y = 0
-            if y_type == error
+            if y_type == estimate_error
                 current_y = results_df[i, :Estimate] / results_df[i, :TrueCard]
             else # y_type == runtime
                 current_y = results_df[i, :EstimationTime]
@@ -36,11 +36,11 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
         end
     end
     println("starting graphs")
-    plot = groupedboxplot(x_values, y_values, group = groups, left_margin = 10mm, bottom_margin = 10mm, yscale =:log10,  ylims=[10^-11, 10^11], yticks=[10^-5, 1, 10^5, 10^10])
-    x_label !== nothing && xlabel!(plot, x_label)
-    y_label !== nothing && ylabel!(plot, y_label)
+    gbplot = groupedboxplot(x_values, y_values, group = groups, left_margin = 10mm, bottom_margin = 10mm, yscale =:log10,  ylims=[10^-11, 10^11], yticks=[10^-5, 1, 10^5, 10^10])
+    x_label !== nothing && xlabel!(gbplot, x_label)
+    y_label !== nothing && ylabel!(gbplot, y_label)
     plotname = (isnothing(filename)) ? resultsfilename * ".png" : filename * ".png"
-    savefig(plot, "Experiments/Results/Figures/" * plotname)
+    savefig(gbplot, "Experiments/Results/Figures/" * plotname)
 end
 
 # default to grouping by dataset
