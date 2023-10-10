@@ -189,7 +189,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
     current_query_nodes::Vector{Int} = []
 
     old_node = popfirst!(node_order)
-    parent_label = query.vertex_labels[old_node][1]
+    parent_label = only(query.vertex_labels[old_node])
     parent_data_labels = get_data_label(query, old_node)
     push!(current_query_nodes, old_node)
     # Initialize partial_paths with all possible starting color/vertex possibilities.
