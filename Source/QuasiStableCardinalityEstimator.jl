@@ -118,18 +118,20 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
         path_bools = convert_path_graph_to_bools(path_graph)
         default_colors::StartEndColorPair = (-1, -1)
         default_cycle_description = CyclePathAndColors(path_bools, default_colors)
+        edge_avg_deg::Dict{Int, Dict{Int, Float64}} = Dict()
+        if haskey(summary.edge_avg_out_deg, edge_label) && haskey(summary.edge_avg_out_deg[edge_label], child_label)
+            edge_avg_deg = summary.edge_avg_out_deg[edge_label][child_label]
+        end
+
         for i  in eachindex(partial_paths)
             path::Vector{Int} = partial_paths[i][1]
-            parent_color = path[parent_node_idx]
-            child_color = path[new_node_idx]
+            parent_color::Int = path[parent_node_idx]
+            child_color::Int = path[new_node_idx]
             current_colors::StartEndColorPair = (child_color, parent_color)
             # We don't have to check data label because these nodes are already in the
             # partial path, so we have already ensured that the colors are appropriate
-            probability_of_edge = 0
-            if (haskey(summary.edge_avg_out_deg, edge_label)
-                    && haskey(summary.edge_avg_out_deg[edge_label], child_label) # so we know that the child label is not appearing in the edge label table...
-                        && haskey(summary.edge_avg_out_deg[edge_label][child_label], parent_color)
-                            && haskey(summary.edge_avg_out_deg[edge_label][child_label][parent_color], child_color))
+            probability_of_edge = 0.0
+            if (haskey(edge_avg_deg, parent_color) && haskey(edge_avg_deg[parent_color], child_color))
                 if usingStoredStats
                     # we flip this because the matching graph finds the path between two nodes,
                     # where the last node is the start of the closing edge
@@ -261,11 +263,6 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
         new_data_labels = get_data_label(query, new_node)
 
         new_partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = []
-        if (max_partial_paths !== nothing)
-            if (length(partial_paths) > max_partial_paths)
-                partial_paths = sample_paths(partial_paths, max_partial_paths, sampling_strategy)
-            end
-        end
 
         # Update the partial paths using the parent-child combo that comes next from the query.
         edge_min_deg::Dict{Int, Dict{Int, Float64}} = Dict()
@@ -308,13 +305,12 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
                         continue
                     end
 
-                    new_path = copy(path)
-                    push!(new_path, new_color)
-                    new_bounds = [running_bounds[1]*edge_min_deg[old_color][new_color],
+                    new_path::Vector{Int} = [path..., new_color]
+                    new_bounds::Vector{Float64} = [running_bounds[1]*edge_min_deg[old_color][new_color],
                                     running_bounds[2]*edge_avg_deg[old_color][new_color],
                                     running_bounds[3]*edge_max_deg[old_color][new_color],
                                     ]
-                    if (new_data_labels != [-1])
+                    if !(length(new_data_labels) == 1 && new_data_labels[1] == -1)
                         # we have already confirmed that the data label is in the color, but if the data label isn't -1
                         # then we need to scale down the result since we only want to consider one of the many nodes in the new color
                         new_bounds[2] = new_bounds[2] / summary.color_label_cardinality[new_color][new_label]
@@ -326,6 +322,13 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
             end
         end
         partial_paths = new_partial_paths
+
+        if (max_partial_paths !== nothing)
+            if (length(partial_paths) > max_partial_paths)
+                partial_paths = sample_paths(partial_paths, max_partial_paths, sampling_strategy)
+            end
+        end
+
         if (include_cycles)
             handle_extra_edges!(query, summary, partial_paths, current_query_nodes, visited_query_edges, usingStoredStats)
         end

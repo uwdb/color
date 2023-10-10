@@ -2,7 +2,7 @@
 using Profile
 include("../Experiments.jl")
 
-datasets = [human, aids, yeast]
+datasets = [yeast]
 
 experiment_params = Vector{ExperimentParams}()
 build_params = Vector{ExperimentParams}()
