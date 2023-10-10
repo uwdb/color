@@ -221,7 +221,7 @@ function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sum
             query_edge_label =  only(query.edge_labels[(new_node,old_node)])
             push!(visited_query_edges, (new_node, old_node))
         end
-        query_child_label = query.vertex_labels[new_node][1]
+        query_child_label = only(query.vertex_labels[new_node])
         query_child_id_labels = query.vertex_id_labels[new_node]
 
         push!(current_query_nodes, new_node)
