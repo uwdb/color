@@ -11,10 +11,11 @@
 # The second graph demonstrates this tradeoff when we vary the number of partial paths alone
 # during inference.
 
+using Profile
 include("../Experiments.jl")
 
 function generate_num_colors_graph(dataset::DATASET)
-    num_colors = [4, 8, 16, 32, 64]
+    num_colors = [4, 8, 16, 32, 64, 128]
     p50_q_errors = []
     p50_runtimes = []
     p95_q_errors = []
@@ -23,10 +24,8 @@ function generate_num_colors_graph(dataset::DATASET)
     p99_runtimes = []
 
     for colors in num_colors
-#        experiment_params = ExperimentParams(dataset=dataset;
-#                                        inference_max_paths=2*colors, num_colors=colors)
         experiment_params = ExperimentParams(dataset=dataset;
-                                        inference_max_paths=colors^5, num_colors=colors)
+                                        inference_max_paths=2*colors, num_colors=colors)
         build_experiments([experiment_params])
         println("Num Colors: ", colors)
         run_estimation_experiments([experiment_params])
@@ -54,29 +53,29 @@ function generate_num_colors_graph(dataset::DATASET)
     ENV["GKSwstype"]="100"
     fig = plot(p50_runtimes, p50_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
                 xlabel="P50 Runtime (sec)", ylabel="P50 Q-Error", title="Num Colors "*string(dataset))
-    savefig(fig, "Experiments/Results/Figures/1_NumColors_Accuracy_vs_Runtime_P50_" * string(dataset) * ".png")
+    savefig(fig, "Experiments/Results/Figures/NumColors_Accuracy_vs_Runtime_P50_" * string(dataset) * ".png")
     fig = plot(p95_runtimes, p95_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
                 xlabel="P95 Runtime (sec)", ylabel="P95 Q-Error", title="Num Colors "*string(dataset))
-    savefig(fig, "Experiments/Results/Figures/1_NumColors_Accuracy_vs_Runtime_P95_" * string(dataset) * ".png")
+    savefig(fig, "Experiments/Results/Figures/NumColors_Accuracy_vs_Runtime_P95_" * string(dataset) * ".png")
     fig = plot(p99_runtimes, p99_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
                 xlabel="P99 Runtime (sec)", ylabel="P99 Q-Error", title="Num Colors "*string(dataset))
-    savefig(fig, "Experiments/Results/Figures/1_NumColors_Accuracy_vs_Runtime_P99_" * string(dataset) * ".png")
+    savefig(fig, "Experiments/Results/Figures/NumColors_Accuracy_vs_Runtime_P99_" * string(dataset) * ".png")
 end
 
-function generate_partial_paths_graph(dataset::DATASET)
-    partial_paths = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+function generate_partial_paths_graph(dataset::DATASET; num_colors = 64)
+    partial_paths = [2, 4, 8, 16, 32, 64, 128, 256]
     p50_q_errors = []
     p50_runtimes = []
     p95_q_errors = []
     p95_runtimes = []
     p99_q_errors = []
     p99_runtimes = []
-    build_params = ExperimentParams(dataset=dataset, inference_max_paths=100)
+    build_params = ExperimentParams(dataset=dataset, num_colors=num_colors, inference_max_paths=100)
     build_experiments([build_params])
 
     for pp in partial_paths
         println("Partial Paths: ", pp)
-        inference_params = ExperimentParams(dataset=dataset, inference_max_paths=pp)
+        inference_params = ExperimentParams(dataset=dataset, num_colors=num_colors, inference_max_paths=pp)
         run_estimation_experiments([inference_params])
         results_filename = params_to_results_filename(inference_params)
         results_path = "Experiments/Results/Estimation_" * results_filename
@@ -112,14 +111,13 @@ function generate_partial_paths_graph(dataset::DATASET)
     fig = plot(p99_runtimes, p99_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
         xlabel="P99 Runtime (sec)", ylabel="P99 Q-Error", title="Partial Paths "*string(dataset))
     savefig(fig, "Experiments/Results/Figures/PP_Accuracy_vs_Runtime_P99_" * string(dataset) * ".png")
-
 end
 
 #generate_num_colors_graph(human)
 #generate_num_colors_graph(aids)
 #generate_num_colors_graph(hprd)
 #generate_num_colors_graph(yeast)
-#generate_partial_paths_graph(human)
-#generate_partial_paths_graph(aids)
-#generate_partial_paths_graph(hprd)
-#generate_partial_paths_graph(yeast)
+generate_partial_paths_graph(human; num_colors=256)
+generate_partial_paths_graph(aids; num_colors=256)
+generate_partial_paths_graph(hprd; num_colors=256)
+generate_partial_paths_graph(yeast; num_colors=256)

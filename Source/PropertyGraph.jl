@@ -46,9 +46,6 @@ end
 # Replaces the node's labels
 function update_node_labels!(g::DataGraph, node::Int, node_labels::Vector{Int})
     g.vertex_labels[node] = node_labels
-    if !(-1 in g.vertex_labels[node])
-        push!(g.vertex_labels[node], -1)
-    end
 end
 
 # Replaces the node's labels

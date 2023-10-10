@@ -687,7 +687,7 @@ end
 
 # approximates the probability of the cycle existing by using the degree into the landing node
 # and the total number of nodes in the landing node
-function get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary::ColorSummary)
+@inline function get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary::ColorSummary)
     if (summary.color_label_cardinality[child_color][child_label] == 0)
         println("issue with independent cycle likelihood")
     end
