@@ -1,11 +1,16 @@
-using Plots.PlotMeasures 
-include("Experiments/build_color_summaries.jl")
-include("Experiments/get_true_cardinalities.jl")
-include("Experiments/load_datasets.jl")
-include("Experiments/load_querysets.jl")
-include("Experiments/run_estimators.jl")
-include("Experiments/graph_results.jl")
-include("Experiments/utils.jl")
+# TODO:
+# - turn sampling up/down (build and inference)
+# - cycle length effects
+# - reverify ground truth wrt G-captures
+# - rerun initial g-care benchmarks and verify old results
+# - recreate initial G-Care Benchmark results
+
+# My tasks:
+# - turn sampling up/down
+# - cycle length effects
+
+using Plots.PlotMeasures
+include("Experiments/Experiments.jl")
 
 # datasets::Vector{DATASET} = [aids, wordnet, lubm80, human]
 # max_partial_paths = 10000

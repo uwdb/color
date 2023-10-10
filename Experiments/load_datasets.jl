@@ -1,10 +1,3 @@
-include("../Source/CardinalityWithColors.jl")
-
-@enum DATASET  aids human lubm80 yago yeast hprd wordnet dblp youtube eu2005 patents
-
-const IS_GCARE_DATASET = Dict(aids=>true, human=>true, lubm80=>true, yago=>true,
-     yeast=>false, hprd=>false, wordnet=>false, dblp=>false, youtube=>false, eu2005=>false, patents=>false)
-
 function load_dataset(dataset::DATASET)
     if dataset == aids
         aids_data_file_path = "dataset/aids/aids.txt"

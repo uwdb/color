@@ -10,7 +10,7 @@
 /queryset
 /dataset/
 /TrueCardinalities
-/Experiments/Results/
-/Experiments/SerializedSummaries/
+/Experiments/Results/*
+/Experiments/SerializedSummaries/*
 
 

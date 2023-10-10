@@ -1,8 +1,3 @@
-include("load_datasets.jl")
-include("load_querysets.jl")
-include("utils.jl")
-
-using Serialization: deserialize
 
 function run_estimation_experiments(experiment_params_list::Vector{ExperimentParams})
     for experiment_params in experiment_params_list
@@ -15,6 +10,7 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
         push!(experiment_results, ("UpperBound", "Estimate", "LowerBound", "TrueCard", "EstimationTime", "QueryType"))
         for i in 1:length(all_queries[dataset])
             query = all_queries[dataset][i].query
+            query_path = all_queries[dataset][i].query_path
             exact_size = all_queries[dataset][i].exact_size
             results = @timed get_cardinality_bounds(query, summary;
                                 max_partial_paths = experiment_params.inference_max_paths,

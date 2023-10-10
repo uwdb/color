@@ -5,12 +5,12 @@ include("utils.jl")
 @enum GROUP dataset technique cycle_size summary_paths inference_paths query_type
 #todo: query type
 
-@enum VALUE error runtime
+@enum VALUE estimate_error runtime
 
-function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}; 
+function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams};
                                         x_type::GROUP=dataset, y_type::VALUE=error,
-                                        grouping::GROUP=technique, 
-                                        x_label="error", y_label="dataset", filename=nothing)
+                                        grouping::GROUP=technique,
+                                        x_label=nothing, y_label=nothing, filename=nothing)
     # for now let's just use the dataset as the x-values and the cycle size as the groups
     x_values = []
     y_values = []
@@ -29,7 +29,7 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
             current_x = x_type == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, x_type)
             current_group = grouping == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, grouping)
             current_y = 0
-            if y_type == error
+            if y_type == estimate_error
                 current_y = results_df[i, :Estimate] / results_df[i, :TrueCard]
             else # y_type == runtime
                 current_y = results_df[i, :EstimationTime]
@@ -41,11 +41,11 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
         end
     end
     println("starting graphs")
-    plot = groupedboxplot(x_values, y_values, group = groups, left_margin = 10mm, bottom_margin = 10mm, yscale =:log10,  ylims=[10^-11, 10^11], yticks=[10^-5, 1, 10^5, 10^10])
-    x_label !== nothing && xlabel!(plot, x_label)
-    y_label !== nothing && ylabel!(plot, y_label)
+    gbplot = groupedboxplot(x_values, y_values, group = groups, left_margin = 10mm, bottom_margin = 10mm, yscale =:log10,  ylims=[10^-11, 10^11], yticks=[10^-5, 1, 10^5, 10^10])
+    x_label !== nothing && xlabel!(gbplot, x_label)
+    y_label !== nothing && ylabel!(gbplot, y_label)
     plotname = (isnothing(filename)) ? resultsfilename * ".png" : filename * ".png"
-    savefig(plot, "Experiments/Results/Figures/" * plotname)
+    savefig(gbplot, "Experiments/Results/Figures/" * plotname)
 end
 
 # default to grouping by dataset
