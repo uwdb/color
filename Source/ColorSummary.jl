@@ -77,7 +77,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
             println("Finished coloring")
         end
         color_hash = QSC.node_map(C)
-        color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
+        color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)]
     elseif partitioner == Hash
         color_hash = Dict()
         for i in 1:nv(g.graph)
@@ -155,7 +155,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
             QSC = QuasiStableColors
             C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting, warm_start=[i for i in color_hash_to_groups(color_hash, numColors) if length(i) != 0])
             color_hash = QSC.node_map(C)
-            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
+            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)]
         end
     elseif partitioner == SimpleLabel
         if (precolor)
@@ -168,7 +168,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
             QSC = QuasiStableColors
             C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting, warm_start=[i for i in color_hash_to_groups(color_hash, numColors) if length(i) != 0])
             color_hash = QSC.node_map(C)
-            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
+            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)]
         else
             color_hash = label_color(num_colors, g)
             for i in eachindex(color_hash)
@@ -177,7 +177,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         end
         # println("Color hash was ", length(color_hash))
     elseif partitioner == InOut
-        color_hash = edge_ratio_color(numColors, g)
+        color_hash = edge_ratio_color(num_colors, g)
         for i in eachindex(color_hash)
             color_sizes[color_hash[i]] += 1
         end
@@ -191,7 +191,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
             QSC = QuasiStableColors
             C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting, warm_start=[i for i in color_hash_to_groups(color_hash, numColors) if length(i) != 0])
             color_hash = QSC.node_map(C)
-            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
+            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)]
         else
             color_hash = label_edge_ratio_color(numColors, g)
             for i in eachindex(color_hash)
@@ -205,7 +205,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
             QSC = QuasiStableColors
             C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting, warm_start=[i for i in color_hash_to_groups(color_hash, numColors) if length(i) != 0])
             color_hash = QSC.node_map(C)
-            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
+            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)]
         else
             color_hash = label_num_edges_color(numColors, g)
             # println("neighbor num edges color hash: ", color_hash)
@@ -220,7 +220,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
             QSC = QuasiStableColors
             C = QSC.q_color(g.graph, n_colors=numColors, weighting=weighting, warm_start=[i for i in color_hash_to_groups(color_hash, numColors) if length(i) != 0])
             color_hash = QSC.node_map(C)
-            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)] # EXTREMELY SUS
+            color_sizes = [only(size(C.partitions[i])) for i in 1:length(C.partitions)]
         else
             color_hash = most_neighbors_color(numColors, g)
             for i in eachindex(color_hash)
@@ -793,8 +793,9 @@ function get_cycle_likelihoods(max_size::Int, data::DataGraph, num_sample_nodes)
     return cycle_likelihoods
 end
 
+# this is the one where we also have the directionality of the path
 # returns a mapping from start/end-colors => cycle-likelihood
-function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, max_partial_paths, min_partial_paths=100)
+function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, max_partial_paths, min_partial_paths=0)
     # we map the path that needs to be closed to its likelihood
     # of actually closing use type-aliases (path = Vector{Bool})
     cycle_likelihoods::Dict{CyclePathAndColors, Float64} = Dict()
@@ -823,9 +824,10 @@ function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash,
                 total_path_weight += likelihoods[color_pair][1]
                 total_cycle_weight += likelihoods[color_pair][1]
             end
-            if total_path_weight > min_partial_paths
-                cycle_likelihoods[default_cycle_description] = total_cycle_weight/total_path_weight
-            end
+            # if total_path_weight > min_partial_paths
+            #     cycle_likelihoods[default_cycle_description] = total_cycle_weight/total_path_weight
+            # end
+            cycle_likelihoods[default_cycle_description] = (total_path_weight == 0) ? 0 : total_cycle_weight/total_path_weight
         end
     end
     return cycle_likelihoods

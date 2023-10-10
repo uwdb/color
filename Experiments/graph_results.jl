@@ -1,4 +1,8 @@
-@enum GROUP dataset technique cycle_size summary_paths inference_paths
+using StatsPlots
+using CSV, DataFrames
+include("utils.jl")
+
+@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type
 #todo: query type
 
 @enum VALUE estimate_error runtime
@@ -19,10 +23,11 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
         results_df = CSV.read(results_path, DataFrame; normalizenames=true)
 
         # get the x_value and grouping (same for all results in this experiment param)
-        current_x = get_value_from_param(experiment_params, x_type)
-        current_group = get_value_from_param(experiment_params, grouping)
+        
         # keep track of the data points
         for i in 1:nrow(results_df)
+            current_x = x_type == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, x_type)
+            current_group = grouping == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, grouping)
             current_y = 0
             if y_type == estimate_error
                 current_y = results_df[i, :Estimate] / results_df[i, :TrueCard]
