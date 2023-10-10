@@ -63,9 +63,9 @@ function get_min_width_node_order(g::DiGraph; max_exact_width = 10, return_width
             end
         end
         min_width = minimum([x[2] for x in values(partial_orders)])
-        if min_width == 1
-            println(g)
-        end
+        # if min_width == 1
+        #     println(g)
+        # end
         for node_order_and_width in values(partial_orders)
             if node_order_and_width[2] == min_width
                 return_width && return node_order_and_width[2]

@@ -1,11 +1,5 @@
 using Plots.PlotMeasures 
-include("Experiments/build_color_summaries.jl")
-include("Experiments/get_true_cardinalities.jl")
-include("Experiments/load_datasets.jl")
-include("Experiments/load_querysets.jl")
-include("Experiments/run_estimators.jl")
-include("Experiments/graph_results.jl")
-include("Experiments/utils.jl")
+include("Experiments/Experiments.jl")
 
 # datasets::Vector{DATASET} = [aids, human, lubm80, yago, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
 datasets::Vector{DATASET} = [aids]
@@ -17,4 +11,4 @@ build_experiments(experiment_params_list)
 
 run_estimation_experiments(experiment_params_list)
 
-graph_grouped_box_plot(experiment_params_list, x_type=query_type, y_type=error, grouping=cycle_size, filename="debug-aids")
+graph_grouped_box_plot(experiment_params_list, x_type=query_type, y_type=estimate_error, grouping=cycle_size, filename="debug-aids")
