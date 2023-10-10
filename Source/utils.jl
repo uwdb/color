@@ -18,14 +18,14 @@ function get_spanning_tree(query::QueryGraph)
 end
 
 
-function get_min_width_node_order(g::DiGraph; max_exact_width = 10, return_width=false)
+function get_min_width_node_order(g::DiGraph; max_exact_width = 1, return_width=false)
     if (nv(g) < max_exact_width)
         nodes_processed = 1
-        partial_orders::Dict{Set{Int64}, Tuple{Vector{Int64}, Int64}} = Dict(Set([x]) =>([x], 0) for x in vertices(g))
+        partial_orders::Dict{Set{Int32}, Tuple{Vector{Int}, Int32}} = Dict(Set([x]) =>([x], 0) for x in vertices(g))
         while nodes_processed < nv(g)
             for node_set in keys(partial_orders)
                 best_order, best_width = partial_orders[node_set]
-                neighbor_nodes = Set()
+                neighbor_nodes = Set{Int32}()
                 for existing_node in node_set
                     for neighbor in all_neighbors(g, existing_node)
                         if !(neighbor in node_set)
@@ -34,11 +34,8 @@ function get_min_width_node_order(g::DiGraph; max_exact_width = 10, return_width
                     end
                 end
                 for next_node in neighbor_nodes
-                    new_node_set::Set{Int32} = Set([next_node])
-                    new_node_set = union(new_node_set, node_set)
-                    new_order = []
-                    copy!(new_order, best_order)
-                    push!(new_order, next_node)
+                    new_node_set::Set{Int32} = Set([next_node, node_set...])
+                    new_order::Vector{Int32} = [best_order..., next_node]
                     new_width = 0
                     for v in new_order
                         if ! all([x in new_order for x in all_neighbors(g, v)])
@@ -63,43 +60,52 @@ function get_min_width_node_order(g::DiGraph; max_exact_width = 10, return_width
             end
         end
         min_width = minimum([x[2] for x in values(partial_orders)])
-        if min_width == 1
-            println(g)
-        end
         for node_order_and_width in values(partial_orders)
             if node_order_and_width[2] == min_width
                 return_width && return node_order_and_width[2]
                 return node_order_and_width[1]
             end
         end
-    else
+    else #NOTE THIS IS A PERFORMANCE BOTTLENECK
         min_width = nv(g)
-        min_order = []
+        min_order::Vector{Int} = []
         for starting_node in vertices(g)
             max_width = 0
-            visited_nodes = [starting_node]
+            visited_nodes::Vector{Int}= [starting_node]
+            neighbor_count = Dict{Int, Int}(starting_node => degree(g, starting_node))
+            living_neighbors = Set{Int}(all_neighbors(g, starting_node))
+            current_width = 1
             while length(visited_nodes) < nv(g)
                 new_width = nv(g)
                 next_node = -1
-                for potential_node in vertices(g)
-                    if potential_node in visited_nodes || !any([x in all_neighbors(g, potential_node) for x in visited_nodes])
-                        continue
-                    end
-                    potential_visited_nodes = []
-                    copy!(potential_visited_nodes, visited_nodes)
-                    push!(potential_visited_nodes, potential_node)
-                    potential_num_active_nodes = 0
-                    for v in potential_visited_nodes
-                        if ! all([x in potential_visited_nodes for x in all_neighbors(g, v)])
-                            potential_num_active_nodes += 1
+                for potential_node in living_neighbors
+                    new_neighbors = 0
+                    killed_neighbors = 0
+                    for potential_new_neighbor in all_neighbors(g, potential_node)
+                        if !(potential_new_neighbor in visited_nodes)
+                            new_neighbors = 1
+                        elseif neighbor_count[potential_new_neighbor] == 1
+                            killed_neighbors += 1
                         end
                     end
-                    if potential_num_active_nodes <= new_width
+                    if current_width + new_neighbors - killed_neighbors <= new_width
                         next_node = potential_node
-                        new_width = potential_num_active_nodes
+                        new_width = current_width + new_neighbors - killed_neighbors
                     end
                 end
+
+                neighbor_count[next_node] = 0
+                for neighbor in all_neighbors(g, next_node)
+                    if neighbor in visited_nodes
+                        neighbor_count[neighbor] -= 1
+                    else
+                        neighbor_count[next_node] += 1
+                        push!(living_neighbors, neighbor)
+                    end
+                end
+                delete!(living_neighbors, next_node)
                 push!(visited_nodes, next_node)
+                current_width = new_width
                 max_width = max(max_width, new_width)
             end
             if max_width <= min_width
