@@ -118,6 +118,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
         path_bools = convert_path_graph_to_bools(path_graph)
         default_colors::StartEndColorPair = (-1, -1)
         default_cycle_description = CyclePathAndColors(path_bools, default_colors)
+        path_length = length(path_bools)
         edge_avg_deg::Dict{Int, Dict{Int, Float64}} = Dict()
         if haskey(summary.edge_avg_out_deg, edge_label) && haskey(summary.edge_avg_out_deg[edge_label], child_label)
             edge_avg_deg = summary.edge_avg_out_deg[edge_label][child_label]
@@ -140,6 +141,8 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                         probability_of_edge = summary.cycle_probabilities[current_cycle_description]
                     elseif haskey(summary.cycle_probabilities, default_cycle_description)
                         probability_of_edge = summary.cycle_probabilities[default_cycle_description]
+                    elseif haskey(summary.cycle_length_probabilities, path_length)
+                        probability_of_edge = summary.cycle_length_probabilities[path_length]
                     else
                         probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
                     end
