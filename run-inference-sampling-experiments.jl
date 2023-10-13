@@ -30,4 +30,4 @@ build_experiments(experiment_params_list)
 
 run_estimation_experiments(experiment_params_list)
 
-graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=error, grouping=inference_paths, filename="inferencesampling")
+graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=estimate_error, grouping=inference_paths, filename="inferencesampling")
