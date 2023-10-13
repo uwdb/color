@@ -1,6 +1,6 @@
 using Graphs
 BoolPath = Vector{Bool}
-StartEndColorPair = Vector{Int}
+StartEndColorPair = Tuple{Int, Int}
 abstract type Comparable end
 import Base .==
 function ==(a::T, b::T) where T <: Comparable
@@ -687,7 +687,7 @@ end
 
 # approximates the probability of the cycle existing by using the degree into the landing node
 # and the total number of nodes in the landing node
-function get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary::ColorSummary)
+@inline function get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary::ColorSummary)
     if (summary.color_label_cardinality[child_color][child_label] == 0)
         println("issue with independent cycle likelihood")
     end
@@ -802,11 +802,11 @@ function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash,
     if (max_size < 2)
         return cycle_likelihoods
     end
-    default_color_pair = [-1, -1]
+    default_color_pair::StartEndColorPair = (-1, -1)
     for i in 2:max_size
         paths = generate_graphs(i - 1, 0, (Vector{DiGraph})([DiGraph(i)]), false)
         for path in paths
-            total_path_weight, total_cycle_weight = (0,0)
+            total_path_weight, total_cycle_weight = (0.0,0.0)
             bool_graph = convert_path_graph_to_bools(path.graph)
             default_cycle_description = CyclePathAndColors(bool_graph, default_color_pair)
             likelihoods = approximate_color_cycle_likelihood(path, data, color_hash, max_partial_paths) # output a dictionary of start-end color pairs -> likelihood
@@ -822,12 +822,11 @@ function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash,
                                                                 0 : (likelihoods[color_pair][2]) / likelihoods[color_pair][1]
                 end
                 total_path_weight += likelihoods[color_pair][1]
-                total_cycle_weight += likelihoods[color_pair][1]
+                total_cycle_weight += likelihoods[color_pair][2]
             end
-            # if total_path_weight > min_partial_paths
-            #     cycle_likelihoods[default_cycle_description] = total_cycle_weight/total_path_weight
-            # end
-            cycle_likelihoods[default_cycle_description] = (total_path_weight == 0) ? 0 : total_cycle_weight/total_path_weight
+            if total_path_weight > min_partial_paths/2
+               cycle_likelihoods[default_cycle_description] = (total_path_weight == 0) ? 0 : total_cycle_weight/total_path_weight
+            end
         end
     end
     return cycle_likelihoods
@@ -873,7 +872,7 @@ function approximate_color_cycle_likelihood(path::QueryGraph, data::DataGraph, c
         # check the colors
         current_start_node = path[1]
         current_end_node = path[2]
-        current_colors::StartEndColorPair = [color_hash[current_start_node], color_hash[current_end_node]]
+        current_colors::StartEndColorPair = (color_hash[current_start_node], color_hash[current_end_node])
         if !(haskey(color_matches, current_colors))
             color_matches[current_colors] = [0, 0]
         end
