@@ -2,7 +2,7 @@
 using Profile
 include("../Experiments.jl")
 
-datasets = [yeast]
+datasets = [human, aids, yeast, hprd, dblp]
 
 experiment_params = Vector{ExperimentParams}()
 build_params = Vector{ExperimentParams}()
@@ -13,8 +13,8 @@ for dataset in datasets
     end
 end
 
-#build_experiments(build_params)
+build_experiments(build_params)
 
 run_estimation_experiments(experiment_params)
 
-graph_grouped_box_plot(experiment_params; grouping=sampling_type, filename="sampling_strategies_comparison_128")
+graph_grouped_box_plot(experiment_params; grouping=sampling_type, filename="sampling_strategies_comparison")

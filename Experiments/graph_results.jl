@@ -42,7 +42,9 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
     # This seems to be necessary for using Plots.jl outside of the ipynb framework.
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
     ENV["GKSwstype"]="100"
-    gbplot = groupedboxplot(x_values, y_values, group = groups, left_margin = 10mm, bottom_margin = 10mm, yscale =:log10,  ylims=[10^-13, 10^11], yticks=[10^-10, 10^-5, 1, 10^5, 10^10])
+    gbplot = groupedboxplot(x_values, y_values, group = groups, yscale =:log10,
+                            ylims=[10^-13, 10^11], yticks=[10^-10, 10^-5, 1, 10^5, 10^10],
+                            legend = :outertopleft, size = (1000, 600))
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"

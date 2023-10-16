@@ -1,17 +1,29 @@
 using Graphs
 
+struct DegreeStats
+    min_out::Float64
+    avg_out::Float64
+    max_out::Float64
+    min_in::Float64
+    avg_in::Float64
+    max_in::Float64
+
+    function DegreeStats(min_out, avg_out, max_out)
+        return new(min_out, avg_out, max_out, 0, 0, 0)
+    end
+
+    function DegreeStats(partial_deg, min_in, avg_in, max_in)
+        return new(partial_deg.min_out, partial_deg.avg_out, partial_deg.max_out, min_in, avg_in, max_in)
+    end
+end
+
 # The ColorSummary struct holds statistical information associated with the colored graph.
 # It keeps detailed information about the number of edges between colors of a particular color and which land in
 # a particular color. Note that `-1` is used to represent a "wildcard" label. These do not appear in the data graph,
 # but they do occur in the query graph.
 struct ColorSummary
     color_label_cardinality::Dict{Int, Dict{Int, Int}} # color_label_cardinality[c][v] = num_vertices
-    edge_min_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_out_deg[e][v2][c1][c2] = min
-    edge_min_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_min_in_deg[e][v2][c1][c2] = min
-    edge_avg_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_out_deg[e][v2][c1][c2] = avg
-    edge_avg_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_avg_in_deg[e][v2][c1][c2] = avg
-    edge_max_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_out_deg[e][v2][c1][c2] = max
-    edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} # edge_max_in_deg[e][v2][c1][c2] = max
+    edge_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, DegreeStats}}}} # edge_min_out_deg[e][v2][c1][c2] = min
     color_filters::Dict{Int, BloomFilter} # color_filters[c] = filter
     cycle_probabilities::Dict{CyclePathAndColors, Float64} # cycle_probabilities[[c1, c2], path] = likelihood
     cycle_length_probabilities::Dict{Int, Float64} #cycle_probabilities[path_length] = likelihood
@@ -119,35 +131,28 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         end
     end
 
-    edge_min_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
-    edge_avg_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
-    edge_max_out_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
+    edge_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, DegreeStats}}}} = Dict()
     for edge_label in keys(color_to_color_out_counter)
-        edge_min_out_deg[edge_label] = Dict()
-        edge_avg_out_deg[edge_label] = Dict()
-        edge_max_out_deg[edge_label] = Dict()
+        edge_deg[edge_label] = Dict()
         for vertex_label in keys(color_to_color_out_counter[edge_label])
-            edge_min_out_deg[edge_label][vertex_label] = Dict()
-            edge_avg_out_deg[edge_label][vertex_label] = Dict()
-            edge_max_out_deg[edge_label][vertex_label] = Dict()
+            edge_deg[edge_label][vertex_label] = Dict()
             for c1 in keys(color_to_color_out_counter[edge_label][vertex_label])
-                edge_min_out_deg[edge_label][vertex_label][c1] = Dict()
-                edge_avg_out_deg[edge_label][vertex_label][c1] = Dict()
-                edge_max_out_deg[edge_label][vertex_label][c1] = Dict()
+                edge_deg[edge_label][vertex_label][c1] = Dict()
                 for c2 in keys(color_to_color_out_counter[edge_label][vertex_label][c1])
-                    edge_min_out_deg[edge_label][vertex_label][c1][c2] = nv(g.graph) # set this to the max possible value for comparison later
-                    edge_max_out_deg[edge_label][vertex_label][c1][c2] = 0 # set to min possible value for comparison later
+                    min_deg = nv(g.graph) # set this to the max possible value for comparison later
+                    max_deg = 0 # set to min possible value for comparison later
                     for v in values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])
-                        edge_min_out_deg[edge_label][vertex_label][c1][c2] = min(v, edge_min_out_deg[edge_label][vertex_label][c1][c2])
-                        edge_max_out_deg[edge_label][vertex_label][c1][c2] = max(v, edge_max_out_deg[edge_label][vertex_label][c1][c2])
+                        min_deg = min(v, min_deg)
+                        max_deg = max(v, max_deg)
                     end
-                    edge_avg_out_deg[edge_label][vertex_label][c1][c2] = sum(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) / color_sizes[c1]
+                    avg_deg = sum(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) / color_sizes[c1]
 
                     # if the number of connections is less than the number of vertices in the color,
                     # we can't guarantee the minimum bounds since they won't all map to the same vertex
                     if length(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) < color_sizes[c1]
-                        edge_min_out_deg[edge_label][vertex_label][c1][c2] = 0;
+                        min_deg = 0
                     end
+                    edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(min_deg, avg_deg, max_deg)
                 end
             end
         end
@@ -189,35 +194,38 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         end
     end
 
-    edge_min_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
-    edge_avg_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
-    edge_max_in_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, Float64}}}} = Dict()
     for edge_label in keys(color_to_color_in_counter)
-        edge_min_in_deg[edge_label] = Dict()
-        edge_avg_in_deg[edge_label] = Dict()
-        edge_max_in_deg[edge_label] = Dict()
+        if !haskey(edge_deg, edge_label)
+            edge_deg[edge_label] = Dict()
+        end
         for vertex_label in keys(color_to_color_in_counter[edge_label])
-            edge_min_in_deg[edge_label][vertex_label] = Dict()
-            edge_avg_in_deg[edge_label][vertex_label] = Dict()
-            edge_max_in_deg[edge_label][vertex_label] = Dict()
+            if !haskey(edge_deg[edge_label], vertex_label)
+                edge_deg[edge_label][vertex_label] = Dict()
+            end
             for c1 in keys(color_to_color_in_counter[edge_label][vertex_label])
-                edge_min_in_deg[edge_label][vertex_label][c1] = Dict()
-                edge_avg_in_deg[edge_label][vertex_label][c1] = Dict()
-                edge_max_in_deg[edge_label][vertex_label][c1] = Dict()
+                if !haskey(edge_deg[edge_label][vertex_label], c1)
+                    edge_deg[edge_label][vertex_label][c1] = Dict()
+                end
                 for c2 in keys(color_to_color_in_counter[edge_label][vertex_label][c1])
-                    edge_min_in_deg[edge_label][vertex_label][c1][c2] = nv(g.graph) # set this to the max possible value for comparison later
-                    edge_max_in_deg[edge_label][vertex_label][c1][c2] = 0 # set to min possible value for comparison later
-                    for v in values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])
-                        edge_min_in_deg[edge_label][vertex_label][c1][c2] = min(v, edge_min_in_deg[edge_label][vertex_label][c1][c2])
-                        edge_max_in_deg[edge_label][vertex_label][c1][c2] = max(v, edge_max_in_deg[edge_label][vertex_label][c1][c2])
+                    if !haskey(edge_deg[edge_label][vertex_label][c1], c2)
+                        edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(0,0,0)
                     end
-                    edge_avg_in_deg[edge_label][vertex_label][c1][c2] = sum(values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])) / color_sizes[c1]
+
+                    min_deg = nv(g.graph) # set this to the max possible value for comparison later
+                    max_deg = 0 # set to min possible value for comparison later
+                    for v in values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])
+                        min_deg = min(v, min_deg)
+                        max_deg = max(v, max_deg)
+                    end
+                    avg_deg = sum(values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])) / color_sizes[c1]
 
                     # if the number of connections is less than the number of vertices in the color,
                     # we can't guarantee the minimum bounds since they won't all map to the same vertex
                     if length(values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])) < color_sizes[c1]
-                        edge_min_in_deg[edge_label][vertex_label][c1][c2] = 0;
+                        min_deg = 0
                     end
+                    out_degree_stats = edge_deg[edge_label][vertex_label][c1][c2]
+                    edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(out_degree_stats, min_deg, avg_deg, max_deg)
                 end
             end
         end
@@ -225,11 +233,8 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     if (verbose > 0)
         println("Finished tracking statistics")
     end
-    color_to_color_in_counter = Dict()
-    color_to_color_out_counter = Dict()
-    return ColorSummary(color_label_cardinality, edge_min_out_deg, edge_min_in_deg,
-                                    edge_avg_out_deg, edge_avg_in_deg, edge_max_out_deg, edge_max_in_deg, color_filters,
-                                     cycle_probabilities, cycle_length_probabilities, ne(g.graph), nv(g.graph))
+    return ColorSummary(color_label_cardinality, edge_deg, color_filters,
+                cycle_probabilities, cycle_length_probabilities, ne(g.graph), nv(g.graph))
 end
 
 function color_hash_to_groups(color_hash, num_colors)
@@ -275,7 +280,7 @@ end
     if (summary.color_label_cardinality[child_color][child_label] == 0)
         println("issue with independent cycle likelihood")
     end
-    return summary.edge_avg_out_deg[edge_label][child_label][parent_color][child_color]/summary.color_label_cardinality[child_color][child_label]
+    return summary.edge_deg[edge_label][child_label][parent_color][child_color].avg_out/summary.color_label_cardinality[child_color][child_label]
 
 end
 
@@ -412,9 +417,7 @@ function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash,
                 i_path_weight += likelihoods[color_pair][1]
                 i_cycle_weight += likelihoods[color_pair][2]
             end
-            if total_path_weight >= min_partial_paths
-                cycle_likelihoods[default_cycle_description] = (total_path_weight == 0) ? 0 : total_cycle_weight/total_path_weight
-            end
+            cycle_likelihoods[default_cycle_description] = (total_path_weight == 0) ? 0 : total_cycle_weight/total_path_weight
         end
         cycle_length_likelihoods[i] = (i_path_weight == 0) ? 0 : i_cycle_weight/i_path_weight
     end

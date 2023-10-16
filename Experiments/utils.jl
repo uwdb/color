@@ -12,7 +12,7 @@ struct ExperimentParams
 
     function ExperimentParams(;dataset::DATASET,  num_colors::Int=64, max_cycle_size=6, summary_max_paths=1000,
         partitioner::PARTITIONER = QuasiStable, weighting=true, inference_max_paths=500, use_partial_sums=true,
-        sampling_strategy=weighted, label_refining_rounds = 0)
+        sampling_strategy=redistributive, label_refining_rounds = 0)
         return new(dataset, ColorSummaryParams(num_colors=num_colors,
                                                        max_cycle_size=max_cycle_size,
                                                        max_partial_paths=summary_max_paths,
