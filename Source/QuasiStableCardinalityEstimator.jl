@@ -94,6 +94,30 @@ function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}
     return path_samples
 end
 
+# gets the directed path from the start to finish node
+function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
+    # convert the graph to be undirected
+    graph_copy = Graph(copy(query.graph))
+    rem_edge!(graph_copy, start, finish)
+    # get a path from the start to finish node
+    edges = a_star(graph_copy, start, finish)
+    # currently assumes the edges go in order of the path,
+    # will have to debug through and see if it works
+    new_graph = DiGraph(length(edges) + 1)
+    current_start = 0
+    for edge in edges
+        current_start += 1
+        if src(edge) in outneighbors(query.graph, dst(edge))
+            # this is a backwards edge
+            add_edge!(new_graph, current_start + 1, current_start)
+        else
+            # this is a forwards edge
+            add_edge!(new_graph, current_start, current_start + 1)
+        end
+    end
+    return new_graph
+end
+
 function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}},
                                 current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int,Int}}, usingStoredStats::Bool)
     # To account for cyclic queries, we check whether there are any remaining edges that have not
@@ -118,9 +142,10 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
         path_bools = convert_path_graph_to_bools(path_graph)
         default_colors::StartEndColorPair = (-1, -1)
         default_cycle_description = CyclePathAndColors(path_bools, default_colors)
-        edge_avg_deg::Dict{Int, Dict{Int, Float64}} = Dict()
-        if haskey(summary.edge_avg_out_deg, edge_label) && haskey(summary.edge_avg_out_deg[edge_label], child_label)
-            edge_avg_deg = summary.edge_avg_out_deg[edge_label][child_label]
+        path_length = length(path_bools)
+        edge_deg::Dict{Int, Dict{Int, DegreeStats}} = Dict()
+        if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], child_label)
+            edge_deg = summary.edge_deg[edge_label][child_label]
         end
 
         for i  in eachindex(partial_paths)
@@ -131,7 +156,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
             # We don't have to check data label because these nodes are already in the
             # partial path, so we have already ensured that the colors are appropriate
             probability_of_edge = 0.0
-            if (haskey(edge_avg_deg, parent_color) && haskey(edge_avg_deg[parent_color], child_color))
+            if (haskey(edge_deg, parent_color) && haskey(edge_deg[parent_color], child_color))
                 if usingStoredStats
                     # we flip this because the matching graph finds the path between two nodes,
                     # where the last node is the start of the closing edge
@@ -140,6 +165,8 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                         probability_of_edge = summary.cycle_probabilities[current_cycle_description]
                     elseif haskey(summary.cycle_probabilities, default_cycle_description)
                         probability_of_edge = summary.cycle_probabilities[default_cycle_description]
+                    elseif haskey(summary.cycle_length_probabilities, path_length)
+                        probability_of_edge = summary.cycle_length_probabilities[path_length]
                     else
                         probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
                     end
@@ -173,7 +200,6 @@ function sum_over_finished_query_nodes!(query::QueryGraph, partial_paths::Vector
         end
     end
 end
-
 
 function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_partial_paths = nothing,
                                 use_partial_sums = true, verbose = false, usingStoredStats = false,
@@ -265,20 +291,10 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
         new_partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = []
 
         # Update the partial paths using the parent-child combo that comes next from the query.
-        edge_min_deg::Dict{Int, Dict{Int, Float64}} = Dict()
-        edge_avg_deg::Dict{Int, Dict{Int, Float64}} = Dict()
-        edge_max_deg::Dict{Int, Dict{Int, Float64}} = Dict()
-
-        if out_edge && haskey(summary.edge_avg_out_deg, edge_label) &&
-                        haskey(summary.edge_avg_out_deg[edge_label], new_label)
-            edge_min_deg = summary.edge_avg_out_deg[edge_label][new_label]
-            edge_avg_deg = summary.edge_avg_out_deg[edge_label][new_label]
-            edge_max_deg = summary.edge_avg_out_deg[edge_label][new_label]
-        elseif !out_edge && haskey(summary.edge_avg_in_deg, edge_label) &&
-                             haskey(summary.edge_avg_in_deg[edge_label], new_label)
-            edge_min_deg = summary.edge_avg_in_deg[edge_label][new_label]
-            edge_avg_deg = summary.edge_avg_in_deg[edge_label][new_label]
-            edge_max_deg = summary.edge_avg_in_deg[edge_label][new_label]
+        edge_deg::Dict{Int, Dict{Int, DegreeStats}} = Dict()
+        if haskey(summary.edge_deg, edge_label) &&
+                        haskey(summary.edge_deg[edge_label], new_label)
+            edge_deg = summary.edge_deg[edge_label][new_label]
         end
 
         for path_and_bounds in partial_paths
@@ -287,8 +303,8 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
             old_color = path[parent_idx]
 
             # Account for colors with no outgoing children.
-            if haskey(edge_avg_deg, old_color)
-                for new_color in keys(edge_avg_deg[old_color])
+            if haskey(edge_deg, old_color)
+                for new_color in keys(edge_deg[old_color])
                     # revamp the logic to use a set of labels rather than just one
                     # check if the data label(s) are in the color
                     data_label_in_color = false
@@ -304,12 +320,20 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
                     if !data_label_in_color
                         continue
                     end
-
+                    degree_stats::DegreeStats = edge_deg[old_color][new_color]
                     new_path::Vector{Int} = [path..., new_color]
-                    new_bounds::Vector{Float64} = [running_bounds[1]*edge_min_deg[old_color][new_color],
-                                    running_bounds[2]*edge_avg_deg[old_color][new_color],
-                                    running_bounds[3]*edge_max_deg[old_color][new_color],
-                                    ]
+                    new_bounds::Vector{Float64} = [0, 0, 0]
+                    if out_edge
+                        new_bounds = [running_bounds[1]*degree_stats.min_out,
+                                        running_bounds[2]*degree_stats.avg_out,
+                                        running_bounds[3]*degree_stats.max_out,
+                                        ]
+                    else
+                        new_bounds = [running_bounds[1]*degree_stats.min_in,
+                                        running_bounds[2]*degree_stats.avg_in,
+                                        running_bounds[3]*degree_stats.max_in,
+                                        ]
+                    end
                     if !(length(new_data_labels) == 1 && new_data_labels[1] == -1)
                         # we have already confirmed that the data label is in the color, but if the data label isn't -1
                         # then we need to scale down the result since we only want to consider one of the many nodes in the new color

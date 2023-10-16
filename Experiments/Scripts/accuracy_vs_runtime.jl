@@ -70,8 +70,8 @@ function generate_partial_paths_graph(dataset::DATASET; num_colors = 64)
     p95_runtimes = []
     p99_q_errors = []
     p99_runtimes = []
-#    build_params = ExperimentParams(dataset=dataset, num_colors=num_colors, inference_max_paths=100)
-#    build_experiments([build_params])
+    build_params = ExperimentParams(dataset=dataset, num_colors=num_colors)
+    build_experiments([build_params])
 
     for pp in partial_paths
         println("Partial Paths: ", pp)
@@ -117,7 +117,7 @@ end
 #generate_num_colors_graph(aids)
 #generate_num_colors_graph(hprd)
 #generate_num_colors_graph(yeast)
-generate_partial_paths_graph(human; num_colors=64)
-generate_partial_paths_graph(aids; num_colors=64)
-generate_partial_paths_graph(hprd; num_colors=64)
-generate_partial_paths_graph(yeast; num_colors=64)
+#generate_partial_paths_graph(human)
+#generate_partial_paths_graph(aids)
+#generate_partial_paths_graph(hprd)
+generate_partial_paths_graph(yeast)
