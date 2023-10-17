@@ -1,4 +1,4 @@
-@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type
+@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats
 #todo: query type
 
 @enum VALUE estimate_error runtime
@@ -63,6 +63,8 @@ function get_value_from_param(experiment_param::ExperimentParams, value_type::GR
         return experiment_param.inference_max_paths
     elseif value_type == sampling_type
         return experiment_param.sampling_strategy
+    elseif value_type == cycle_stats
+        return experiment_param.only_shortest_path_cycle
     else
         # default to grouping by technique
         return (experiment_param.summary_params.partitioner, experiment_param.summary_params.label_refining_rounds)

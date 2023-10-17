@@ -15,7 +15,8 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
             results = @timed get_cardinality_bounds(query, summary;
                                 max_partial_paths = experiment_params.inference_max_paths,
                                 use_partial_sums=experiment_params.use_partial_sums, usingStoredStats=true,
-                                sampling_strategy=experiment_params.sampling_strategy)
+                                sampling_strategy=experiment_params.sampling_strategy,
+                                only_shortest_path_cycle= experiment_params.only_shortest_path_cycle)
             upper_bound = results.value[3]
             estimate = max(1, results.value[2])
             lower_bound = results.value[1]

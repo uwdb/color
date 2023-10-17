@@ -94,6 +94,58 @@ function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}
     return path_samples
 end
 
+function get_simple_paths_dfs!(visited::Set{Int}, cur::Int, finish::Int, max_length::Int,
+                                graph::SimpleGraph, current_path::Vector{Int},
+                                simple_paths::Vector{Vector{Int}})
+    length(current_path) > max_length && return
+    cur in visited && return
+    push!(visited, cur)
+    push!(current_path, cur)
+    if cur == finish
+        push!(simple_paths, deepcopy(current_path))
+        delete!(visited, cur)
+        pop!(current_path)
+        return
+    end
+
+    for next in all_neighbors(graph, cur)
+        get_simple_paths_dfs!(visited, next, finish, max_length, graph, current_path,
+                                simple_paths)
+    end
+    if length(current_path) > 0
+        pop!(current_path)
+    end
+    delete!(visited, cur)
+end
+
+# gets all directed, simple paths from the start to finish node
+function get_all_simple_path_bools(start::Int, finish::Int, max_length::Int, query_graph::DiGraph)
+    # convert the graph to be undirected
+    graph_copy = Graph(copy(query_graph))
+    rem_edge!(graph_copy, start, finish)
+    visited = Set{Int}()
+    current_path = Vector{Int}()
+    simple_paths = Vector{Vector{Int}}()
+    get_simple_paths_dfs!(visited, start, finish, max_length, graph_copy,
+                                current_path, simple_paths)
+    path_bools = Vector{BoolPath}()
+    for path in simple_paths
+        bools::Vector{Bool} = [false for _ in 1:length(path)-1]
+        for i in 1 : length(path)-1
+            src_node = path[i]
+            dst_node = path[i+1]
+            if dst_node in outneighbors(query_graph, src_node)
+                bools[i] = true # out edge
+            else
+                bools[i] = false # in edge
+            end
+        end
+        push!(path_bools, bools)
+    end
+    return path_bools
+end
+
+
 # gets the directed path from the start to finish node
 function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
     # convert the graph to be undirected
@@ -119,7 +171,8 @@ function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
 end
 
 function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}},
-                                current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int,Int}}, usingStoredStats::Bool)
+                                current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int,Int}}, usingStoredStats::Bool,
+                                only_shortest_path_cycle::Bool)
     # To account for cyclic queries, we check whether there are any remaining edges that have not
     # been processed. If so, we set the lower bound to 0, reduce the average estimate accordingly, and leave
     # the upper bound unchanged.
@@ -138,11 +191,14 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
         new_node_idx::Int = only(indexin(edge[2], current_query_nodes))
         child_label::Int = only(query.vertex_labels[edge[2]])
         edge_label::Int = only(query.edge_labels[(edge[1],edge[2])])
-        path_graph = get_matching_graph(edge[2], edge[1], query)
-        path_bools = convert_path_graph_to_bools(path_graph)
+        all_path_bools = Vector{BoolPath}()
+        if only_shortest_path_cycle
+            all_path_bools = [convert_path_graph_to_bools(get_matching_graph(edge[2], edge[1], query))]
+        else
+            all_path_bools = get_all_simple_path_bools(edge[2], edge[1], summary.max_cycle_size, query.graph)
+        end
+
         default_colors::StartEndColorPair = (-1, -1)
-        default_cycle_description = CyclePathAndColors(path_bools, default_colors)
-        path_length = length(path_bools)
         edge_deg::Dict{Int, Dict{Int, DegreeStats}} = Dict()
         if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], child_label)
             edge_deg = summary.edge_deg[edge_label][child_label]
@@ -155,27 +211,29 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
             current_colors::StartEndColorPair = (child_color, parent_color)
             # We don't have to check data label because these nodes are already in the
             # partial path, so we have already ensured that the colors are appropriate
-            probability_of_edge = 0.0
+            probability_no_edge = 1.0
             if (haskey(edge_deg, parent_color) && haskey(edge_deg[parent_color], child_color))
-                if usingStoredStats
-                    # we flip this because the matching graph finds the path between two nodes,
-                    # where the last node is the start of the closing edge
-                    current_cycle_description = CyclePathAndColors(path_bools, current_colors)
-                    if haskey(summary.cycle_probabilities, current_cycle_description)
-                        probability_of_edge = summary.cycle_probabilities[current_cycle_description]
-                    elseif haskey(summary.cycle_probabilities, default_cycle_description)
-                        probability_of_edge = summary.cycle_probabilities[default_cycle_description]
-                    elseif haskey(summary.cycle_length_probabilities, path_length)
-                        probability_of_edge = summary.cycle_length_probabilities[path_length]
-                    else
-                        probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
+                if usingStoredStats && length(all_path_bools) > 0
+                    for path_bools in all_path_bools
+                        path_length = length(path_bools)
+                        default_cycle_description = CyclePathAndColors(path_bools, default_colors)
+                        current_cycle_description = CyclePathAndColors(path_bools, current_colors)
+                        if haskey(summary.cycle_probabilities, current_cycle_description)
+                            probability_no_edge *= 1.0 - summary.cycle_probabilities[current_cycle_description]
+                        elseif haskey(summary.cycle_probabilities, default_cycle_description)
+                            probability_no_edge *= 1.0 - summary.cycle_probabilities[default_cycle_description]
+                        elseif haskey(summary.cycle_length_probabilities, path_length)
+                            probability_no_edge *= 1.0 - summary.cycle_length_probabilities[path_length]
+                        else
+                            probability_no_edge *= 1.0 - get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
+                        end
                     end
                 else
-                    probability_of_edge = get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
+                    probability_no_edge *= 1.0 - get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
                 end
             end
             partial_paths[i][2][1] = 0
-            partial_paths[i][2][2] *= probability_of_edge
+            partial_paths[i][2][2] *= 1.0 - probability_no_edge
         end
     end
 end
@@ -203,7 +261,8 @@ end
 
 function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_partial_paths = nothing,
                                 use_partial_sums = true, verbose = false, usingStoredStats = false,
-                                include_cycles = true, sampling_strategy=weighted)
+                                include_cycles = true, sampling_strategy=weighted,
+                                only_shortest_path_cycle=false)
     node_order = get_min_width_node_order(query.graph) #spanning tree to cut out cycles
     if verbose
         println("Node Order:", node_order)
@@ -354,7 +413,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
         end
 
         if (include_cycles)
-            handle_extra_edges!(query, summary, partial_paths, current_query_nodes, visited_query_edges, usingStoredStats)
+            handle_extra_edges!(query, summary, partial_paths, current_query_nodes, visited_query_edges, usingStoredStats, only_shortest_path_cycle)
         end
     end
 

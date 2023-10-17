@@ -27,6 +27,7 @@ struct ColorSummary
     color_filters::Dict{Int, BloomFilter} # color_filters[c] = filter
     cycle_probabilities::Dict{CyclePathAndColors, Float64} # cycle_probabilities[[c1, c2], path] = likelihood
     cycle_length_probabilities::Dict{Int, Float64} #cycle_probabilities[path_length] = likelihood
+    max_cycle_size::Int
     total_edges::Int
     total_nodes::Int
     # for outdegrees, c2 is the color of the outneighbor
@@ -234,7 +235,8 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         println("Finished tracking statistics")
     end
     return ColorSummary(color_label_cardinality, edge_deg, color_filters,
-                cycle_probabilities, cycle_length_probabilities, ne(g.graph), nv(g.graph))
+                cycle_probabilities, cycle_length_probabilities, params.max_cycle_size,
+                 ne(g.graph), nv(g.graph))
 end
 
 function color_hash_to_groups(color_hash, num_colors)
