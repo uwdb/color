@@ -119,10 +119,15 @@ function get_simple_paths_dfs!(visited::Set{Int}, cur::Int, finish::Int, max_len
 end
 
 # gets all directed, simple paths from the start to finish node
-function get_all_simple_path_bools(start::Int, finish::Int, max_length::Int, query_graph::DiGraph)
-    # convert the graph to be undirected
-    graph_copy = Graph(copy(query_graph))
+function get_all_simple_path_bools(start::Int, finish::Int, max_length::Int,
+                                    query_graph::DiGraph, visited_edges::Vector{Tuple{Int,Int}})
+    # convert the graph to be undirected and only include the edges that have already been processed
+    graph_copy = Graph(nv(query_graph))
+    for edge in visited_edges
+        add_edge!(graph_copy, edge[1], edge[2])
+    end
     rem_edge!(graph_copy, start, finish)
+
     visited = Set{Int}()
     current_path = Vector{Int}()
     simple_paths = Vector{Vector{Int}}()
@@ -181,12 +186,12 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
         if ! ((src(edge), dst(edge)) in visited_query_edges) &&
                  (src(edge) in current_query_nodes && dst(edge) in current_query_nodes)
             push!(remaining_edges, (src(edge), dst(edge)))
-            push!(visited_query_edges, (src(edge), dst(edge)))
         end
     end
 
     # scale down the average if there are remaining non-tree-edges
     for edge in remaining_edges
+        push!(visited_query_edges, edge)
         parent_node_idx::Int = only(indexin(edge[1], current_query_nodes))
         new_node_idx::Int = only(indexin(edge[2], current_query_nodes))
         child_label::Int = only(query.vertex_labels[edge[2]])
@@ -195,7 +200,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
         if only_shortest_path_cycle
             all_path_bools = [convert_path_graph_to_bools(get_matching_graph(edge[2], edge[1], query))]
         else
-            all_path_bools = get_all_simple_path_bools(edge[2], edge[1], summary.max_cycle_size, query.graph)
+            all_path_bools = get_all_simple_path_bools(edge[2], edge[1], summary.max_cycle_size, query.graph, visited_query_edges)
         end
 
         default_colors::StartEndColorPair = (-1, -1)
