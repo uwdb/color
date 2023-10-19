@@ -24,8 +24,7 @@ function generate_num_colors_graph(dataset::DATASET)
     p99_runtimes = []
 
     for colors in num_colors
-        experiment_params = ExperimentParams(dataset=dataset;
-                                        inference_max_paths=2*colors, num_colors=colors)
+        experiment_params = ExperimentParams(dataset=dataset; num_colors=colors)
         build_experiments([experiment_params])
         println("Num Colors: ", colors)
         run_estimation_experiments([experiment_params])
@@ -113,11 +112,11 @@ function generate_partial_paths_graph(dataset::DATASET; num_colors = 64)
     savefig(fig, "Experiments/Results/Figures/PP_Accuracy_vs_Runtime_P99_" * string(dataset) * ".png")
 end
 
-#generate_num_colors_graph(human)
-#generate_num_colors_graph(aids)
-#generate_num_colors_graph(hprd)
-#generate_num_colors_graph(yeast)
-#generate_partial_paths_graph(human)
-#generate_partial_paths_graph(aids)
-#generate_partial_paths_graph(hprd)
+generate_num_colors_graph(human)
+generate_num_colors_graph(aids)
+generate_num_colors_graph(hprd)
+generate_num_colors_graph(yeast)
+generate_partial_paths_graph(human)
+generate_partial_paths_graph(aids)
+generate_partial_paths_graph(hprd)
 generate_partial_paths_graph(yeast)

@@ -41,7 +41,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         println("Started coloring")
     end
     color_filters::Dict{Color, BloomFilter} = Dict()
-    color_label_cardinality::Dict{Color, Int} = Dict()
+    color_label_cardinality::Dict{Color, Any} = Dict()
     color_hash::Dict{NodeId, Color} = color_graph(g, params, params.num_colors)
     color_sizes = [0 for _ in 1:maximum(values(color_hash))]
     for c in values(color_hash)
