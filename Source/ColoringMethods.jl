@@ -301,7 +301,7 @@ function _edge_ratio_color(g::DataGraph, num_colors::Int)
     return color_hash
 end
 
-function _recursive_label_split(g::DataGraph, group::Vector{Int}, depth::Int, max_depth::Int)
+function _recursive_label_split(g::DataGraph, group::Vector{NodeId}, depth::Int, max_depth::Int)
     if depth == max_depth
         return [group]
     end
@@ -323,8 +323,8 @@ function _recursive_label_split(g::DataGraph, group::Vector{Int}, depth::Int, ma
         end
     end
 
-    left_group = Vector{Int}()
-    right_group = Vector{Int}()
+    left_group = Vector{NodeId}()
+    right_group = Vector{NodeId}()
     for v in group
         if most_even_label in g.vertex_labels[v]
             push!(right_group, v)
@@ -339,9 +339,9 @@ end
 # It does this by recursively choosing a single label which most evenly breaks the color
 # into two sub-colors with up to `label_refining_rounds` depth.
 function _refine_by_vertex_labels(g::DataGraph, params::ColorSummaryParams,
-                                    color_hash::Dict{Int, Int}, label_refining_rounds::Int)
-    refined_color_hash::Dict{Int, Int} = Dict()
-    color_to_vertices::Dict{Int, Vector{Int}} = Dict()
+                                    color_hash::Dict{NodeId, Color}, label_refining_rounds::Int)
+    refined_color_hash::Dict{NodeId, Color} = Dict()
+    color_to_vertices::Dict{Color, Vector{NodeId}} = Dict()
     for v in keys(color_hash)
         color = color_hash[v]
         if haskey(color_to_vertices, color)
@@ -373,7 +373,7 @@ end
 # It does this by recursively choosing a single label which has the greatest stddev w.r.t.
 # the edge count of vertices and splitting the nodes based on their edge count for that label
 # with up to `label_refining_rounds` depth.
-function _recursive_neighbor_split(g::DataGraph, group::Vector{Int}, depth::Int, max_depth::Int)
+function _recursive_neighbor_split(g::DataGraph, group::Vector{NodeId}, depth::Int, max_depth::Int)
     if depth == max_depth
         return [group]
     end
@@ -409,8 +409,8 @@ function _recursive_neighbor_split(g::DataGraph, group::Vector{Int}, depth::Int,
         end
     end
 
-    left_group = Vector{Int}()
-    right_group = Vector{Int}()
+    left_group = Vector{NodeId}()
+    right_group = Vector{NodeId}()
     for v in group
         label_count = 0
         for n in all_neighbors(g.graph, v)
@@ -428,9 +428,9 @@ function _recursive_neighbor_split(g::DataGraph, group::Vector{Int}, depth::Int,
 end
 
 function _refine_by_neighbor_labels(g::DataGraph, params::ColorSummaryParams,
-                                    color_hash::Dict{Int, Int}, label_refining_rounds::Int)
-    refined_color_hash::Dict{Int, Int} = Dict()
-    color_to_vertices::Dict{Int, Vector{Int}} = Dict()
+                                    color_hash::Dict{NodeId, Color}, label_refining_rounds::Int)
+    refined_color_hash::Dict{NodeId, Color} = Dict()
+    color_to_vertices::Dict{Color, Vector{NodeId}} = Dict()
     for v in keys(color_hash)
         color = color_hash[v]
         if haskey(color_to_vertices, color)
@@ -457,7 +457,7 @@ function _refine_by_neighbor_labels(g::DataGraph, params::ColorSummaryParams,
 end
 
 function color_graph(g::DataGraph, params::ColorSummaryParams, num_colors::Int)
-    color_hash::Dict{Int, Int} = if params.partitioner == QuasiStable
+    color_hash::Dict{NodeId, Color} = if params.partitioner == QuasiStable
          _quasi_stable_coloring(g, params, num_colors)
     elseif params.partitioner == Hash
          _hash_coloring(g, num_colors)

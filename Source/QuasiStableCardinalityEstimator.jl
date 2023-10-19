@@ -4,7 +4,7 @@
 # Equivalently, they perform a groupby on all other nodes of the query graph. The goal of this is to prevent
 # an exponential growth in the number of paths through the lifted color graph. However, we can only remove query nodes whose
 # edges have already been processed.
-function sum_over_node!(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}, current_query_nodes, node_to_remove)
+function sum_over_node!(partial_paths::Vector{Tuple{Vector{Color}, Vector{Float64}}}, current_query_nodes, node_to_remove)
     nodeIdx = 1
     for node in current_query_nodes
         if node == node_to_remove
@@ -12,7 +12,7 @@ function sum_over_node!(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}
         end
         nodeIdx += 1
     end
-    new_partial_paths::Dict{Vector{Int}, Union{Vector{Float64}, Int}} = Dict()
+    new_partial_paths::Dict{Vector{Color}, Union{Vector{Float64}, Int}} = Dict()
     for path_and_bounds in partial_paths
         path = path_and_bounds[1]
         bounds = path_and_bounds[2]
@@ -33,7 +33,7 @@ end
 
 @enum SAMPLING_STRATEGY uniform weighted redistributive
 
-function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}, num_samples::Int, sampling_strategy::SAMPLING_STRATEGY)
+function sample_paths(partial_paths::Vector{Tuple{Vector{Color}, Vector{Float64}}}, num_samples::Int, sampling_strategy::SAMPLING_STRATEGY)
     # partial_path[x] = (color path, bounds)
     partial_paths = [x for x  in partial_paths if x[2][2] > 0]
 
@@ -56,7 +56,7 @@ function sample_paths(partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}}
     if sampling_strategy == uniform
         sample_weights = AnalyticWeights([1.0 for _ in eachindex(partial_paths)] ./ length(partial_paths))
     end
-    path_samples::Vector{Tuple{Vector{Int}, Vector{Float64}}} = sample(partial_paths, sample_weights,  num_samples; replace=false)
+    path_samples::Vector{Tuple{Vector{Color}, Vector{Float64}}} = sample(partial_paths, sample_weights,  num_samples; replace=false)
 
     # sum up the sampled bounds
     sampled_bounds_sum::Vector{Float64} = [0,0,0]
@@ -175,7 +175,7 @@ function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
     return new_graph
 end
 
-function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}},
+function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths::Vector{Tuple{Vector{Color}, Vector{Float64}}},
                                 current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int,Int}}, usingStoredStats::Bool,
                                 only_shortest_path_cycle::Bool)
     # To account for cyclic queries, we check whether there are any remaining edges that have not
@@ -243,7 +243,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
     end
 end
 
-function sum_over_finished_query_nodes!(query::QueryGraph, partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}},
+function sum_over_finished_query_nodes!(query::QueryGraph, partial_paths::Vector{Tuple{Vector{Color}, Vector{Float64}}},
                                             current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int, Int}})
     prev_query_nodes = copy(current_query_nodes)
     for node in prev_query_nodes
@@ -274,7 +274,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
     end
     # Because the label is implied by the color -> query_graph_vertex mapping stored in current_query_nodes,
     # we don't have to keep the label in the partial paths object.
-    partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = [] # each tuple contains a pairing of color paths -> bounds
+    partial_paths::Vector{Tuple{Vector{Color}, Vector{Float64}}} = [] # each tuple contains a pairing of color paths -> bounds
     visited_query_edges::Vector{Tuple{Int,Int}} = []
     current_query_nodes::Vector{Int} = []
 
@@ -352,17 +352,17 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
         new_label = only(query.vertex_labels[new_node])
         new_data_labels = get_data_label(query, new_node)
 
-        new_partial_paths::Vector{Tuple{Vector{Int}, Vector{Float64}}} = []
+        new_partial_paths::Vector{Tuple{Vector{Color}, Vector{Float64}}} = []
 
         # Update the partial paths using the parent-child combo that comes next from the query.
-        edge_deg::Dict{Int, Dict{Int, DegreeStats}} = Dict()
+        edge_deg::Dict{Color, Dict{Color, DegreeStats}} = Dict()
         if haskey(summary.edge_deg, edge_label) &&
                         haskey(summary.edge_deg[edge_label], new_label)
             edge_deg = summary.edge_deg[edge_label][new_label]
         end
 
         for path_and_bounds in partial_paths
-            path::Vector{Int} = path_and_bounds[1]
+            path::Vector{Color} = path_and_bounds[1]
             running_bounds::Vector{Float64} = path_and_bounds[2]
             old_color = path[parent_idx]
 
@@ -385,7 +385,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
                         continue
                     end
                     degree_stats::DegreeStats = edge_deg[old_color][new_color]
-                    new_path::Vector{Int} = [path..., new_color]
+                    new_path::Vector{Color} = [path..., new_color]
                     new_bounds::Vector{Float64} = [0, 0, 0]
                     if out_edge
                         new_bounds = [running_bounds[1]*degree_stats.min_out,
