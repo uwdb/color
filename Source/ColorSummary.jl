@@ -1,12 +1,12 @@
 using Graphs
 
 struct DegreeStats
-    min_out::Float64
-    avg_out::Float64
-    max_out::Float64
-    min_in::Float64
-    avg_in::Float64
-    max_in::Float64
+    min_out::Float32
+    avg_out::Float32
+    max_out::Float32
+    min_in::Float32
+    avg_in::Float32
+    max_in::Float32
 
     function DegreeStats(min_out, avg_out, max_out)
         return new(min_out, avg_out, max_out, 0, 0, 0)
@@ -22,11 +22,12 @@ end
 # a particular color. Note that `-1` is used to represent a "wildcard" label. These do not appear in the data graph,
 # but they do occur in the query graph.
 struct ColorSummary
-    color_label_cardinality::Dict{Int, Dict{Int, Int}} # color_label_cardinality[c][v] = num_vertices
-    edge_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, DegreeStats}}}} # edge_min_out_deg[e][v2][c1][c2] = min
-    color_filters::Dict{Int, BloomFilter} # color_filters[c] = filter
+    color_label_cardinality::Dict{Color, Dict{Int, Int}} # color_label_cardinality[c][v] = num_vertices
+    edge_deg::Dict{Int, Dict{Int, Dict{Color, Dict{Color, DegreeStats}}}} # edge_min_out_deg[e][v2][c1][c2] = min
+    color_filters::Dict{Color, BloomFilter} # color_filters[c] = filter
     cycle_probabilities::Dict{CyclePathAndColors, Float64} # cycle_probabilities[[c1, c2], path] = likelihood
     cycle_length_probabilities::Dict{Int, Float64} #cycle_probabilities[path_length] = likelihood
+    max_cycle_size::Int
     total_edges::Int
     total_nodes::Int
     # for outdegrees, c2 is the color of the outneighbor
@@ -39,9 +40,9 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     if (verbose > 0)
         println("Started coloring")
     end
-    color_filters = Dict()
-    color_label_cardinality = Dict()
-    color_hash::Dict{Int, Int32} = color_graph(g, params, params.num_colors)
+    color_filters::Dict{Color, BloomFilter} = Dict()
+    color_label_cardinality::Dict{Color, Any} = Dict()
+    color_hash::Dict{NodeId, Color} = color_graph(g, params, params.num_colors)
     color_sizes = [0 for _ in 1:maximum(values(color_hash))]
     for c in values(color_hash)
         color_sizes[c] += 1
@@ -96,7 +97,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         println("Started tracking statistics")
     end
     # We keep separate degree statistics for in-degree and out-degree.
-    color_to_color_out_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
+    color_to_color_out_counter::Dict{Color, Dict{Color, Any}} = Dict()
     for x in vertices(g.graph)
         c1 = color_hash[x]
         for y in outneighbors(g.graph,x)
@@ -131,7 +132,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         end
     end
 
-    edge_deg::Dict{Int, Dict{Int, Dict{Int, Dict{Int, DegreeStats}}}} = Dict()
+    edge_deg::Dict{Int, Dict{Int, Dict{Color, Dict{Color, DegreeStats}}}} = Dict()
     for edge_label in keys(color_to_color_out_counter)
         edge_deg[edge_label] = Dict()
         for vertex_label in keys(color_to_color_out_counter[edge_label])
@@ -159,7 +160,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     end
 
     # We keep separate degree statistics for in-degree and out-degree.
-    color_to_color_in_counter::Dict{Int32, Dict{Int32, Any}} = Dict()
+    color_to_color_in_counter::Dict{Color, Dict{Color, Any}} = Dict()
     for x in vertices(g.graph)
         c1 = color_hash[x]
         for y in inneighbors(g.graph,x)
@@ -234,7 +235,8 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         println("Finished tracking statistics")
     end
     return ColorSummary(color_label_cardinality, edge_deg, color_filters,
-                cycle_probabilities, cycle_length_probabilities, ne(g.graph), nv(g.graph))
+                cycle_probabilities, cycle_length_probabilities, params.max_cycle_size,
+                 ne(g.graph), nv(g.graph))
 end
 
 function color_hash_to_groups(color_hash, num_colors)

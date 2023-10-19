@@ -10,7 +10,9 @@ using Graphs: SimpleDiGraphFromIterator, Edge, DiGraph, edges, nv, ne, add_edge!
 
 
 BoolPath = Vector{Bool}
-StartEndColorPair = Tuple{Int, Int}
+NodeId = Int
+Color = Int16
+StartEndColorPair = Tuple{Color, Color}
 abstract type Comparable end
 import Base .==
 function ==(a::T, b::T) where T <: Comparable

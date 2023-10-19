@@ -1,6 +1,6 @@
 # This file contains a prototype implementation of exact sub-graph counting.
 
-function sum_over_node_exact!(partial_paths::Vector{Tuple{Vector{Int},  Int}},
+function sum_over_node_exact!(partial_paths::Vector{Tuple{Vector{NodeId},  Int}},
                                  current_query_nodes, node_to_remove,
                                  timeout, start_time)
     nodeIdx = 1
@@ -10,7 +10,7 @@ function sum_over_node_exact!(partial_paths::Vector{Tuple{Vector{Int},  Int}},
         end
         nodeIdx += 1
     end
-    new_partial_paths::Dict{Vector{Int}, Union{Vector{Float64}, Int}} = Dict()
+    new_partial_paths::Dict{Vector{NodeId}, Union{Vector{Float64}, Int}} = Dict()
     for path_and_bounds in partial_paths
         if timeout > 0 && time() - start_time > timeout
             println("Timeout Reached")
@@ -33,7 +33,7 @@ function sum_over_node_exact!(partial_paths::Vector{Tuple{Vector{Int},  Int}},
 end
 
 
-function sum_over_finished_query_nodes_exact!(query::QueryGraph, partial_paths::Vector{Tuple{Vector{Int},  Int}},
+function sum_over_finished_query_nodes_exact!(query::QueryGraph, partial_paths::Vector{Tuple{Vector{NodeId},  Int}},
                                                  current_query_nodes, visited_query_edges,
                                                  timeout, start_time; nodes_to_not_sum = [])
     prev_query_nodes = copy(current_query_nodes)
@@ -56,10 +56,10 @@ function sum_over_finished_query_nodes_exact!(query::QueryGraph, partial_paths::
 end
 
 function handle_extra_edges_exact!(query::QueryGraph, data::DataGraph,
-                                    partial_paths::Vector{Tuple{Vector{Int}, Int}},
+                                    partial_paths::Vector{Tuple{Vector{NodeId}, Int}},
                                     current_query_nodes, visited_query_edges,
                                     timeout, start_time)
-    remaining_edges::Vector{Tuple{Int, Int}} = []
+    remaining_edges::Vector{Tuple{NodeId, NodeId}} = []
     for edge in edges(query.graph)
         # since the edge's nodes are already processed, we don't have to check
         if ! ((src(edge), dst(edge)) in visited_query_edges) &&
@@ -126,7 +126,7 @@ function sample_paths_exact(partial_paths, num_samples::Int)
     end
 
     # choose a sample of the paths
-    path_samples::Vector{Tuple{Vector{Int}, Int}} = sample(partial_paths, num_samples; replace=false)
+    path_samples::Vector{Tuple{Vector{NodeId}, Int}} = sample(partial_paths, num_samples; replace=false)
 
     # sum up the sampled bounds
     sampled_bounds_sum = 0
@@ -157,7 +157,7 @@ function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sum
     start_time = time()
 
     node_order = get_min_width_node_order(query.graph)
-    partial_paths::Vector{Tuple{Vector{Int}, Int}} = []
+    partial_paths::Vector{Tuple{Vector{NodeId}, Int}} = []
     visited_query_edges = []
     current_query_nodes = []
     if verbose

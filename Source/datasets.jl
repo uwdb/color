@@ -1,7 +1,7 @@
 function load_dataset(path; subgraph_matching_data=false)
     n = 0
-    edges::Array{Tuple{Tuple{Int, Int}, Int}} = []
-    vertices::Array{Tuple{Int, Array{Int}}} = []
+    edges::Array{Tuple{Tuple{NodeId, NodeId}, Int}} = []
+    vertices::Array{Tuple{NodeId, Array{Int}}} = []
     for line in eachline(path)
         if length(line) == 0
             continue
@@ -44,8 +44,8 @@ end
 
 function load_query(path; subgraph_matching_data=false)
     n = 0
-    edges::Array{Tuple{Tuple{Int, Int}, Int}} = []
-    vertices::Array{Tuple{Int, Int, Int}} = []
+    edges::Array{Tuple{Tuple{NodeId, NodeId}, Int}} = []
+    vertices::Array{Tuple{NodeId, Int, Int}} = []
     for line in eachline(path)
         if length(line) == 0
             continue
