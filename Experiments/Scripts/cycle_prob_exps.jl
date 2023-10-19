@@ -7,9 +7,7 @@ datasets = [aids, yeast, hprd, dblp, youtube, wordnet]
 experiment_params = Vector{ExperimentParams}()
 build_params = Vector{ExperimentParams}()
 for dataset in datasets
-    push!(build_params, ExperimentParams(dataset=dataset,
-                        num_colors=16,
-                        label_refining_rounds=2))
+    push!(build_params, ExperimentParams(dataset=dataset))
     for only_shortest_path_cycle in [false, true]
         push!(experiment_params, ExperimentParams(dataset=dataset,
                                                     only_shortest_path_cycle=only_shortest_path_cycle))
