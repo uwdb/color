@@ -1,5 +1,5 @@
-@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors
-#todo: query type
+@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors correlation_strategy
+
 
 @enum VALUE estimate_error runtime memory_footprint
 
@@ -100,9 +100,6 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
     # This seems to be necessary for using Plots.jl outside of the ipynb framework.
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
     ENV["GKSwstype"]="100"
-    println(x_values)
-    println(y_values)
-    println(groups)
     gbplot = StatsPlots.groupedbar(x_values,
                             y_values,
                             group = groups,
@@ -135,6 +132,8 @@ function get_value_from_param(experiment_param::ExperimentParams, value_type::GR
         return experiment_param.only_shortest_path_cycle
     elseif value_type == number_of_colors
         return experiment_param.summary_params.num_colors
+    elseif value_type == correlation_strategy
+        return experiment_param.use_corr
     else
         # default to grouping by technique
         return (experiment_param.summary_params.partitioner, experiment_param.summary_params.label_refining_rounds)

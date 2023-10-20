@@ -7,7 +7,7 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
         !isfile(summary_file_location) && error("The summary has not been built yet! \n Attempted File Location: $(summary_file_location)")
         summary::ColorSummary = deserialize(summary_file_location)
         experiment_results = []
-        push!(experiment_results, ("UpperBound", "Estimate", "LowerBound", "TrueCard", "EstimationTime", "QueryType"))
+        push!(experiment_results, ("UpperBound", "Estimate", "EstimatedVariance", "LowerBound", "TrueCard", "EstimationTime", "QueryType"))
         for i in 1:length(all_queries[dataset])
             query = all_queries[dataset][i].query
             query_path = all_queries[dataset][i].query_path
@@ -16,13 +16,15 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
                                 max_partial_paths = experiment_params.inference_max_paths,
                                 use_partial_sums=experiment_params.use_partial_sums, usingStoredStats=true,
                                 sampling_strategy=experiment_params.sampling_strategy,
-                                only_shortest_path_cycle= experiment_params.only_shortest_path_cycle)
-            upper_bound = results.value[3]
+                                only_shortest_path_cycle= experiment_params.only_shortest_path_cycle,
+                                use_corr = experiment_params.use_corr)
+            upper_bound = results.value[4]
             estimate = max(1, results.value[2])
+            est_variance = results.value[3] - estimate^2
             lower_bound = results.value[1]
             estimate_time = results.time
             query_type = all_queries[dataset][i].query_type
-            push!(experiment_results, (upper_bound, estimate, lower_bound, exact_size, estimate_time, query_type))
+            push!(experiment_results, (upper_bound, estimate, est_variance, lower_bound, exact_size, estimate_time, query_type))
         end
         results_file_location = "Experiments/Results/Estimation_"  * params_to_results_filename(experiment_params)
         writedlm(results_file_location, experiment_results, ",")

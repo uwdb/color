@@ -12,6 +12,7 @@ function sum_over_node!(partial_paths::Vector{Tuple{Vector{Color}, Vector{Float6
         end
         nodeIdx += 1
     end
+    new_variances::Dict{Vector{Color}, Float64} = Dict()
     new_partial_paths::Dict{Vector{Color}, Union{Vector{Float64}, Int}} = Dict()
     for path_and_bounds in partial_paths
         path = path_and_bounds[1]
@@ -20,13 +21,19 @@ function sum_over_node!(partial_paths::Vector{Tuple{Vector{Color}, Vector{Float6
         deleteat!(new_path, nodeIdx)
         if !haskey(new_partial_paths, new_path)
             new_partial_paths[new_path] = bounds
+            new_variances[new_path] = bounds[3] - bounds[2]^2
         else
             new_partial_paths[new_path] = new_partial_paths[new_path] .+ bounds
+            new_variances[new_path] += bounds[3] - bounds[2]^2
         end
     end
     deleteat!(current_query_nodes, nodeIdx)
     empty!(partial_paths)
     for path in keys(new_partial_paths)
+        new_partial_paths[path][3] = new_variances[path] + new_partial_paths[path][2]^2
+        if new_variances[path] + .1 < 0
+            println("SUM PROBLEM: ", new_partial_paths[path])
+        end
         push!(partial_paths, (path, new_partial_paths[path]))
     end
 end
@@ -44,9 +51,9 @@ function sample_paths(partial_paths::Vector{Tuple{Vector{Color}, Vector{Float64}
 
 
     # sum up all of the bounds
-    overall_bounds_sum::Vector{Float64} = [0,0,0]
+    overall_bounds_sum = 0.0
     for path_and_bounds in partial_paths
-        overall_bounds_sum = overall_bounds_sum .+ path_and_bounds[2]
+        overall_bounds_sum = overall_bounds_sum + path_and_bounds[2][2]
     end
 
     # choose a sample of the paths
@@ -59,35 +66,37 @@ function sample_paths(partial_paths::Vector{Tuple{Vector{Color}, Vector{Float64}
     path_samples::Vector{Tuple{Vector{Color}, Vector{Float64}}} = sample(partial_paths, sample_weights,  num_samples; replace=false)
 
     # sum up the sampled bounds
-    sampled_bounds_sum::Vector{Float64} = [0,0,0]
+    sampled_bounds_sum = 0
     for path_and_bounds in path_samples
-        sampled_bounds_sum = sampled_bounds_sum .+ path_and_bounds[2]
+        sampled_bounds_sum = sampled_bounds_sum + path_and_bounds[2][2]
     end
-
-    # get the difference between the overall and sampled bound sum_over_finished_query_nodes
-    bound_diff::Vector{Float64} = overall_bounds_sum .- sampled_bounds_sum
 
     # for each sampled path...
     for i in eachindex(path_samples)
         # figure out what fraction of the sampled bounds is in the current Bounds
         # higher bounds will have more weight redistributed to them
         if sampling_strategy == redistributive
-            bound_fractions = path_samples[i][2] ./ sampled_bounds_sum
         # use that fraction of the difference (i.e. the removed path weights) and add it to the partial path
-            redistributed_weights = bound_fractions .* bound_diff
-            path_samples[i][2][1] = path_samples[i][2][1] + redistributed_weights[1]
-            path_samples[i][2][2] = path_samples[i][2][2] + redistributed_weights[2]
-            path_samples[i][2][3] = path_samples[i][2][3] + redistributed_weights[3]
+            redistributed_weights = overall_bounds_sum / sampled_bounds_sum
+            path_samples[i][2][1] = path_samples[i][2][1] * redistributed_weights
+            path_samples[i][2][2] = path_samples[i][2][2] *  redistributed_weights
+            path_samples[i][2][3] = path_samples[i][2][3] *  (redistributed_weights^2)
+            path_samples[i][2][4] = path_samples[i][2][4] *  redistributed_weights
         elseif sampling_strategy == weighted
-            inverse_sampling_probability = total_weight / path_samples[i][2][2] / length(path_samples)
+            inverse_sampling_probability = total_weight / (path_samples[i][2][2])/ length(path_samples)
             path_samples[i][2][1] = path_samples[i][2][1] * inverse_sampling_probability
             path_samples[i][2][2] = path_samples[i][2][2] * inverse_sampling_probability
-            path_samples[i][2][3] = path_samples[i][2][3] * inverse_sampling_probability
+            path_samples[i][2][3] = path_samples[i][2][3] * inverse_sampling_probability^2
+            path_samples[i][2][4] = path_samples[i][2][4] * inverse_sampling_probability
         elseif sampling_strategy == uniform
             inverse_sampling_probability = length(partial_paths) / length(path_samples)
             path_samples[i][2][1] = path_samples[i][2][1] * inverse_sampling_probability
             path_samples[i][2][2] = path_samples[i][2][2] * inverse_sampling_probability
-            path_samples[i][2][3] = path_samples[i][2][3] * inverse_sampling_probability
+            path_samples[i][2][3] = path_samples[i][2][3] * inverse_sampling_probability^2
+            path_samples[i][2][4] = path_samples[i][2][4] * inverse_sampling_probability
+        end
+        if path_samples[i][2][3] + .01  < path_samples[i][2][2]^2
+            println("SAMPLES PROBLEM: ", path_samples[i][2])
         end
     end
 
@@ -178,6 +187,7 @@ end
 function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths::Vector{Tuple{Vector{Color}, Vector{Float64}}},
                                 current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int,Int}}, usingStoredStats::Bool,
                                 only_shortest_path_cycle::Bool)
+
     # To account for cyclic queries, we check whether there are any remaining edges that have not
     # been processed. If so, we set the lower bound to 0, reduce the average estimate accordingly, and leave
     # the upper bound unchanged.
@@ -238,7 +248,11 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                 end
             end
             partial_paths[i][2][1] = 0
-            partial_paths[i][2][2] *= 1.0 - probability_no_edge
+            partial_paths[i][2][2] *= 1.0 - probability_no_edge # Reduce the expected value
+            partial_paths[i][2][3] *= (1.0 - probability_no_edge)^2 # Reduce the second moment
+            if partial_paths[i][2][3] + .01 < partial_paths[i][2][2]^2
+                println("SAMPLES PROBLEM: ", partial_paths[i][2])
+            end
         end
     end
 end
@@ -267,7 +281,7 @@ end
 function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_partial_paths = nothing,
                                 use_partial_sums = true, verbose = false, usingStoredStats = false,
                                 include_cycles = true, sampling_strategy=weighted,
-                                only_shortest_path_cycle=false)
+                                only_shortest_path_cycle=false, use_corr = true)
     node_order = get_min_width_node_order(query.graph) #spanning tree to cut out cycles
     if verbose
         println("Node Order:", node_order)
@@ -299,8 +313,9 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
             end
             if (data_label_is_in_color)
                 push!(partial_paths, ([color], [summary.color_label_cardinality[color][parent_label],
-                                                            summary.color_label_cardinality[color][parent_label],
-                                                            summary.color_label_cardinality[color][parent_label]]))
+                                                    summary.color_label_cardinality[color][parent_label],
+                                                    summary.color_label_cardinality[color][parent_label]^2,
+                                                    summary.color_label_cardinality[color][parent_label]]))
             end
         end
     end
@@ -386,16 +401,27 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
                     end
                     degree_stats::DegreeStats = edge_deg[old_color][new_color]
                     new_path::Vector{Color} = [path..., new_color]
-                    new_bounds::Vector{Float64} = [0, 0, 0]
+                    new_bounds::Vector{Float64} = [0, 0, 0, 0]
+
+                    corr::Float64 = 0.0
+                    if use_corr
+                        corr =  summary.corrs[(old_color, edge_label, new_color)]
+                    end
                     if out_edge
+                        running_std = sqrt(max(0, running_bounds[3] - running_bounds[2]^2))
+                        deg_std = sqrt(max(0, degree_stats.avg_out_2nd_moment - degree_stats.avg_out^2))
                         new_bounds = [running_bounds[1]*degree_stats.min_out,
-                                        running_bounds[2]*degree_stats.avg_out,
-                                        running_bounds[3]*degree_stats.max_out,
+                                        running_bounds[2]*degree_stats.avg_out + running_std * deg_std * corr,
+                                        running_bounds[3]*degree_stats.avg_out_2nd_moment + 4*running_bounds[2]*degree_stats.avg_out*running_std*deg_std*corr + 2*corr^2*running_std^2*deg_std^2,
+                                        running_bounds[4]*degree_stats.max_out,
                                         ]
                     else
+                        running_std = sqrt(max(0, running_bounds[3] - running_bounds[2]^2))
+                        deg_std = sqrt(max(0, degree_stats.avg_in_2nd_moment - degree_stats.avg_in^2))
                         new_bounds = [running_bounds[1]*degree_stats.min_in,
-                                        running_bounds[2]*degree_stats.avg_in,
-                                        running_bounds[3]*degree_stats.max_in,
+                                        running_bounds[2]*degree_stats.avg_in + running_std * deg_std * corr,
+                                        running_bounds[3]*degree_stats.avg_in_2nd_moment + 4*running_bounds[2]*degree_stats.avg_in*running_std*deg_std*corr + 2*corr^2*running_std^2*deg_std^2,
+                                        running_bounds[4]*degree_stats.max_in,
                                         ]
                     end
                     if !(length(new_data_labels) == 1 && new_data_labels[1] == -1)
@@ -423,9 +449,22 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
     end
 
     # Sum over the calculated partial paths to get the final bounds.
-    final_bounds = [0,0,0]
+    final_bounds = [0, 0, 0, 0]
     for path_and_bounds in partial_paths
         final_bounds = final_bounds .+ path_and_bounds[2]
     end
     return final_bounds
 end
+
+
+
+############
+#  E(XY) = Std(X)*Std(Y)*corr(X,Y) +E(X)E(Y)
+#  Var(XY) = E(X^2Y^2) - E(XY)^2
+#  E(X^2Y^2) = E(X^2)E(Y^2) + 4E(X)E(Y)√(V(X)V(Y))corr(X,Y) + 2corr(X,Y)^2(E(X^2)-E(X)^2)(E(Y^2)-E(Y)^2)
+#  The above is valid for jointly normal variables per https://mathoverflow.net/questions/330162/correlation-between-square-of-normal-random-variables
+#  We know that these variables are not necessarily normally distributed because
+#  we're taking products, but.... its a reasonable vibe
+#  Alternatively, here's a classic approximation from here http://www.cs.cmu.edu/~cga/var/2281592.pdf
+#  Var(XY) ≈ E(X)^2V(Y) + E(Y)^2V(X) + E(X)E(Y)√(V(X)V(Y))Corr(X,Y)
+#  In practice, these perform similarly, but the latter is just a little worse it seems.

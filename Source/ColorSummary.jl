@@ -2,18 +2,20 @@ using Graphs
 
 struct DegreeStats
     min_out::Float32
+    avg_out_2nd_moment::Float32
     avg_out::Float32
     max_out::Float32
     min_in::Float32
     avg_in::Float32
+    avg_in_2nd_moment::Float32
     max_in::Float32
 
-    function DegreeStats(min_out, avg_out, max_out)
-        return new(min_out, avg_out, max_out, 0, 0, 0)
+    function DegreeStats(min_out, avg_out, avg_out_2nd_moment, max_out)
+        return new(min_out, avg_out, avg_out_2nd_moment, max_out, 0, 0, 0)
     end
 
-    function DegreeStats(partial_deg, min_in, avg_in, max_in)
-        return new(partial_deg.min_out, partial_deg.avg_out, partial_deg.max_out, min_in, avg_in, max_in)
+    function DegreeStats(partial_deg, min_in, avg_in, avg_in_2nd_moment, max_in)
+        return new(partial_deg.min_out, partial_deg.avg_out, partial_deg.avg_out_2nd_moment, partial_deg.max_out, min_in, avg_in, avg_in_2nd_moment, max_in)
     end
 end
 
@@ -30,6 +32,7 @@ struct ColorSummary
     max_cycle_size::Int
     total_edges::Int
     total_nodes::Int
+    corrs::Dict{Tuple{Color, Int, Color}, Float64}
     # for outdegrees, c2 is the color of the outneighbor
     # for indegrees, c2 is the color of the inneighbor
     # v2 represents the label of the node in c1
@@ -37,6 +40,7 @@ end
 
 
 function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, precolor=false)
+
     if (verbose > 0)
         println("Started coloring")
     end
@@ -48,6 +52,50 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         color_sizes[c] += 1
     end
 
+
+    corrs::Dict{Tuple{Color, Int, Color}, Float64} = Dict()
+    l_1st::Dict{Tuple{Color, Int, Color}, Float64} = Dict()
+    l_2nd::Dict{Tuple{Color, Int, Color}, Float64} = Dict()
+    r_1st::Dict{Tuple{Color, Int, Color}, Float64} = Dict()
+    r_2nd::Dict{Tuple{Color, Int, Color}, Float64} = Dict()
+    e_1st::Dict{Tuple{Color, Int, Color}, Float64} = Dict()
+    e_count::Dict{Tuple{Color, Int, Color}, Float64} = Dict()
+    for e in edges(g.graph)
+        l_color = color_hash[src(e)]
+        r_color = color_hash[dst(e)]
+        for label in g.edge_labels[(src(e), dst(e))]
+            colors_and_label = (l_color, label, r_color)
+            if !haskey(l_1st, colors_and_label)
+                l_1st[colors_and_label] = 0
+                l_2nd[colors_and_label] = 0
+                r_1st[colors_and_label] = 0
+                r_2nd[colors_and_label] = 0
+                e_1st[colors_and_label] = 0
+                e_count[colors_and_label] = 0
+            end
+            l_1st[colors_and_label] += degree(g.graph, src(e))
+            l_2nd[colors_and_label] += degree(g.graph, src(e))^2
+            r_1st[colors_and_label] += degree(g.graph, dst(e))
+            r_2nd[colors_and_label] += degree(g.graph, dst(e))^2
+            e_1st[colors_and_label] += degree(g.graph, src(e)) * degree(g.graph, dst(e))
+            e_count[colors_and_label] += 1
+        end
+    end
+
+    for cl in keys(l_1st)
+        l_1st[cl] /= e_count[cl]
+        l_2nd[cl] /= e_count[cl]
+        r_1st[cl] /= e_count[cl]
+        r_2nd[cl] /= e_count[cl]
+        e_1st[cl] /= e_count[cl]
+        r_denom = sqrt(r_2nd[cl]-r_1st[cl]^2)
+        l_denom = sqrt(l_2nd[cl]-l_1st[cl]^2)
+        if r_denom > 0 && l_denom > 0
+            corrs[cl] = (e_1st[cl] - l_1st[cl]*r_1st[cl])/sqrt(l_2nd[cl] - l_1st[cl]^2)/sqrt(r_2nd[cl]-r_1st[cl]^2)
+        else
+            corrs[cl] = 0
+        end
+    end
     if (verbose > 0)
         println("Started cycle counting")
     end
@@ -147,13 +195,13 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
                         max_deg = max(v, max_deg)
                     end
                     avg_deg = sum(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) / color_sizes[c1]
-
+                    avg_deg_2nd_moment = sum([x^2 for x in values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])]) / color_sizes[c1]
                     # if the number of connections is less than the number of vertices in the color,
                     # we can't guarantee the minimum bounds since they won't all map to the same vertex
                     if length(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) < color_sizes[c1]
                         min_deg = 0
                     end
-                    edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(min_deg, avg_deg, max_deg)
+                    edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(min_deg, avg_deg, avg_deg_2nd_moment, max_deg)
                 end
             end
         end
@@ -209,7 +257,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
                 end
                 for c2 in keys(color_to_color_in_counter[edge_label][vertex_label][c1])
                     if !haskey(edge_deg[edge_label][vertex_label][c1], c2)
-                        edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(0,0,0)
+                        edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(0,0,0,0)
                     end
 
                     min_deg = nv(g.graph) # set this to the max possible value for comparison later
@@ -219,6 +267,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
                         max_deg = max(v, max_deg)
                     end
                     avg_deg = sum(values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])) / color_sizes[c1]
+                    avg_deg_2nd_moment = sum([x^2 for x in values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])]) / color_sizes[c1]
 
                     # if the number of connections is less than the number of vertices in the color,
                     # we can't guarantee the minimum bounds since they won't all map to the same vertex
@@ -226,7 +275,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
                         min_deg = 0
                     end
                     out_degree_stats = edge_deg[edge_label][vertex_label][c1][c2]
-                    edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(out_degree_stats, min_deg, avg_deg, max_deg)
+                    edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(out_degree_stats, min_deg, avg_deg, avg_deg_2nd_moment, max_deg)
                 end
             end
         end
@@ -236,7 +285,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     end
     return ColorSummary(color_label_cardinality, edge_deg, color_filters,
                 cycle_probabilities, cycle_length_probabilities, params.max_cycle_size,
-                 ne(g.graph), nv(g.graph))
+                 ne(g.graph), nv(g.graph), corrs)
 end
 
 function color_hash_to_groups(color_hash, num_colors)

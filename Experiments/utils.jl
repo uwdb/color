@@ -12,11 +12,12 @@ struct ExperimentParams
     only_shortest_path_cycle::Bool
     use_partial_sums::Bool
     sampling_strategy::SAMPLING_STRATEGY
+    use_corr::Bool
 
     function ExperimentParams(;dataset::DATASET,  num_colors::Int=64, max_cycle_size=6,
         only_shortest_path_cycle=false, summary_max_paths=1000,
         partitioner::PARTITIONER = QuasiStable, weighting=true, inference_max_paths=500, use_partial_sums=true,
-        sampling_strategy=redistributive, label_refining_rounds = 0)
+        sampling_strategy=redistributive, label_refining_rounds = 0, use_corr=true)
         return new(dataset, ColorSummaryParams(num_colors=num_colors,
                                                        max_cycle_size=max_cycle_size,
                                                        max_partial_paths=summary_max_paths,
@@ -26,7 +27,8 @@ struct ExperimentParams
                     inference_max_paths,
                     only_shortest_path_cycle,
                     use_partial_sums,
-                    sampling_strategy
+                    sampling_strategy,
+                    use_corr
                )
     end
 end
@@ -37,7 +39,8 @@ function params_to_results_filename(experiment_params::ExperimentParams)
     name *= string(experiment_params.inference_max_paths) * "_"
     name *= string(experiment_params.only_shortest_path_cycle) * "_"
     name *= string(experiment_params.use_partial_sums) * "_"
-    name *= string(experiment_params.sampling_strategy) * ".csv"
+    name *= string(experiment_params.sampling_strategy) * "_"
+    name *= string(experiment_params.use_corr) * ".csv"
     return name
 end
 
