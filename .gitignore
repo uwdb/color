@@ -8,7 +8,7 @@
 /test/coverage/Manifest.toml
 /.ipynb_checkpoints/
 /queryset
-/dataset/
+/dataset
 /TrueCardinalities
 /Experiments/Results/*
 /Experiments/SerializedSummaries/*

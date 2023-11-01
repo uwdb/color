@@ -1,7 +1,7 @@
-@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors
+@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase
 #todo: query type
 
-@enum VALUE estimate_error runtime memory_footprint
+@enum VALUE estimate_error runtime build_time memory_footprint
 
 function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams};
                                         x_type::GROUP=dataset, y_type::VALUE=estimate_error,
@@ -67,7 +67,7 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
         # load the results
         results_filename = params_to_results_filename(experiment_params)
         prefix = "Experiments/Results/Estimation_"
-        if y_type == memory_footprint
+        if y_type == memory_footprint || y_type == build_time
             prefix = "Experiments/Results/Build_"
         end
         results_path = prefix * results_filename
@@ -77,13 +77,27 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
         println(results_df)
         # keep track of the data points
         for i in 1:nrow(results_df)
-            current_x = x_type == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, x_type)
-            current_group = grouping == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, grouping)
+            current_x = nothing
+            if x_type == query_type
+                current_x = results_df[i, :QueryType]
+            else
+                current_x = get_value_from_param(experiment_params, x_type)
+            end
+            current_group = nothing
+            if grouping == query_type
+                current_group = results_df[i, :QueryType]
+            elseif grouping == build_phase
+                current_group = results_df[i, :BuildPhase]
+            else
+                current_group = get_value_from_param(experiment_params, grouping)
+            end
             current_y = 0
             if y_type == estimate_error
                 current_y = results_df[i, :Estimate] / results_df[i, :TrueCard]
             elseif y_type == memory_footprint
                 current_y = results_df[i, :MemoryFootprint]/(10^6)
+            elseif y_type == build_time
+                current_y = results_df[i, :BuildTime]
             else
                      # y_type == runtime
                 current_y = results_df[i, :EstimationTime]

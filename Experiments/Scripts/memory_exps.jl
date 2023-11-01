@@ -12,7 +12,7 @@ for dataset in datasets
         push!(build_params, ExperimentParams(dataset=dataset, num_colors=n))
     end
 end
-#build_experiments(build_params)
+build_experiments(build_params)
 
 graph_grouped_bar_plot(build_params; grouping=number_of_colors,
                                           y_type=memory_footprint,

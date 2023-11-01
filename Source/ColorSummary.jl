@@ -36,10 +36,11 @@ struct ColorSummary
 end
 
 
-function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, precolor=false)
+function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, precolor=false, timing_vec::Vector{Float64} = [])
     if (verbose > 0)
         println("Started coloring")
     end
+    coloring_time = time()
     color_filters::Dict{Color, BloomFilter} = Dict()
     color_label_cardinality::Dict{Color, Any} = Dict()
     color_hash::Dict{NodeId, Color} = color_graph(g, params, params.num_colors)
@@ -47,22 +48,28 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     for c in values(color_hash)
         color_sizes[c] += 1
     end
+    coloring_time = time() - coloring_time
+    push!(timing_vec, coloring_time)
 
     if (verbose > 0)
         println("Started cycle counting")
     end
+    cycle_counting_time = time()
     cycle_probabilities::Dict{CyclePathAndColors, Float64} = Dict()
     cycle_length_probabilities::Dict{Int, Float64} = Dict()
     cycle_probabilities, cycle_length_probabilities = get_color_cycle_likelihoods(params.max_cycle_size,
                                                                                          g,
                                                                                          color_hash,
                                                                                          params.max_partial_paths)
+    cycle_counting_time = time() - cycle_counting_time
+    push!(timing_vec, cycle_counting_time)
 
     # initialize color filters for data labels
     current_color = 1;
     if (verbose > 0)
         println("Started bloom filters")
     end
+    bloom_filter_time = time()
     for color in eachindex(color_sizes)
         num_nodes = max(1, color_sizes[color])
         accepted_error = 0.00001
@@ -70,10 +77,14 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         color_filters[current_color] = BloomFilter(bloom_params.m, bloom_params.k)
         current_color += 1
     end
+    bloom_filter_time = time() - bloom_filter_time
+    push!(timing_vec, bloom_filter_time)
+
 
     if (verbose > 0)
         println("Started cardinality counts")
     end
+    cardinality_counts_time = time()
     for node in keys(color_hash)
         color = color_hash[node]
         data_label = get_data_label(g, node)
@@ -92,12 +103,15 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
             inc!(color_label_cardinality[color], label)
         end
     end
+    cardinality_counts_time = time() - cardinality_counts_time
+    push!(timing_vec, cardinality_counts_time)
 
     if (verbose > 0)
         println("Started tracking statistics")
     end
+    edge_stats_time = time()
     # We keep separate degree statistics for in-degree and out-degree.
-    color_to_color_out_counter::Dict{Color, Dict{Color, Any}} = Dict()
+    color_to_color_out_counter::Dict{Int, Dict{Int, Any}} = Dict()
     for x in vertices(g.graph)
         c1 = color_hash[x]
         for y in outneighbors(g.graph,x)
@@ -160,7 +174,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     end
 
     # We keep separate degree statistics for in-degree and out-degree.
-    color_to_color_in_counter::Dict{Color, Dict{Color, Any}} = Dict()
+    color_to_color_in_counter::Dict{Int, Dict{Int, Any}} = Dict()
     for x in vertices(g.graph)
         c1 = color_hash[x]
         for y in inneighbors(g.graph,x)
@@ -234,6 +248,9 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     if (verbose > 0)
         println("Finished tracking statistics")
     end
+    edge_stats_time = time() - edge_stats_time
+    push!(timing_vec, edge_stats_time)
+
     return ColorSummary(color_label_cardinality, edge_deg, color_filters,
                 cycle_probabilities, cycle_length_probabilities, params.max_cycle_size,
                  ne(g.graph), nv(g.graph))
