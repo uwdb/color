@@ -36,7 +36,7 @@ struct ColorSummary
 end
 
 
-function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, precolor=false, timing_vec::Vector{Float64} = [])
+function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, precolor=false, timing_vec::Vector{Float64} = Float64[])
     if (verbose > 0)
         println("Started coloring")
     end
