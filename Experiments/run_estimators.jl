@@ -1,4 +1,3 @@
-
 function run_estimation_experiments(experiment_params_list::Vector{ExperimentParams})
     for experiment_params in experiment_params_list
         dataset = experiment_params.dataset
@@ -9,18 +8,24 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
         experiment_results = []
         push!(experiment_results, ("UpperBound", "Estimate", "LowerBound", "TrueCard", "EstimationTime", "QueryType", "QueryPath"))
         for i in 1:length(all_queries[dataset])
-            query = all_queries[dataset][i].query
+            query::QueryGraph = all_queries[dataset][i].query
             query_path = all_queries[dataset][i].query_path
             exact_size = all_queries[dataset][i].exact_size
-            results = @timed get_cardinality_bounds(query, summary;
+            estimate_times = [(@timed get_cardinality_bounds(query, summary;
+                                    max_partial_paths = experiment_params.inference_max_paths,
+                                    use_partial_sums=experiment_params.use_partial_sums, usingStoredStats=true,
+                                    sampling_strategy=experiment_params.sampling_strategy,
+                                    only_shortest_path_cycle= experiment_params.only_shortest_path_cycle)).time for _ in 1:3]
+            estimate_time = median(estimate_times) # Convert back to seconds from nano seconds
+
+            bounds = get_cardinality_bounds(query, summary;
                                 max_partial_paths = experiment_params.inference_max_paths,
                                 use_partial_sums=experiment_params.use_partial_sums, usingStoredStats=true,
                                 sampling_strategy=experiment_params.sampling_strategy,
                                 only_shortest_path_cycle= experiment_params.only_shortest_path_cycle)
-            upper_bound = results.value[3]
-            estimate = max(1, results.value[2])
-            lower_bound = results.value[1]
-            estimate_time = results.time
+            upper_bound = bounds[3]
+            estimate = max(1, bounds[2])
+            lower_bound = bounds[1]
             query_type = all_queries[dataset][i].query_type
             push!(experiment_results, (upper_bound, estimate, lower_bound, exact_size, estimate_time, query_type, query_path))
         end

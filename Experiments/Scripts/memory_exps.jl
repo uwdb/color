@@ -3,8 +3,8 @@ using Profile
 include("../Experiments.jl")
 
 #datasets = [aids, yeast, hprd, dblp, youtube, wordnet]
-datasets = [aids, yeast, hprd, dblp, wordnet]
-num_colors = [4, 8, 16, 32, 64, 128]
+datasets = [wordnet]
+num_colors = [4, 8, 16, 32, 64, 128, 256]
 experiment_params = Vector{ExperimentParams}()
 build_params = Vector{ExperimentParams}()
 for dataset in datasets

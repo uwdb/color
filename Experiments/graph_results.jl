@@ -70,6 +70,7 @@ end
 
 function get_query_id(dataset, query_path)
     return if dataset == "lubm80"
+        println(query_path)
         match(r".*/queryset/(.*/.*)", query_path).captures[1]
     elseif dataset in ["aids", "human", "yago"]
         match(r".*/queryset/.*/(.*/.*)", query_path).captures[1]
@@ -92,9 +93,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
         # load the results
         results_filename = params_to_results_filename(experiment_params)
         results_path = "Experiments/Results/Estimation_" * results_filename
-        # println("results path: ", results_path)
         results_df = CSV.read(results_path, DataFrame; normalizenames=true)
-
         # get the x_value and grouping (same for all results in this experiment param)
 
         # keep track of the data points

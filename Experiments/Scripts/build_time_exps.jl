@@ -2,8 +2,8 @@
 using Profile
 include("../Experiments.jl")
 
-#datasets = [aids, yeast, hprd, dblp, youtube, wordnet]
-datasets = [aids, yago, hprd, dblp]
+datasets = [aids, yeast, hprd, dblp, youtube, wordnet]
+#datasets = [wordnet]
 experiment_params = Vector{ExperimentParams}()
 build_params = Vector{ExperimentParams}()
 for dataset in datasets
@@ -13,5 +13,5 @@ end
 
 graph_grouped_bar_plot(build_params; grouping=build_phase,
                                           y_type=build_time,
-                                          y_lims=[0, 6000],
+                                          y_lims=[0, 360],
                                           filename="build_time")

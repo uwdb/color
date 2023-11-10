@@ -6,6 +6,7 @@ using StatsPlots
 using CSV, DataFrames
 using Parquet2: Dataset
 using DelimitedFiles: writedlm
+using BenchmarkTools
 
 include("../Source/CardinalityWithColors.jl")
 include("utils.jl")
