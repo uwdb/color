@@ -184,20 +184,13 @@ function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sum
 
 
     while length(node_order) > 0
-        if verbose
-            println("Current Query Nodes: ", current_query_nodes)
-            println("Visited Query Edges: ", visited_query_edges)
-            println("Number of Partial Paths: ", length(keys(partial_paths)))
-        end
-        handle_extra_edges_exact!(query, data, partial_paths, current_query_nodes, visited_query_edges, timeout, start_time)
         if use_partial_sums
             # pass nodes_to_keep here, just don't sum over it
             sum_over_finished_query_nodes_exact!(query, partial_paths, current_query_nodes, visited_query_edges, timeout, start_time, nodes_to_not_sum = nodes_to_keep)
         end
-        if verbose
-            println("Number of Partial Paths After Sum: ", length(keys(partial_paths)))
-            println("Current Query Nodes After Sum: ", current_query_nodes)
-            println("Visited Query Edges After Sum: ", visited_query_edges)
+
+        if !(isnothing(max_partial_paths)) && (length(partial_paths) > max_partial_paths)
+            partial_paths = sample_paths_exact(partial_paths, max_partial_paths)
         end
 
         new_node = popfirst!(node_order)
@@ -225,57 +218,146 @@ function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sum
         query_child_id_labels = query.vertex_id_labels[new_node]
 
         push!(current_query_nodes, new_node)
-        path_type = Vector{Int}
-        new_partial_paths::Vector{Tuple{path_type, Int}} = []
-        if !(isnothing(max_partial_paths))
-            if (length(partial_paths) > max_partial_paths)
-                partial_paths = sample_paths_exact(partial_paths, max_partial_paths)
-            end
-        end
+        new_partial_paths::Vector{Tuple{Vector{NodeId}, Int}} = []
         sizehint!(new_partial_paths, length(partial_paths))
         for path_and_weight in partial_paths
             if timeout > 0 && time() - start_time > timeout
                 println("Timeout Reached")
                 return -1
             end
-            path = path_and_weight[1]
+            path::Vector{NodeId} = path_and_weight[1]
             weight = path_and_weight[2]
             old_node = path[parent_idx]
+            wildcard_label = [-1]
             if outEdge
-                for data_new_node in outneighbors(data.graph, old_node)
-                    new_weight = weight
-                    # Only add a new partial path if the edge label and node label match our query.
-                    data_edge_labels = data.edge_labels[(old_node,data_new_node)]
-                    data_child_labels = data.vertex_labels[data_new_node]
-                    data_child_id_label = get_data_label(data, data_new_node)
-                    if (query_child_id_labels != [-1] && length(intersect(query_child_id_labels,data_child_id_label)) == 0)
-                        continue
+                if !isnothing(max_partial_paths)
+                    valid_neighbors = 0
+                    for data_new_node in outneighbors(data.graph, old_node)
+                        # Only add a new partial path if the edge label and node label match our query.
+                        data_edge_labels = data.edge_labels[(old_node, data_new_node)]
+                        data_child_labels = data.vertex_labels[data_new_node]
+                        data_child_id_label = get_data_label(data, data_new_node)
+                        if (query_child_id_labels != wildcard_label) && (length(intersect(query_child_id_labels, data_child_id_label)) == 0)
+                                continue
+                        end
+                        if (query_child_label == -1  || in(query_child_label, data_child_labels)) &&
+                            (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
+                            valid_neighbors += 1
+                        end
                     end
-                    if (query_child_label == -1  || in(query_child_label, data_child_labels)) &&
-                        (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
-                        push!(new_partial_paths, ([path..., data_new_node], new_weight))
+                    valid_neighbors == 0 && continue
+                    sampled_node = rand(1:valid_neighbors)
+                    node_count = 0
+                    for data_new_node in outneighbors(data.graph, old_node)
+                        # Only add a new partial path if the edge label and node label match our query.
+                        data_edge_labels = data.edge_labels[(old_node, data_new_node)]
+                        data_child_labels = data.vertex_labels[data_new_node]
+                        data_child_id_label = get_data_label(data, data_new_node)
+                        if (query_child_id_labels != wildcard_label) && (length(intersect(query_child_id_labels, data_child_id_label)) == 0)
+                            continue
+                        end
+                        if (query_child_label == -1  || in(query_child_label, data_child_labels)) &&
+                            (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
+                            node_count += 1
+                            if node_count == sampled_node
+                                new_path::Vector{NodeId} = copy(path)
+                                push!(new_path, data_new_node)
+                                push!(new_partial_paths, (new_path, weight*valid_neighbors))
+                                break
+                            end
+                        end
+                    end
+                else
+                    for data_new_node in outneighbors(data.graph, old_node)
+                        # Only add a new partial path if the edge label and node label match our query.
+                        data_edge_labels = data.edge_labels[(old_node, data_new_node)]
+                        data_child_labels = data.vertex_labels[data_new_node]
+                        data_child_id_label = get_data_label(data, data_new_node)
+                        if (query_child_id_labels != wildcard_label) && (length(intersect(query_child_id_labels, data_child_id_label)) == 0)
+                            continue
+                        end
+                        if (query_child_label == -1  || in(query_child_label, data_child_labels)) &&
+                            (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
+                            new_path::Vector{NodeId} = copy(path)
+                            push!(new_path, data_new_node)
+                            push!(new_partial_paths, (new_path, weight))
+                        end
                     end
                 end
             else
-                for data_new_node in inneighbors(data.graph, old_node)
-                    new_weight = weight
-                    # Only add a new partial path if the edge label and node label match our query.
-                    data_edge_labels = data.edge_labels[(data_new_node,old_node)]
-                    data_child_labels = data.vertex_labels[data_new_node]
-                    data_child_id_label = get_data_label(data, data_new_node)
-                    if (query_child_id_labels != [-1])
-                        if (length(intersect(query_child_id_labels, data_child_id_label)) == 0)
-                            continue
+                if !isnothing(max_partial_paths)
+                    valid_neighbors = 0
+                    for data_new_node in inneighbors(data.graph, old_node)
+                        # Only add a new partial path if the edge label and node label match our query.
+                        data_edge_labels = data.edge_labels[(data_new_node,old_node)]
+                        data_child_labels = data.vertex_labels[data_new_node]
+                        data_child_id_label = get_data_label(data, data_new_node)
+                        if (query_child_id_labels != wildcard_label) && (length(intersect(query_child_id_labels, data_child_id_label)) == 0)
+                                continue
+                        end
+                        if (query_child_label == -1  || in(query_child_label, data_child_labels)) &&
+                            (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
+                            valid_neighbors += 1
                         end
                     end
-                    if (query_child_label == -1  || in(query_child_label, data_child_labels)) &&
-                        (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
-                        push!(new_partial_paths, ([path..., data_new_node], new_weight))
+                    valid_neighbors == 0 && continue
+                    sampled_node = rand(1:valid_neighbors)
+                    node_count = 0
+                    for data_new_node in inneighbors(data.graph, old_node)
+                        # Only add a new partial path if the edge label and node label match our query.
+                        data_edge_labels = data.edge_labels[(data_new_node,old_node)]
+                        data_child_labels = data.vertex_labels[data_new_node]
+                        data_child_id_label = get_data_label(data, data_new_node)
+                        if (query_child_id_labels != wildcard_label) && (length(intersect(query_child_id_labels, data_child_id_label)) == 0)
+                            continue
+                        end
+                        if (query_child_label == -1  || in(query_child_label, data_child_labels)) &&
+                            (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
+                            node_count += 1
+                            if node_count == sampled_node
+                                new_path::Vector{NodeId} = copy(path)
+                                push!(new_path, data_new_node)
+                                push!(new_partial_paths, (new_path, weight*valid_neighbors))
+                                break
+                            end
+                        end
+                    end
+                else
+                    for data_new_node in inneighbors(data.graph, old_node)
+                        # Only add a new partial path if the edge label and node label match our query.
+                        data_edge_labels = data.edge_labels[(data_new_node,old_node)]
+                        data_child_labels = data.vertex_labels[data_new_node]
+                        data_child_id_label = get_data_label(data, data_new_node)
+                        if (query_child_id_labels != wildcard_label) && (length(intersect(query_child_id_labels, data_child_id_label)) == 0)
+                            continue
+                        end
+                        if (query_child_label == -1  || in(query_child_label, data_child_labels)) &&
+                            (query_edge_label == -1 || in(query_edge_label, data_edge_labels))
+                            new_path::Vector{NodeId} = copy(path)
+                            push!(new_path, data_new_node)
+                            push!(new_partial_paths, (new_path, weight))
+                        end
                     end
                 end
             end
         end
         partial_paths = new_partial_paths
+
+        if !(isnothing(max_partial_paths)) && (length(partial_paths) > max_partial_paths)
+            partial_paths = sample_paths_exact(partial_paths, max_partial_paths)
+        end
+
+        if verbose
+            println("Current Query Nodes: ", current_query_nodes)
+            println("Visited Query Edges: ", visited_query_edges)
+            println("Number of Partial Paths: ", length(keys(partial_paths)))
+        end
+        handle_extra_edges_exact!(query, data, partial_paths, current_query_nodes, visited_query_edges, timeout, start_time)
+        if verbose
+            println("Number of Partial Paths After Sum: ", length(keys(partial_paths)))
+            println("Current Query Nodes After Sum: ", current_query_nodes)
+            println("Visited Query Edges After Sum: ", visited_query_edges)
+        end
     end
     handle_extra_edges_exact!(query, data, partial_paths, current_query_nodes, visited_query_edges, timeout, start_time)
 

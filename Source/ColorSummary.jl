@@ -403,7 +403,7 @@ end
 
 # this is the one where we also have the directionality of the path
 # returns a mapping from start/end-colors => cycle-likelihood
-function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, max_partial_paths, min_partial_paths=0)
+function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, max_partial_paths, min_partial_paths=50)
     # we map the path that needs to be closed to its likelihood
     # of actually closing use type-aliases (path = Vector{Bool})
     cycle_length_likelihoods::Dict{Int, Float64} = Dict()
@@ -416,7 +416,6 @@ function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash,
         i_path_weight, i_cycle_weight = (0.0,0.0)
         paths = generate_graphs(i - 1, 0, (Vector{DiGraph})([DiGraph(i)]), false)
         for path in paths
-            total_path_weight, total_cycle_weight = (0.0,0.0)
             total_path_weight, total_cycle_weight = (0.0,0.0)
             bool_graph = convert_path_graph_to_bools(path.graph)
             default_cycle_description = CyclePathAndColors(bool_graph, default_color_pair)

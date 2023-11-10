@@ -4,6 +4,7 @@ using Plots
 using Plots.PlotMeasures
 using StatsPlots
 using CSV, DataFrames
+using Parquet2: Dataset
 using DelimitedFiles: writedlm
 
 include("../Source/CardinalityWithColors.jl")
