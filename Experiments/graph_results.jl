@@ -70,7 +70,6 @@ end
 
 function get_query_id(dataset, query_path)
     return if dataset == "lubm80"
-        println(query_path)
         match(r".*/queryset/(.*/.*)", query_path).captures[1]
     elseif dataset in ["aids", "human", "yago"]
         match(r".*/queryset/.*/(.*/.*)", query_path).captures[1]

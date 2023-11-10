@@ -11,18 +11,13 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
             query::QueryGraph = all_queries[dataset][i].query
             query_path = all_queries[dataset][i].query_path
             exact_size = all_queries[dataset][i].exact_size
-            estimate_times = [(@timed get_cardinality_bounds(query, summary;
+            estimate_results = [(@timed get_cardinality_bounds(query, summary;
                                     max_partial_paths = experiment_params.inference_max_paths,
                                     use_partial_sums=experiment_params.use_partial_sums, usingStoredStats=true,
                                     sampling_strategy=experiment_params.sampling_strategy,
-                                    only_shortest_path_cycle= experiment_params.only_shortest_path_cycle)).time for _ in 1:3]
-            estimate_time = median(estimate_times) # Convert back to seconds from nano seconds
-
-            bounds = get_cardinality_bounds(query, summary;
-                                max_partial_paths = experiment_params.inference_max_paths,
-                                use_partial_sums=experiment_params.use_partial_sums, usingStoredStats=true,
-                                sampling_strategy=experiment_params.sampling_strategy,
-                                only_shortest_path_cycle= experiment_params.only_shortest_path_cycle)
+                                    only_shortest_path_cycle= experiment_params.only_shortest_path_cycle)) for _ in 1:3]
+            estimate_time = median([x.time for x in  estimate_results]) # Convert back to seconds from nano seconds
+            bounds = estimate_results[1].value
             upper_bound = bounds[3]
             estimate = max(1, bounds[2])
             lower_bound = bounds[1]
