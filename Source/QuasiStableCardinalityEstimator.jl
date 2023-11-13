@@ -35,6 +35,9 @@ end
 
 function sample_paths(partial_paths::Vector{Tuple{Vector{Color}, Vector{Float64}}}, num_samples::Int, sampling_strategy::SAMPLING_STRATEGY)
     # partial_path[x] = (color path, bounds)
+    if (length(partial_paths) == 0)
+        println("partial path length was 0 before screening")
+    end
     partial_paths = [x for x  in partial_paths if x[2][2] > 0]
 
     # if we want to sample more paths than there are existing, then just return the original partial paths
@@ -208,7 +211,6 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
         if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], child_label)
             edge_deg = summary.edge_deg[edge_label][child_label]
         end
-
         for i  in eachindex(partial_paths)
             path::Vector{Int} = partial_paths[i][1]
             parent_color::Int = path[parent_node_idx]
