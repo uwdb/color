@@ -166,7 +166,7 @@ function update_edge_degrees!(summary, start_node, end_node, edge_labels::Vector
 end
 
 
-function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, precolor=false, use_cycle_join_table=true)
+function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, precolor=false, timing_vec::Vector{Float64} = Float64[], use_cycle_join_table=true)
     if (verbose > 0)
         println("Started coloring")
     end
@@ -195,6 +195,9 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
                                                                                             color_hash,
                                                                                             params.max_partial_paths)
     end
+    cycle_counting_time = time() - cycle_counting_time
+    push!(timing_vec, cycle_counting_time)
+
     current_color = 1;
     if (verbose > 0)
         println("Started bloom filters")
