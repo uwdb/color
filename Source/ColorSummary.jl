@@ -170,6 +170,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     if (verbose > 0)
         println("Started coloring")
     end
+    coloring_time = time()
     color_filters::Dict{Color, BloomFilter} = Dict()
     color_label_cardinality::Dict{Color, Any} = Dict()
     color_hash::Dict{NodeId, Color} = color_graph(g, params, params.num_colors)
@@ -177,10 +178,13 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     for c in values(color_hash)
         color_sizes[c] += 1
     end
+    coloring_time = time() - coloring_time
+    push!(timing_vec, coloring_time)
 
     if (verbose > 0)
         println("Started cycle counting")
     end
+    cycle_counting_time = time()
     cycle_probabilities::Dict{CyclePathAndColors, Float64} = Dict()
     cycle_length_probabilities::Dict{Int, Float64} = Dict()
     if use_cycle_join_table
@@ -195,6 +199,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     if (verbose > 0)
         println("Started bloom filters")
     end
+    bloom_filter_time = time()
     for color in eachindex(color_sizes)
         num_nodes = max(1, color_sizes[color])
         accepted_error = 0.00001
@@ -202,10 +207,14 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
         color_filters[current_color] = BloomFilter(bloom_params.m, bloom_params.k)
         current_color += 1
     end
+    bloom_filter_time = time() - bloom_filter_time
+    push!(timing_vec, bloom_filter_time)
+
 
     if (verbose > 0)
         println("Started cardinality counts")
     end
+    cardinality_counts_time = time()
     for node in keys(color_hash)
         color = color_hash[node]
         data_label = get_data_label(g, node)
@@ -224,12 +233,15 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
             inc!(color_label_cardinality[color], label)
         end
     end
+    cardinality_counts_time = time() - cardinality_counts_time
+    push!(timing_vec, cardinality_counts_time)
 
     if (verbose > 0)
         println("Started tracking statistics")
     end
+    edge_stats_time = time()
     # We keep separate degree statistics for in-degree and out-degree.
-    color_to_color_out_counter::Dict{Color, Dict{Color, Any}} = Dict()
+    color_to_color_out_counter::Dict{Int, Dict{Int, Any}} = Dict()
     for x in vertices(g.graph)
         c1 = color_hash[x]
         for y in outneighbors(g.graph,x)
@@ -292,7 +304,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     end
 
     # We keep separate degree statistics for in-degree and out-degree.
-    color_to_color_in_counter::Dict{Color, Dict{Color, Any}} = Dict()
+    color_to_color_in_counter::Dict{Int, Dict{Int, Any}} = Dict()
     for x in vertices(g.graph)
         c1 = color_hash[x]
         for y in inneighbors(g.graph,x)
@@ -366,6 +378,9 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     if (verbose > 0)
         println("Finished tracking statistics")
     end
+    edge_stats_time = time() - edge_stats_time
+    push!(timing_vec, edge_stats_time)
+
     return ColorSummary(color_label_cardinality, edge_deg, color_filters,
                 cycle_probabilities, cycle_length_probabilities, params.max_cycle_size,
                  ne(g.graph), nv(g.graph))
@@ -613,7 +628,7 @@ end
 
 # this is the one where we also have the directionality of the path
 # returns a mapping from start/end-colors => cycle-likelihood
-function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, max_partial_paths, min_partial_paths=0)
+function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, max_partial_paths, min_partial_paths=50)
     # we map the path that needs to be closed to its likelihood
     # of actually closing use type-aliases (path = Vector{Bool})
     cycle_length_likelihoods::Dict{Int, Float64} = Dict()
@@ -626,7 +641,6 @@ function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash,
         i_path_weight, i_cycle_weight = (0.0,0.0)
         paths = generate_graphs(i - 1, 0, (Vector{DiGraph})([DiGraph(i)]), false)
         for path in paths
-            total_path_weight, total_cycle_weight = (0.0,0.0)
             total_path_weight, total_cycle_weight = (0.0,0.0)
             bool_graph = convert_path_graph_to_bools(path.graph)
             default_cycle_description = CyclePathAndColors(bool_graph, default_color_pair)
