@@ -38,8 +38,7 @@ function params_to_results_filename(experiment_params::ExperimentParams)
     name *= string(experiment_params.inference_max_paths) * "_"
     name *= string(experiment_params.only_shortest_path_cycle) * "_"
     name *= string(experiment_params.use_partial_sums) * "_"
-    name *= string(experiment_params.sampling_strategy) * "_"
-    name *= string(experiment_params.summary_params.proportion_not_updated) * ".csv"
+    name *= string(experiment_params.sampling_strategy) * ".csv"
     return name
 end
 
