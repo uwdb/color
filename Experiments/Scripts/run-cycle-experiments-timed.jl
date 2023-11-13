@@ -1,5 +1,5 @@
 using Plots.PlotMeasures
-include("Experiments/Experiments.jl")
+include("../Experiments.jl")
 
 datasets::Vector{DATASET} = [aids]
 # datasets::Vector{DATASET} = [aids, human, yeast, wordnet, youtube, dblp, patents]

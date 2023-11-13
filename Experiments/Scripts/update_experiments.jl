@@ -1,6 +1,6 @@
 using Plots.PlotMeasures
 using Graphs
-include("Experiments/Experiments.jl")
+include("../Experiments.jl")
 
 datasets::Vector{DATASET} = [human]
 # datasets::Vector{DATASET} = [aids, human, yeast, wordnet, youtube, dblp, patents]

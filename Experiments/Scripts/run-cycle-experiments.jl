@@ -1,7 +1,8 @@
 using Plots.PlotMeasures
-include("Experiments/Experiments.jl")
+include("../Experiments.jl")
 
-datasets::Vector{DATASET} = [aids, human, yeast, wordnet, youtube, dblp, patents]
+datasets::Vector{DATASET} = [aids]
+# datasets::Vector{DATASET} = [aids, human, yeast, wordnet, youtube, dblp, patents]
 # datasets::Vector{DATASET} = [aids, human, lubm80, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
 max_cycles = 6
 
