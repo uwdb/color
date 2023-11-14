@@ -4,7 +4,7 @@
 # Equivalently, they perform a groupby on all other nodes of the query graph. The goal of this is to prevent
 # an exponential growth in the number of paths through the lifted color graph. However, we can only remove query nodes whose
 # edges have already been processed.
-function sum_over_node!(partial_paths::Vector{Tuple{Vector{Color}, Vector{Float64}}}, current_query_nodes, node_to_remove)
+@inline function sum_over_node(partial_paths::Matrix{Color}, partial_weights::Matrix{Float64}, current_query_nodes::Vector{Int}, node_to_remove::Int)
     nodeIdx = 1
     for node in current_query_nodes
         if node == node_to_remove
@@ -149,7 +149,6 @@ function get_all_simple_path_bools(start::Int, finish::Int, max_length::Int,
     end
     return path_bools
 end
-
 
 # gets the directed path from the start to finish node
 function get_matching_graph(start::Int, finish::Int, query::QueryGraph)

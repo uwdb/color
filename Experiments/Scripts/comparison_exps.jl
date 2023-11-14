@@ -1,14 +1,12 @@
-
-using Profile
 include("../Experiments.jl")
 
 #datasets = [aids, yeast, hprd, dblp, youtube, wordnet]
-datasets = [lubm80, aids, human]
+datasets = [lubm80, aids, human, dblp]
 
 experiment_params = Vector{ExperimentParams}()
 for dataset in datasets
     push!(experiment_params, ExperimentParams(dataset=dataset))
-    push!(experiment_params, ExperimentParams(dataset=dataset, num_colors=256))
+#    push!(experiment_params, ExperimentParams(dataset=dataset, num_colors=256))
 end
 
 #build_experiments(experiment_params)
