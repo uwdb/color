@@ -1,5 +1,4 @@
-@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase
-#todo: query type
+@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_not_updated
 
 @enum VALUE estimate_error runtime build_time memory_footprint
 
@@ -92,9 +91,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
         # load the results
         results_filename = params_to_results_filename(experiment_params)
         results_path = "Experiments/Results/Estimation_" * results_filename
-        # println("results path: ", results_path)
         results_df = CSV.read(results_path, DataFrame; normalizenames=true)
-
         # get the x_value and grouping (same for all results in this experiment param)
 
         # keep track of the data points
@@ -246,6 +243,8 @@ function get_value_from_param(experiment_param::ExperimentParams, value_type::GR
         return experiment_param.only_shortest_path_cycle
     elseif value_type == number_of_colors
         return experiment_param.summary_params.num_colors
+    elseif value_type == proportion_not_updated
+        return experiment_param.summary_params.proportion_not_updated
     else
         # default to grouping by technique
         return (experiment_param.summary_params.partitioner, experiment_param.summary_params.label_refining_rounds)

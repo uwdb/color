@@ -1,7 +1,7 @@
 
 abstract type PropertyGraph end
 
-struct DataGraph <: PropertyGraph
+mutable struct DataGraph <: PropertyGraph
     graph::DiGraph
     edge_labels::Dict{Tuple{Int, Int}, Vector{Int}} # edge_labels[n1][n2] = { labels }
     vertex_labels::Vector{Vector{Int}} # vertex_labels[n] = { labels }

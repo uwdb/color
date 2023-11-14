@@ -1,6 +1,6 @@
 using Graphs
 
-struct DegreeStats
+mutable struct DegreeStats
     min_out::Float32
     avg_out::Float32
     max_out::Float32
@@ -23,20 +23,150 @@ end
 # but they do occur in the query graph.
 struct ColorSummary
     color_label_cardinality::Dict{Color, Dict{Int, Int}} # color_label_cardinality[c][v] = num_vertices
-    edge_deg::Dict{Int, Dict{Int, Dict{Color, Dict{Color, DegreeStats}}}} # edge_min_out_deg[e][v2][c1][c2] = min
+    edge_deg::Dict{Int, Dict{Int, Dict{Color, Dict{Color, DegreeStats}}}} # edge_deg[e][v2][c1][c2] = degreestat
     color_filters::Dict{Color, BloomFilter} # color_filters[c] = filter
     cycle_probabilities::Dict{CyclePathAndColors, Float64} # cycle_probabilities[[c1, c2], path] = likelihood
     cycle_length_probabilities::Dict{Int, Float64} #cycle_probabilities[path_length] = likelihood
     max_cycle_size::Int
     total_edges::Int
     total_nodes::Int
+    # total_added_edges::Int
     # for outdegrees, c2 is the color of the outneighbor
     # for indegrees, c2 is the color of the inneighbor
     # v2 represents the label of the node in c1
 end
 
+# assumes that all nodes are currently in the color summary - the node is guaranteed to be in at least one bloom filter
+function get_node_summary_color(summary, node)
+    possible_colors = []
+    for color in keys(summary.color_filters)
+        filter = summary.color_filters[color]
+        if node in filter
+            push!(possible_colors, color)
+        end
+    end
+    return length(possible_colors) == 0 ? rand(keys(summary.color_filters)) : rand(possible_colors)
+end
 
-function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, precolor=false, timing_vec::Vector{Float64} = Float64[])
+# currently ignores cycles
+function add_summary_edge!(summary, start_node, end_node, edge_labels)
+    update_edge_degrees!(summary, start_node, end_node, edge_labels, remove=false)
+end
+
+function remove_summary_edge!(summary, start_node, end_node, edge_labels)
+    update_edge_degrees!(summary, start_node, end_node, edge_labels, remove=true)
+end
+
+function update_edge_degrees!(summary, start_node, end_node, edge_labels::Vector; remove=false)
+    # need to eventually make sure that the edge label is a set that includes -1 for the label...
+    if !(-1 in edge_labels)
+        push!(edge_labels, -1)
+    end
+
+    # first, find the distribution of labels for the current color pair
+    start_color = get_node_summary_color(summary, start_node)
+    end_color = get_node_summary_color(summary, end_node)
+    for edge_label in edge_labels
+        label_separated = get(summary.edge_deg, edge_label, Dict())
+        # edge_deg[e][v2][c1][c2] = degreestats
+        vertex_label_counts_out = Dict()
+        for vertex_label in keys(label_separated)
+            if haskey(label_separated[vertex_label], start_color) && haskey(label_separated[vertex_label][start_color], end_color)
+                degreestats = label_separated[vertex_label][start_color][end_color]
+                vertex_label_counts_out[vertex_label] = degreestats.avg_out
+            else
+                vertex_label_counts_out[vertex_label] = 0
+            end
+        end
+        vertex_label_counts_in = Dict()
+        for vertex_label in keys(label_separated)
+            if haskey(label_separated[vertex_label], end_color) && haskey(label_separated[vertex_label][end_color], start_color)
+                degreestats = label_separated[vertex_label][end_color][start_color]
+                vertex_label_counts_in[vertex_label] = degreestats.avg_in
+            else
+                vertex_label_counts_in[vertex_label] = 0
+            end
+        end
+        # need to do ^ again for in labels, the distributions of in/out may be different
+        # outdegree is based on label of c2 (landing node)
+        # indegree is based on label of c2 (starting node)
+        # for a pair of colors, the distribution of the
+
+        # we want to increase the outdegree of c1=>c2, dependent on vertex distribution of c2
+        # we want to increase the indegree of c2<=c1, dependent on vertex distribution of c1
+
+        # now we have to split the edge and add it to the appropriate in/outdegrees.
+        value_array_out = collect(values(vertex_label_counts_out))
+        total_counts_out = length(value_array_out) == 0 ? 0 : sum(value_array_out)
+        value_array_in = collect(values(vertex_label_counts_in))
+        total_counts_in = length(value_array_in) == 0 ? 0 : sum(value_array_in)
+        # will have to iterate over indegree vertex labels too, not just outdegree
+        for vertex_label in keys(vertex_label_counts_out)
+            # println("reached vertex division: ", vertex_label)
+            partial_edge_value = total_counts_out == 0 ? 0 : vertex_label_counts_out[vertex_label] / total_counts_out * (remove ? -1 : 1)
+            # now adjust the averages of the appropriate in/out degreestats...
+            # the avg is based on the # of vertices in c1
+            c1_count = summary.color_label_cardinality[start_color][-1]
+            # the avg is based on the # of vertices in c1
+            original_avg_out = 0
+            if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], vertex_label) &&
+                    haskey(summary.edge_deg[edge_label][vertex_label], start_color) &&
+                    haskey(summary.edge_deg[edge_label][vertex_label][start_color], end_color)
+                original_avg_out = summary.edge_deg[edge_label][vertex_label][start_color][end_color].avg_out
+            end
+            # println("REACHED THE UPDATE PORTION!")
+            if !haskey(summary.edge_deg, edge_label)
+                summary.edge_deg[edge_label] = Dict()
+            end
+            if !haskey(summary.edge_deg[edge_label], vertex_label)
+                summary.edge_deg[edge_label][vertex_label] = Dict()
+            end
+            if !haskey(summary.edge_deg[edge_label][vertex_label], start_color)
+                summary.edge_deg[edge_label][vertex_label][start_color] = Dict()
+            end
+            if !haskey(summary.edge_deg[edge_label][vertex_label][start_color], end_color)
+                summary.edge_deg[edge_label][vertex_label][start_color][end_color] = DegreeStats(0, 0, 0)
+            end
+            summary.edge_deg[edge_label][vertex_label][start_color][end_color].avg_out =
+                c1_count == 0 ? 0 : ((original_avg_out * c1_count) + partial_edge_value) / (c1_count)
+            # note we don't have to update the color_label_cardinality since no new nodes were added...
+        end
+        for vertex_label in keys(vertex_label_counts_in)
+            # println("reached vertex division: ", vertex_label)
+            partial_edge_value = total_counts_in == 0 ? 0 : vertex_label_counts_in[vertex_label] / total_counts_in * (remove ? -1 : 1)
+            # now adjust the averages of the appropriate in/out degreestats...
+            # the avg is based on the # of vertices in c1
+            c2_count = summary.color_label_cardinality[end_color][-1]
+            # the avg is based on the # of vertices in c1
+            original_avg_in = 0
+            if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], vertex_label) &&
+                    haskey(summary.edge_deg[edge_label][vertex_label], end_color) &&
+                    haskey(summary.edge_deg[edge_label][vertex_label][end_color], start_color)
+                original_avg_in = summary.edge_deg[edge_label][vertex_label][end_color][start_color].avg_in
+            end
+            # println("REACHED THE UPDATE PORTION!")
+            if !haskey(summary.edge_deg, edge_label)
+                summary.edge_deg[edge_label] = Dict()
+            end
+            if !haskey(summary.edge_deg[edge_label], vertex_label)
+                summary.edge_deg[edge_label][vertex_label] = Dict()
+            end
+            if !haskey(summary.edge_deg[edge_label][vertex_label], end_color)
+                summary.edge_deg[edge_label][vertex_label][end_color] = Dict()
+            end
+            if !haskey(summary.edge_deg[edge_label][vertex_label][end_color], start_color)
+                summary.edge_deg[edge_label][vertex_label][end_color][start_color] = DegreeStats(0, 0, 0)
+            end
+            summary.edge_deg[edge_label][vertex_label][end_color][start_color].avg_in =
+                c2_count == 0 ? 0 : ((original_avg_in * c2_count) + partial_edge_value) / (c2_count)
+            # note we don't have to update the color_label_cardinality since no new nodes were added...
+        end
+    end
+    # summary.total_added_edges += 1
+end
+
+
+function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, precolor=false, timing_vec::Vector{Float64} = Float64[], use_cycle_join_table=true)
     if (verbose > 0)
         println("Started coloring")
     end
@@ -57,14 +187,17 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     cycle_counting_time = time()
     cycle_probabilities::Dict{CyclePathAndColors, Float64} = Dict()
     cycle_length_probabilities::Dict{Int, Float64} = Dict()
-    cycle_probabilities, cycle_length_probabilities = get_color_cycle_likelihoods(params.max_cycle_size,
-                                                                                         g,
-                                                                                         color_hash,
-                                                                                         params.max_partial_paths)
+    if use_cycle_join_table
+        cycle_probabilities, cycle_length_probabilities = join_table_cycle_likelihoods(g, color_hash, params.max_cycle_size, params.max_partial_paths)
+    else
+        cycle_probabilities, cycle_length_probabilities = get_color_cycle_likelihoods(params.max_cycle_size,
+                                                                                            g,
+                                                                                            color_hash,
+                                                                                            params.max_partial_paths)
+    end
     cycle_counting_time = time() - cycle_counting_time
     push!(timing_vec, cycle_counting_time)
 
-    # initialize color filters for data labels
     current_color = 1;
     if (verbose > 0)
         println("Started bloom filters")
@@ -372,6 +505,101 @@ function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
         end
     end
     return new_graph
+end
+
+function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int, max_partial_paths)
+    # define a specific_edge as [n1, n2, c1, c2, d]
+    # we can make a table mapping these to their counts, or just have an array of specific_edges
+
+    # first, take each edge from the original graph and convert them into their new more specific forms.
+    # we need to include the reversed version of the edge in case a path between nodes doesn't
+    # start with a forward edge.
+    # detailed_edges::Set{Tuple{Int, Int, Int, Int, Vector{Bool}}} = Set()
+
+    # map start_node => vector of edges with that start node
+    detailed_edges::Dict{Int, Set{Tuple{Int, Int, Int, Int, Vector{Bool}}}} = Dict(i => Set() for i in vertices(g.graph))
+    for edge in edges(g.graph)
+        # detailed edge = [n1, n2, c1, c2, [d]]
+        detailed_edge = (src(edge), dst(edge), color_hash[src(edge)], color_hash[dst(edge)], [true])
+        detailed_reverse_edge = (dst(edge), src(edge), color_hash[dst(edge)], color_hash[src(edge)], [false])
+        push!(detailed_edges[detailed_edge[1]], detailed_edge)
+        push!(detailed_edges[detailed_reverse_edge[1]], detailed_reverse_edge)
+    end
+    
+    # create tables for each size of cycle/path
+    stored_cycles::Dict{CyclePathAndColors, Float32} = Dict() # this stores summary info representing the path lengths we want to close
+    stored_paths::Dict{CyclePathAndColors, Float32} = Dict() # this stores summary info representing the path lengths that actually closed
+    # summary info = [c1, c2, [d]]
+
+    # initialize with size two data
+    # start up the "current joins" vector
+    updated_paths::Dict{Tuple{Int, Int, Int, Int, Vector{Bool}}, Float64} = Dict() # stores our progress as we repeatedly join 
+    for edge_set in values(detailed_edges)
+        for edge in edge_set
+            summary_info = CyclePathAndColors(edge[5], (edge[3], edge[4]))
+            updated_paths[edge] = 1.0
+            stored_paths[summary_info] = 1.0
+            stored_cycles[summary_info] = (edge[1], edge[2], color_hash[edge[1]], color_hash[edge[2]], [false]) in detailed_edges[edge[1]] ? 
+                                        1.0 : 0.0
+        end
+    end 
+
+    # for each cycle size...
+    for current_cycle_size in 3: cycle_size
+        # new_paths stores the current detailed paths and their count
+        new_paths::Dict{Tuple{Int, Int, Int, Int, Vector{Bool}}, Float64} = Dict()
+        joined_path::Tuple{Int, Int, Int, Int, Vector{Bool}} = (0,0,0,0,[])
+        # join/aggregate all of the current paths with their connected edges
+        # runtime of size-n iteration through the loop is o(e^[n-1]), where e is size of edges
+        if (length(updated_paths) > max_partial_paths)
+            new_dict::Dict{Tuple{Int, Int, Int, Int, Vector{Bool}}, Float64} = Dict()
+            current_paths = collect(keys(updated_paths))
+            sampled_paths = sample(current_paths, max_partial_paths; replace=false)
+            sampled_weight = 0.0
+            total_weight = sum(values(updated_paths))
+            for path in sampled_paths
+                sampled_weight += updated_paths[path]
+            end
+            for path in sampled_paths
+                new_dict[path] = sampled_weight == 0 ? 0 : updated_paths[path] / sampled_weight * total_weight
+            end
+            updated_paths = new_dict
+        end
+        for condensed_path in keys(updated_paths)
+            # first join/aggregate everything
+            for edge in detailed_edges[condensed_path[2]]
+                # [n1, n2, c1, c2, [d]]
+                joined_path = (condensed_path[1], edge[2], condensed_path[3], edge[4], cat(condensed_path[5], edge[5], dims=1))
+                # this aggregation should improve runtime...
+                new_paths[joined_path] = get(new_paths, joined_path, updated_paths[condensed_path]-1) + 1
+            end
+        end
+        # go through all of the extended paths and track which ones close in a cycle
+        for joined_path in keys(new_paths) # o(e)
+            summary_info = CyclePathAndColors(joined_path[5], (joined_path[3], joined_path[4]))
+            stored_paths[summary_info] = get(stored_paths, summary_info, 0) + new_paths[joined_path]
+            # if the cycle exists, store the cycle in the overall cycles
+            if (joined_path[1], joined_path[2], joined_path[3], joined_path[4], [false]) in detailed_edges[joined_path[1]]
+                stored_cycles[summary_info] = get(stored_cycles, summary_info, 0) + new_paths[joined_path]
+            end
+        end
+        # now, only look at the paths that were able to be joined
+        updated_paths = new_paths
+    end
+
+    # now go through and aggregate all duplicates
+    cycle_likelihoods::Dict = Dict()
+    cycle_length_weights = Dict(i => 0.0 for i in 2:cycle_size)
+    cycle_length_counts = Dict(i => 0.0 for i in 2:cycle_size)
+    for path in keys(stored_paths)
+        # CyclePathAndColors => count
+        cycle_likelihoods[path] = get(stored_cycles, path, 0) / stored_paths[path]
+        path_length = length(path.path) + 1
+        cycle_length_weights[path_length] += cycle_likelihoods[path]
+        cycle_length_counts[path_length] = cycle_length_counts[path_length] + 1
+    end
+    cycle_length_likelihoods = Dict(i => cycle_length_counts[i] == 0 ? 0 : cycle_length_weights[i] / cycle_length_counts[i] for i in 2:cycle_size)
+    return cycle_likelihoods, cycle_length_likelihoods
 end
 
 # approximates the probability of a cycle existing based on the directionality of the path that will be closed
