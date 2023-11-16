@@ -10,6 +10,7 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
         for i in 1:length(all_queries[dataset])
             query::QueryGraph = all_queries[dataset][i].query
             query_path = all_queries[dataset][i].query_path
+            println(query_path)
             exact_size = all_queries[dataset][i].exact_size
             estimate_results = [(@timed get_cardinality_bounds(query, summary;
                                     max_partial_paths = experiment_params.inference_max_paths,

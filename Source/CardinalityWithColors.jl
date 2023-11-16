@@ -1,8 +1,12 @@
 using Probably: BloomFilter, constrain
-using DataStructures: counter, Dict, Set, Vector, inc!, Queue
+using DataStructures: counter, inc!, Queue
+using QuickHeaps: PriorityQueue, dequeue!, enqueue!
 using AutoHashEquals
 using QuasiStableColors
 using StatsBase
+using Random
+using LoopVectorization
+using Distributions
 
 QSC = QuasiStableColors
 using Graphs: SimpleDiGraphFromIterator, Edge, DiGraph, edges, nv, ne, add_edge!,
