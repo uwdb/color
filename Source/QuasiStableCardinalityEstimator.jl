@@ -44,63 +44,72 @@ end
 
 @inline function sample_paths(partial_paths::Matrix{Color}, partial_weights::Matrix{Float64}, num_samples::Int, sampling_strategy::SAMPLING_STRATEGY)
 
-    # if we want to sample more paths than there are existing, then just return the original partial paths
-    num_nonzero_entries = 0
+    # if we want to sample more paths than there are existing nonzero paths,
+    # then just return the original partial paths
+    new_partial_paths = zeros(Color, size(partial_paths))
+    new_partial_weights = zeros(Float64, size(partial_weights))
+    new_path_idx = 1
     for i in 1:size(partial_weights)[2]
         if partial_weights[2, i] > 0
-            num_nonzero_entries += 1
+            new_partial_paths[:, new_path_idx] = partial_paths[:, i]
+            new_partial_weights[:, new_path_idx] = partial_weights[:, i]
+            new_path_idx += 1
         end
     end
-    if (num_samples > num_nonzero_entries)
-        return partial_paths, partial_weights
+    new_path_idx -= 1
+    new_partial_paths = new_partial_paths[:, 1:new_path_idx]
+    new_partial_weights = new_partial_weights[:, 1:new_path_idx]
+
+    if size(new_partial_weights)[2] < num_samples
+        return new_partial_paths, new_partial_weights
     end
 
 
     # sum up all of the bounds
-    overall_bounds_sum::Float64 = sum(partial_weights[2, :])
+    overall_bounds_sum::Float64 = sum(new_partial_weights[2, :])
     # choose a sample of the paths
-    sample_weights = partial_weights[2, :]
+    sample_weights = new_partial_weights[2, :]
     sample_weights = AnalyticWeights(sample_weights ./ overall_bounds_sum)
     if sampling_strategy == uniform
-        sample_weights = AnalyticWeights([1.0 for i in eachindex(partial_paths) if partial_weights[2,i] > 0] ./ num_nonzero_entries)
+        sample_weights = AnalyticWeights([1.0 for i in eachindex(new_partial_paths)] ./ num_nonzero_entries)
     end
-    sample_indices::Vector{Int} = sample(1:size(partial_weights)[2], sample_weights,  num_samples; replace=false)
+    sample_indices::Vector{Int} = sample(1:size(new_partial_weights)[2], sample_weights,  num_samples; replace=false)
 
     # sum up the sampled bounds
     sampled_bounds_sum::Float64 = 0
     for idx in sample_indices
-        sampled_bounds_sum += partial_weights[2, idx]
+        sampled_bounds_sum += new_partial_weights[2, idx]
     end
 
     # get the difference between the overall and sampled bound sum_over_finished_query_nodes
     bound_diff::Float64 = overall_bounds_sum - sampled_bounds_sum
 
-    new_partial_paths = zeros(Color, size(partial_paths)[1], length(sample_indices))
-    new_partial_weights = zeros(Float64, 3, length(sample_indices))
+    sampled_partial_paths = zeros(Color, size(new_partial_paths)[1], length(sample_indices))
+    sampled_partial_weights = zeros(Float64, 3, length(sample_indices))
 
     # for each sampled path...
     new_path_idx = 1
     for idx in sample_indices
-        new_partial_paths[:, new_path_idx] .= partial_paths[:, idx]
+        sampled_partial_paths[:, new_path_idx] .= new_partial_paths[:, idx]
 
         # figure out what fraction of the sampled bounds is in the current Bounds
         # higher bounds will have more weight redistributed to them
         if sampling_strategy == redistributive
-            bound_fractions = partial_weights[2, idx] / sampled_bounds_sum
+            bound_fractions = new_partial_weights[2, idx] / sampled_bounds_sum
             # use that fraction of the difference (i.e. the removed path weights) and add it to the partial path
             redistributed_weights = bound_fractions * bound_diff
-            new_partial_weights[:, new_path_idx] .= partial_weights[:, idx] .+ redistributed_weights
+            sampled_partial_weights[:, new_path_idx] .= new_partial_weights[:, idx] .+ redistributed_weights
 
         elseif sampling_strategy == weighted
-            inverse_sampling_probability = total_weight /  partial_weights[2, idx] / length(sample_indices)
-            new_partial_weights[:, new_path_idx] .= partial_weights[:, idx] .* inverse_sampling_probability
+            inverse_sampling_probability = total_weight /  new_partial_weights[2, idx] / length(sample_indices)
+            sampled_partial_weights[:, new_path_idx] .= new_partial_weights[:, idx] .* inverse_sampling_probability
         elseif sampling_strategy == uniform
             inverse_sampling_probability = size(partial_paths)[2] / length(sample_indices)
-            new_partial_weights[:, new_path_idx] .= partial_weights[:, idx] .* inverse_sampling_probability
+            sampled_partial_weights[:, new_path_idx] .= new_partial_weights[:, idx] .* inverse_sampling_probability
         end
         new_path_idx += 1
     end
-    return new_partial_paths, new_partial_weights
+    return sampled_partial_paths, sampled_partial_weights
 end
 
 function get_simple_paths_dfs!(visited::Set{Int}, cur::Int, finish::Int, max_length::Int,
@@ -184,7 +193,7 @@ function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
     return new_graph
 end
 
-@inline function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths::Array{Color}, partial_weights::Array{Float64},
+function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths::Array{Color}, partial_weights::Array{Float64},
                                 current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int,Int}}, usingStoredStats::Bool,
                                 only_shortest_path_cycle::Bool)
     # To account for cyclic queries, we check whether there are any remaining edges that have not
@@ -213,10 +222,33 @@ end
         end
 
         default_colors::StartEndColorPair = (-1, -1)
+        path_counts = counter(BoolPath)
+        for path_bools in all_path_bools
+            inc!(path_counts, path_bools)
+        end
+
+        default_no_edge_probability = 1.0
+        default_no_edge_probabilities::Dict{BoolPath, Float64} = Dict()
+        for (path_bools, path_count) in path_counts
+            probability_no_edge = 1.0
+            default_cycle_description = CyclePathAndColors(path_bools, default_colors)
+            path_length = length(path_bools)
+            if haskey(summary.cycle_probabilities, default_cycle_description)
+                probability_no_edge *= (1.0 - summary.cycle_probabilities[default_cycle_description])^path_count
+            elseif haskey(summary.cycle_length_probabilities, path_length)
+                probability_no_edge *= (1.0 - summary.cycle_length_probabilities[path_length])^path_count
+            else
+                probability_no_edge *= (1.0 - get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary))^path_count
+            end
+            default_no_edge_probability *= default_no_edge_probability
+            default_no_edge_probabilities[path_bools] = probability_no_edge
+        end
+
         edge_deg::Dict{Int, Dict{Int, DegreeStats}} = Dict()
         if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], child_label)
             edge_deg = summary.edge_deg[edge_label][child_label]
         end
+
         for i  in 1:size(partial_paths)[2]
             parent_color::Color = partial_paths[parent_node_idx, i]
             child_color::Color =  partial_paths[new_node_idx, i]
@@ -226,18 +258,16 @@ end
             probability_no_edge = 1.0
             if (haskey(edge_deg, parent_color) && haskey(edge_deg[parent_color], child_color))
                 if usingStoredStats && length(all_path_bools) > 0
-                    for path_bools in all_path_bools
-                        path_length = length(path_bools)
-                        default_cycle_description = CyclePathAndColors(path_bools, default_colors)
-                        current_cycle_description = CyclePathAndColors(path_bools, current_colors)
-                        if haskey(summary.cycle_probabilities, current_cycle_description)
-                            probability_no_edge *= 1.0 - summary.cycle_probabilities[current_cycle_description]
-                        elseif haskey(summary.cycle_probabilities, default_cycle_description)
-                            probability_no_edge *= 1.0 - summary.cycle_probabilities[default_cycle_description]
-                        elseif haskey(summary.cycle_length_probabilities, path_length)
-                            probability_no_edge *= 1.0 - summary.cycle_length_probabilities[path_length]
-                        else
-                            probability_no_edge *= 1.0 - get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
+                    if length(path_counts) > 5
+                        probability_no_edge = default_no_edge_probability
+                    else
+                        for (path_bools, path_count) in path_counts
+                            current_cycle_description = CyclePathAndColors(path_bools, current_colors)
+                            if haskey(summary.cycle_probabilities, current_cycle_description)
+                                probability_no_edge *= (1.0 - summary.cycle_probabilities[current_cycle_description])^path_count
+                            else
+                                probability_no_edge *= default_no_edge_probabilities[path_bools]
+                            end
                         end
                     end
                 else
@@ -421,8 +451,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
         end
         partial_paths = new_partial_paths[:, 1:new_path_idx-1]
         partial_weights = new_partial_weights[:, 1:new_path_idx-1]
-
-        if (max_partial_paths !== nothing) && (length(partial_paths) > max_partial_paths)
+        if !(isnothing(max_partial_paths)) && (size(partial_paths)[2] > max_partial_paths)
             partial_paths, partial_weights = sample_paths(partial_paths, partial_weights, max_partial_paths, sampling_strategy)
         end
 
