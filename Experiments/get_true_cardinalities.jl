@@ -7,7 +7,6 @@ function calculate_true_cardinalities(datasets::Vector{DATASET}; timeout=120, qu
             query_type =  queries[dataset][i].query_type
             query_path = queries[dataset][i].query_path
             true_card_path = replace(query_path, "queryset"=>"TrueCardinalities")
-
             skip_query = isfile(true_card_path)
             for exclusion in query_types_to_exclude
                 if occursin(exclusion, query_type)
