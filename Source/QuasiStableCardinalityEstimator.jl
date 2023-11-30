@@ -222,10 +222,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
         end
 
         default_colors::StartEndColorPair = (-1, -1)
-        path_counts = counter(BoolPath)
-        for path_bools in all_path_bools
-            inc!(path_counts, path_bools)
-        end
+        path_counts = counter(all_path_bools)
 
         default_no_edge_probability = 1.0
         default_no_edge_probabilities::Dict{BoolPath, Float64} = Dict()
@@ -240,7 +237,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
             else
                 probability_no_edge *= (1.0 - get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary))^path_count
             end
-            default_no_edge_probability *= default_no_edge_probability
+            default_no_edge_probability *= probability_no_edge
             default_no_edge_probabilities[path_bools] = probability_no_edge
         end
 
@@ -258,16 +255,12 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
             probability_no_edge = 1.0
             if (haskey(edge_deg, parent_color) && haskey(edge_deg[parent_color], child_color))
                 if usingStoredStats && length(all_path_bools) > 0
-                    if length(path_counts) > 5
-                        probability_no_edge = default_no_edge_probability
-                    else
-                        for (path_bools, path_count) in path_counts
-                            current_cycle_description = CyclePathAndColors(path_bools, current_colors)
-                            if haskey(summary.cycle_probabilities, current_cycle_description)
-                                probability_no_edge *= (1.0 - summary.cycle_probabilities[current_cycle_description])^path_count
-                            else
-                                probability_no_edge *= default_no_edge_probabilities[path_bools]
-                            end
+                    for (path_bools, path_count) in path_counts
+                        current_cycle_description = CyclePathAndColors(path_bools, current_colors)
+                        if haskey(summary.cycle_probabilities, current_cycle_description)
+                            probability_no_edge *= (1.0 - summary.cycle_probabilities[current_cycle_description])^path_count
+                        else
+                            probability_no_edge *= default_no_edge_probabilities[path_bools]
                         end
                     end
                 else
