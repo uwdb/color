@@ -3,17 +3,19 @@ using Graphs
 mutable struct DegreeStats
     min_out::Float32
     avg_out::Float32
+    avg_out_2nd_moment::Float32
     max_out::Float32
     min_in::Float32
     avg_in::Float32
+    avg_in_2nd_moment::Float32
     max_in::Float32
 
-    function DegreeStats(min_out, avg_out, max_out)
-        return new(min_out, avg_out, max_out, 0, 0, 0)
+    function DegreeStats(min_out, avg_out, avg_out_2nd_moment, max_out)
+        return new(min_out, avg_out, avg_out_2nd_moment, max_out, 0, 0, 0)
     end
 
-    function DegreeStats(partial_deg, min_in, avg_in, max_in)
-        return new(partial_deg.min_out, partial_deg.avg_out, partial_deg.max_out, min_in, avg_in, max_in)
+    function DegreeStats(partial_deg, min_in, avg_in, avg_in_2nd_moment, max_in)
+        return new(partial_deg.min_out, partial_deg.avg_out, partial_deg.avg_out_2nd_moment, partial_deg.max_out, min_in, avg_in, avg_in_2nd_moment, max_in)
     end
 end
 
@@ -30,10 +32,11 @@ struct ColorSummary
     max_cycle_size::Int
     total_edges::Int
     total_nodes::Int
+    corrs::Dict{Tuple{Color, Int, Int, Color}, Float64}
     # total_added_edges::Int
     # for outdegrees, c2 is the color of the outneighbor
     # for indegrees, c2 is the color of the inneighbor
-    # v2 represents the label of the node in c1
+    # v2 represents the label of the node in c2
 end
 
 # assumes that all nodes are currently in the color summary - the node is guaranteed to be in at least one bloom filter
@@ -182,6 +185,55 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     push!(timing_vec, coloring_time)
 
     if (verbose > 0)
+        println("Started correlation counting")
+    end
+    corrs::Dict{Tuple{Int, Color, Color, Int}, Float64} = Dict()
+    l_1st::Dict{Tuple{Int, Color, Color, Int}, Float64} = Dict()
+    l_2nd::Dict{Tuple{Int, Color, Color, Int}, Float64} = Dict()
+    r_1st::Dict{Tuple{Int, Color, Color, Int}, Float64} = Dict()
+    r_2nd::Dict{Tuple{Int, Color, Color, Int}, Float64} = Dict()
+    e_1st::Dict{Tuple{Int, Color, Color, Int}, Float64} = Dict()
+    e_count::Dict{Tuple{Int, Color, Color, Int}, Float64} = Dict()
+    for e in edges(g.graph)
+        l_color = color_hash[src(e)]
+        r_color = color_hash[dst(e)]
+        for l_label in union(g.vertex_labels[dst(e)], [-1])
+            for r_label in union(g.vertex_labels[src(e)], [-1])
+                colors_and_label = (l_label, l_color, r_color, r_label)
+                if !haskey(l_1st, colors_and_label)
+                    l_1st[colors_and_label] = 0
+                    l_2nd[colors_and_label] = 0
+                    r_1st[colors_and_label] = 0
+                    r_2nd[colors_and_label] = 0
+                    e_1st[colors_and_label] = 0
+                    e_count[colors_and_label] = 0
+                end
+                l_1st[colors_and_label] += degree(g.graph, src(e))
+                l_2nd[colors_and_label] += degree(g.graph, src(e))^2
+                r_1st[colors_and_label] += degree(g.graph, dst(e))
+                r_2nd[colors_and_label] += degree(g.graph, dst(e))^2
+                e_1st[colors_and_label] += degree(g.graph, src(e)) * degree(g.graph, dst(e))
+                e_count[colors_and_label] += 1
+            end
+        end
+    end
+
+    for cl in keys(l_1st)
+        l_1st[cl] /= e_count[cl]
+        l_2nd[cl] /= e_count[cl]
+        r_1st[cl] /= e_count[cl]
+        r_2nd[cl] /= e_count[cl]
+        e_1st[cl] /= e_count[cl]
+        r_denom = sqrt(r_2nd[cl]-r_1st[cl]^2)
+        l_denom = sqrt(l_2nd[cl]-l_1st[cl]^2)
+        if r_denom > 0 && l_denom > 0
+            corrs[cl] = (e_1st[cl] - l_1st[cl]*r_1st[cl])/sqrt(l_2nd[cl] - l_1st[cl]^2)/sqrt(r_2nd[cl]-r_1st[cl]^2)
+        else
+            corrs[cl] = 0
+        end
+    end
+
+    if (verbose > 0)
         println("Started cycle counting")
     end
     cycle_counting_time = time()
@@ -294,13 +346,14 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
                         max_deg = max(v, max_deg)
                     end
                     avg_deg = sum(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) / color_sizes[c1]
+                    avg_deg_2nd_moment = sum([x^2 for x in values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])]) / color_sizes[c1]
 
                     # if the number of connections is less than the number of vertices in the color,
                     # we can't guarantee the minimum bounds since they won't all map to the same vertex
                     if length(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) < color_sizes[c1]
                         min_deg = 0
                     end
-                    edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(min_deg, avg_deg, max_deg)
+                    edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(min_deg, avg_deg, avg_deg_2nd_moment, max_deg)
                 end
             end
         end
@@ -366,6 +419,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
                         max_deg = max(v, max_deg)
                     end
                     avg_deg = sum(values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])) / color_sizes[c1]
+                    avg_deg_2nd_moment = sum([x^2 for x in values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])]) / color_sizes[c1]
 
                     # if the number of connections is less than the number of vertices in the color,
                     # we can't guarantee the minimum bounds since they won't all map to the same vertex
@@ -373,7 +427,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
                         min_deg = 0
                     end
                     out_degree_stats = edge_deg[edge_label][vertex_label][c1][c2]
-                    edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(out_degree_stats, min_deg, avg_deg, max_deg)
+                    edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(out_degree_stats, min_deg, avg_deg, avg_deg_2nd_moment, max_deg)
                 end
             end
         end
@@ -386,7 +440,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
 
     return ColorSummary(color_label_cardinality, edge_deg, color_filters,
                 cycle_probabilities, cycle_length_probabilities, params.max_cycle_size,
-                 ne(g.graph), nv(g.graph))
+                 ne(g.graph), nv(g.graph), corrs)
 end
 
 function color_hash_to_groups(color_hash, num_colors)
@@ -525,7 +579,7 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
         push!(detailed_edges[detailed_edge[1]], detailed_edge)
         push!(detailed_edges[detailed_reverse_edge[1]], detailed_reverse_edge)
     end
-    
+
     # create tables for each size of cycle/path
     stored_cycles::Dict{CyclePathAndColors, Float32} = Dict() # this stores summary info representing the path lengths we want to close
     stored_paths::Dict{CyclePathAndColors, Float32} = Dict() # this stores summary info representing the path lengths that actually closed
@@ -533,16 +587,16 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
 
     # initialize with size two data
     # start up the "current joins" vector
-    updated_paths::Dict{Tuple{Int, Int, Int, Int, Vector{Bool}}, Float64} = Dict() # stores our progress as we repeatedly join 
+    updated_paths::Dict{Tuple{Int, Int, Int, Int, Vector{Bool}}, Float64} = Dict() # stores our progress as we repeatedly join
     for edge_set in values(detailed_edges)
         for edge in edge_set
             summary_info = CyclePathAndColors(edge[5], (edge[3], edge[4]))
             updated_paths[edge] = 1.0
             stored_paths[summary_info] = 1.0
-            stored_cycles[summary_info] = (edge[1], edge[2], color_hash[edge[1]], color_hash[edge[2]], [false]) in detailed_edges[edge[1]] ? 
+            stored_cycles[summary_info] = (edge[1], edge[2], color_hash[edge[1]], color_hash[edge[2]], [false]) in detailed_edges[edge[1]] ?
                                         1.0 : 0.0
         end
-    end 
+    end
 
     # for each cycle size...
     for current_cycle_size in 3: cycle_size

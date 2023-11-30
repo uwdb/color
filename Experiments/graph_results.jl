@@ -1,4 +1,4 @@
-@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_not_updated
+@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_not_updated variance_opt
 
 @enum VALUE estimate_error runtime build_time memory_footprint
 
@@ -42,8 +42,8 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
     ENV["GKSwstype"]="100"
     gbplot = groupedboxplot(x_values, y_values, group = groups, yscale =:log10,
-                            ylims=[10^-13, 10^11], yticks=[10^-10, 10^-5, 10^-2, 1, 10^2, 10^5, 10^10],
-                            legend = :outertopleft, size = (1000, 600))
+                            ylims=[10^-20, 10^20], yticks=[10^-10, 10^-5, 10^-2, 1, 10^2, 10^5, 10^10],
+                            legend = :outertopleft, size = (1000, 600), whisker_range=1)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
@@ -245,6 +245,8 @@ function get_value_from_param(experiment_param::ExperimentParams, value_type::GR
         return experiment_param.summary_params.num_colors
     elseif value_type == proportion_not_updated
         return experiment_param.summary_params.proportion_not_updated
+    elseif value_type == variance_opt
+        return experiment_param.use_corr
     else
         # default to grouping by technique
         return (experiment_param.summary_params.partitioner, experiment_param.summary_params.label_refining_rounds)
