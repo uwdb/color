@@ -59,7 +59,7 @@ function get_largest_color(summary)
     return current_color
 end
 
-function add_summary_node!(summary, node, node_labels, data_label)
+function add_summary_node!(summary, node_labels, data_label)
     color = choose_color(summary)
     # add to the bloom filter
     push!(summary.color_filters[color], data_label)
@@ -87,7 +87,7 @@ function add_summary_node!(summary, node, node_labels, data_label)
     
     # add to the cardinality counts
     for node_label in node_labels
-        summary.color_label_cardinality[color][node_label] += 1
+        summary.color_label_cardinality[color][node_label] = get(summary.color_label_cardinality[color], node_label, 0) + 1
     end
 
     # for cycle stats, since the number of edges/cycles are the same, 
@@ -96,8 +96,11 @@ end
 
 # assume that you delete all attached edges before removing a summary node
 # assume that the node to delete actually exists
-function delete_summary_node!(summary, node, node_labels, data_label)
+function delete_summary_node!(summary, node_labels, node)
     color = get_node_summary_color(summary, node)
+
+    # by definition in data graph
+    data_label = node - 1
 
     # remove from the cuckoo filter
     pop!(summary.color_filters[color], data_label)
@@ -132,7 +135,6 @@ function get_node_summary_color(summary, node)
     return length(possible_colors) == 0 ? rand(keys(summary.color_filters)) : rand(possible_colors)
 end
 
-# currently ignores cycles
 function add_summary_edge!(summary, start_node, end_node, edge_labels)
     update_edge_degrees!(summary, start_node, end_node, edge_labels, remove=false)
 end
@@ -164,7 +166,6 @@ function update_edge_degrees!(summary, start_node, end_node, edge_labels::Vector
                     haskey(summary.edge_deg[edge_label][vertex_label][start_color], end_color)
                 original_avg_out = summary.edge_deg[edge_label][vertex_label][start_color][end_color].avg_out
             end
-            # println("REACHED THE UPDATE PORTION!")
             if !haskey(summary.edge_deg, edge_label)
                 summary.edge_deg[edge_label] = Dict()
             end
@@ -179,14 +180,10 @@ function update_edge_degrees!(summary, start_node, end_node, edge_labels::Vector
             end
             summary.edge_deg[edge_label][vertex_label][start_color][end_color].avg_out = c1_count == 0 ? 0 : 
                 min(((original_avg_out * c1_count) + probability_end_vertex_label), c1_count * summary.color_label_cardinality[end_color][vertex_label]) / c1_count
-            # c1_count == 0 ? 0 : ((original_avg_out * c1_count) + partial_edge_value) / (c1_count)
             # note we don't have to update the color_label_cardinality since no new nodes were added...
         end
         for vertex_label in keys(summary.color_label_cardinality[start_color])
-            # println("reached vertex division: ", vertex_label)
             probability_start_vertex_label = summary.color_label_cardinality[start_color][vertex_label] / summary.color_label_cardinality[start_color][-1]
-
-            # partial_edge_value = total_counts_in == 0 ? 0 : vertex_label_counts_in[vertex_label] / total_counts_in * (remove ? -1 : 1)
             # now adjust the averages of the appropriate in/out degreestats...
             original_avg_in = 0
             if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], vertex_label) &&
@@ -194,7 +191,6 @@ function update_edge_degrees!(summary, start_node, end_node, edge_labels::Vector
                     haskey(summary.edge_deg[edge_label][vertex_label][end_color], start_color)
                 original_avg_in = summary.edge_deg[edge_label][vertex_label][end_color][start_color].avg_in
             end
-            # println("REACHED THE UPDATE PORTION!")
             if !haskey(summary.edge_deg, edge_label)
                 summary.edge_deg[edge_label] = Dict()
             end
@@ -209,7 +205,6 @@ function update_edge_degrees!(summary, start_node, end_node, edge_labels::Vector
             end
             summary.edge_deg[edge_label][vertex_label][end_color][start_color].avg_in = c2_count == 0 ? 0 :
                 min(((original_avg_in * c2_count) + probability_start_vertex_label), c2_count * summary.color_label_cardinality[start_color][vertex_label]) / c2_count
-                # c2_count == 0 ? 0 : ((original_avg_in * c2_count) + partial_edge_value) / (c2_count)
             # note we don't have to update the color_label_cardinality since no new nodes were added...
         end
     end
