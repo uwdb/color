@@ -13,17 +13,17 @@ struct ExperimentParams
     use_partial_sums::Bool
     sampling_strategy::SAMPLING_STRATEGY
 
-    function ExperimentParams(;dataset::DATASET,  num_colors::Int=64, max_cycle_size=6,
+    function ExperimentParams(;dataset::DATASET, max_cycle_size=6,
         only_shortest_path_cycle=false, summary_max_paths=1000,
-        partitioner::PARTITIONER = QuasiStable, weighting=true, inference_max_paths=500, use_partial_sums=true,
-        sampling_strategy=redistributive, label_refining_rounds = 0, proportion_not_updated=1.0)
-        return new(dataset, ColorSummaryParams(num_colors=num_colors,
-                                                       max_cycle_size=max_cycle_size,
-                                                       max_partial_paths=summary_max_paths,
-                                                       partitioner=partitioner,
-                                                       weighting=weighting,
-                                                       label_refining_rounds=label_refining_rounds,
-                                                       proportion_not_updated=proportion_not_updated),
+        partitioning_scheme::Vector{Tuple{PARTITIONER, Int}} = [(QuasiStable, 64)], weighting=true,
+        inference_max_paths=500, use_partial_sums=true,
+        sampling_strategy=redistributive, proportion_not_updated=1.0)
+        return new(dataset,
+                    ColorSummaryParams(max_cycle_size=max_cycle_size,
+                                        max_partial_paths=summary_max_paths,
+                                        partitioning_scheme=partitioning_scheme,
+                                        weighting=weighting,
+                                        proportion_not_updated=proportion_not_updated),
                     inference_max_paths,
                     only_shortest_path_cycle,
                     use_partial_sums,

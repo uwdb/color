@@ -30,6 +30,7 @@ struct ColorSummary
     max_cycle_size::Int
     total_edges::Int
     total_nodes::Int
+    num_colors::Int
     # total_added_edges::Int
     # for outdegrees, c2 is the color of the outneighbor
     # for indegrees, c2 is the color of the inneighbor
@@ -173,8 +174,9 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     coloring_time = time()
     color_filters::Dict{Color, BloomFilter} = Dict()
     color_label_cardinality::Dict{Color, Any} = Dict()
-    color_hash::Dict{NodeId, Color} = color_graph(g, params, params.num_colors)
-    color_sizes = [0 for _ in 1:maximum(values(color_hash))]
+    color_hash::Dict{NodeId, Color} = color_graph(g, params)
+    num_colors = maximum(values(color_hash))
+    color_sizes = [0 for _ in 1:num_colors]
     for c in values(color_hash)
         color_sizes[c] += 1
     end
@@ -386,7 +388,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
 
     return ColorSummary(color_label_cardinality, edge_deg, color_filters,
                 cycle_probabilities, cycle_length_probabilities, params.max_cycle_size,
-                 ne(g.graph), nv(g.graph))
+                 ne(g.graph), nv(g.graph), num_colors)
 end
 
 function color_hash_to_groups(color_hash, num_colors)
@@ -525,7 +527,7 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
         push!(detailed_edges[detailed_edge[1]], detailed_edge)
         push!(detailed_edges[detailed_reverse_edge[1]], detailed_reverse_edge)
     end
-    
+
     # create tables for each size of cycle/path
     stored_cycles::Dict{CyclePathAndColors, Float32} = Dict() # this stores summary info representing the path lengths we want to close
     stored_paths::Dict{CyclePathAndColors, Float32} = Dict() # this stores summary info representing the path lengths that actually closed
@@ -533,16 +535,16 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
 
     # initialize with size two data
     # start up the "current joins" vector
-    updated_paths::Dict{Tuple{Int, Int, Int, Int, Vector{Bool}}, Float64} = Dict() # stores our progress as we repeatedly join 
+    updated_paths::Dict{Tuple{Int, Int, Int, Int, Vector{Bool}}, Float64} = Dict() # stores our progress as we repeatedly join
     for edge_set in values(detailed_edges)
         for edge in edge_set
             summary_info = CyclePathAndColors(edge[5], (edge[3], edge[4]))
             updated_paths[edge] = 1.0
             stored_paths[summary_info] = 1.0
-            stored_cycles[summary_info] = (edge[1], edge[2], color_hash[edge[1]], color_hash[edge[2]], [false]) in detailed_edges[edge[1]] ? 
+            stored_cycles[summary_info] = (edge[1], edge[2], color_hash[edge[1]], color_hash[edge[2]], [false]) in detailed_edges[edge[1]] ?
                                         1.0 : 0.0
         end
-    end 
+    end
 
     # for each cycle size...
     for current_cycle_size in 3: cycle_size

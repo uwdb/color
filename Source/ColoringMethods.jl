@@ -1,85 +1,107 @@
-
-function _quasi_stable_coloring(g::DataGraph, params::ColorSummaryParams, num_colors::Int)
+function _quasi_stable_coloring(g::DataGraph, params::ColorSummaryParams, color_hash::Dict{NodeId, Color}, new_colors::Int)
     QSC = QuasiStableColors
-    C = QSC.q_color(g.graph, n_colors=num_colors, weighting=params.weighting)
+    existing_colors = maximum(values(color_hash))
+    color_vec = [NodeId[] for _ in 1:existing_colors]
+    for (node, color) in color_hash
+        push!(color_vec[color], node)
+    end
+    C = QSC.q_color(g.graph, n_colors=existing_colors + new_colors, weighting=params.weighting, warm_start=color_vec)
     color_hash::Dict{Int, Int} = QSC.node_map(C)
     return color_hash
 end
 
-function _hash_coloring(g::DataGraph, num_colors::Int)
-    color_hash::Dict{Int, Int} = Dict()
-    for i in 1:nv(g.graph)
-        color_hash[i] = (hash(i) % num_colors) + 1
+function _hash_coloring(g::DataGraph, params::ColorSummaryParams, color_hash::Dict{NodeId, Color}, new_colors::Int)
+    existing_colors = maximum(values(color_hash))
+    color_to_nodes = Dict{Color, Vector{NodeId}}(i => NodeId[] for i in 1:existing_colors)
+    for (node, color) in color_hash
+        push!(color_to_nodes[color], node)
+    end
+
+    split_color = 1
+    next_color = existing_colors + 1
+    colors_this_round = existing_colors
+    while next_color < new_colors + existing_colors
+        color_to_nodes[next_color] = []
+        nodes_to_remove = copy(color_to_nodes[split_color])
+        for node in nodes_to_remove
+            if rand() < .5
+                filter!(e->e≠node, color_to_nodes[split_color])
+                push!(color_to_nodes[next_color], node)
+            end
+        end
+        split_color += 1
+        if split_color == colors_this_round
+            colors_this_round = next_color
+            split_color = 1
+        end
+        next_color += 1
+    end
+    color_hash = Dict()
+    for (color, nodes) in color_to_nodes
+        for node in nodes
+            color_hash[node] = color
+        end
     end
     return color_hash
 end
 
-function _degree_coloring(g::DataGraph, num_colors::Int)
-    color_hash = Dict()
-    degrees = sort(degree(g.graph))
-    bucket_right_edges = []
-    for i in 1:num_colors
-        degree_quantile = degrees[Int(floor(float(i)/num_colors *length(degrees)))]
-        if i > 1 && bucket_right_edges[i-1] >= degree_quantile
-            push!(bucket_right_edges, bucket_right_edges[i-1] + 1)
-        else
-            push!(bucket_right_edges, degree_quantile)
-        end
-    end
-    for i in 1:nv(g.graph)
-        node_degree = degree(g.graph, i)
-        for j in 1:num_colors
-            if node_degree <= bucket_right_edges[j]
-                color_hash[i] = j
-                break
-            end
-        end
-    end
-    return color_hash
-end
-
-function _directed_degree_coloring(g::DataGraph, num_colors::Int)
-    color_hash = Dict()
-    num_degree_buckets = Int(floor(float(num_colors)^.5))
-    indegrees = sort(indegree(g.graph))
-    in_bucket_right_edges = []
-    for i in 1:num_degree_buckets
-        degree_quantile = indegrees[Int(floor(float(i)/num_degree_buckets *length(indegrees)))]
-        if i > 1 && in_bucket_right_edges[i-1] >= degree_quantile
-            push!(in_bucket_right_edges, in_bucket_right_edges[i-1] + 1)
-        else
-            push!(in_bucket_right_edges, degree_quantile)
-        end
+function _degree_coloring(g::DataGraph, params::ColorSummaryParams, color_hash::Dict{NodeId, Color}, new_colors::Int)
+    existing_colors = maximum(values(color_hash))
+    color_to_nodes = Dict{Color, Vector{NodeId}}(i => NodeId[] for i in 1:existing_colors)
+    for (node, color) in color_hash
+        push!(color_to_nodes[color], node)
     end
 
-    outdegrees = sort(outdegree(g.graph))
-    out_bucket_right_edges = []
-    for i in 1:num_degree_buckets
-        degree_quantile = outdegrees[Int(floor(float(i)/num_degree_buckets *length(outdegrees)))]
-        if i > 1 && out_bucket_right_edges[i-1] >= degree_quantile
-            push!(out_bucket_right_edges, out_bucket_right_edges[i-1] + 1)
+    function calc_max_dev_mean(c)
+        degrees = Float64[]
+        for node in color_to_nodes[c]
+            push!(degrees, degree(g.graph, node))
+        end
+        deg_mean = mean(degrees)
+        deg_total_dev = sum([(x-deg_mean)^2 for x in degrees])
+        mean_deg = mean(degrees)
+        return deg_total_dev, mean_deg
+    end
+
+    color_max_dev_mean = Dict{Color, Tuple{Float64, Float64}}()
+    for c in 1:existing_colors
+        color_max_dev_mean[c] = calc_max_dev_mean(c)
+    end
+
+    next_color = existing_colors + 1
+    while next_color < new_colors + existing_colors
+        color_to_nodes[next_color] = []
+        split_color = 1
+        split_mean_deg = -1
+        max_deg_total_dev = -1
+        for c in 1 : next_color - 1
+            deg_total_dev, mean_deg = color_max_dev_mean[c]
+            if deg_total_dev > max_deg_total_dev
+                split_color = c
+                max_deg_total_dev = deg_total_dev
+                split_mean_deg = mean_deg
+            end
+        end
+        nodes_to_remove = copy(color_to_nodes[split_color])
+        for node in nodes_to_remove
+            if degree(g.graph, node) <= split_mean_deg
+                filter!(e->e≠node, color_to_nodes[split_color])
+                push!(color_to_nodes[next_color], node)
+            end
+        end
+        if length(color_to_nodes[next_color]) > 0
+            color_max_dev_mean[split_color] = calc_max_dev_mean(split_color)
+            color_max_dev_mean[next_color] = calc_max_dev_mean(next_color)
+            next_color += 1
         else
-            push!(out_bucket_right_edges, degree_quantile)
+            break
         end
     end
-    for i in 1:nv(g.graph)
-        in_degree = indegree(g.graph, i)
-        in_bucket = 0
-        for j in 1:num_degree_buckets
-            if in_degree <= in_bucket_right_edges[j]
-                in_bucket = j
-                break
-            end
+    color_hash = Dict()
+    for (color, nodes) in color_to_nodes
+        for node in nodes
+            color_hash[node] = color
         end
-        out_degree = outdegree(g.graph, i)
-        out_bucket = 0
-        for j in 1:num_degree_buckets
-            if out_degree <= out_bucket_right_edges[j]
-                out_bucket = j
-                break
-            end
-        end
-        color_hash[i] = (in_bucket - 1) * num_degree_buckets + out_bucket
     end
     return color_hash
 end
@@ -368,116 +390,127 @@ function _refine_by_vertex_labels(g::DataGraph, params::ColorSummaryParams,
 end
 
 
-
-# This function takes in a coloring and attempts to refine each color into sub colors.
-# It does this by recursively choosing a single label which has the greatest stddev w.r.t.
+# This function takes in a coloring and attempts to refine it to add `new_colors` number of colors.
+# It does this by choosing a single label which has the greatest stddev w.r.t.
 # the edge count of vertices and splitting the nodes based on their edge count for that label
 # with up to `label_refining_rounds` depth.
-function _recursive_neighbor_split(g::DataGraph, group::Vector{NodeId}, depth::Int, max_depth::Int)
-    if depth == max_depth
-        return [group]
+function _neighbor_labels_coloring(g::DataGraph, params::ColorSummaryParams,
+                                        color_hash::Dict{NodeId, Color}, new_colors::Int)
+    existing_colors = maximum(values(color_hash))
+    color_to_nodes = Dict{Color, Vector{NodeId}}(i => NodeId[] for i in 1:existing_colors)
+    for (node, color) in color_hash
+        push!(color_to_nodes[color], node)
     end
+    next_color = existing_colors + 1
 
-    label_count_sequences = Dict{Int, Any}()
-    for v in group
-        label_counts = counter(Int)
-        for n in all_neighbors(g.graph, v)
-            for label in g.vertex_labels[n]
-                inc!(label_counts, label)
+    node_label_counts = Dict()
+    for node in keys(color_hash)
+        node_label_counts[node] = counter(Int)
+        for neighbor in all_neighbors(g.graph, node)
+            for label in g.vertex_labels[neighbor]
+                inc!(node_label_counts[node], label)
             end
         end
-        for label in keys(label_counts)
-            if !haskey(label_count_sequences, label)
-                label_count_sequences[label] = counter(Int)
-            end
-            inc!(label_count_sequences[label], label_counts[label])
-        end
     end
 
-    discriminating_label = -1
-    discriminating_count = -1
-    max_stddev = 0
-    for label in keys(label_count_sequences)
-        count_sequence = label_count_sequences[label]
-        label_avg = sum([count_sequence[d]*d for d in keys(count_sequence)])/length(group)
-        label_stddev = sum([(count_sequence[d]-label_avg)^2 for d in keys(count_sequence)])/length(group)
-        label_stddev = sqrt(label_stddev)
-        if label_stddev > max_stddev
-            discriminating_label = label
-            max_stddev = label_stddev
-            discriminating_count = label_avg
-        end
-    end
 
-    left_group = Vector{NodeId}()
-    right_group = Vector{NodeId}()
-    for v in group
-        label_count = 0
-        for n in all_neighbors(g.graph, v)
-            if discriminating_label in g.vertex_labels[n]
-                label_count += 1
+    function calc_max_dev_label_mean(c)
+        split_label = -1
+        max_deg_total_dev = -1
+        split_mean_deg = -1
+        label_degrees = Dict()
+        for node in color_to_nodes[c]
+            label_counts = node_label_counts[node]
+            for (label, count) in label_counts
+                if !haskey(label_degrees, label)
+                    label_degrees[label] = Int[]
+                end
+                push!(label_degrees[label], count)
             end
         end
-        if label_count > discriminating_count
-            push!(right_group, v)
-        else
-            push!(left_group, v)
+        for (label, degrees) in label_degrees
+            degrees = union(degrees, zeros(length(color_to_nodes[c])-length(degrees)))
+            deg_mean = mean(degrees)
+            deg_total_dev = sum([(x-deg_mean)^2 for x in degrees])
+            if deg_total_dev > max_deg_total_dev
+                split_label = label
+                max_deg_total_dev = deg_total_dev
+                split_mean_deg = mean(degrees)
+            end
         end
-    end
-    return [_recursive_neighbor_split(g, left_group, depth + 1, max_depth)..., _recursive_neighbor_split(g, right_group, depth + 1, max_depth)...]
-end
-
-function _refine_by_neighbor_labels(g::DataGraph, params::ColorSummaryParams,
-                                    color_hash::Dict{NodeId, Color}, label_refining_rounds::Int)
-    refined_color_hash::Dict{NodeId, Color} = Dict()
-    color_to_vertices::Dict{Color, Vector{NodeId}} = Dict()
-    for v in keys(color_hash)
-        color = color_hash[v]
-        if haskey(color_to_vertices, color)
-            push!(color_to_vertices[color], v)
-        else
-            color_to_vertices[color] = [v]
-        end
+        return max_deg_total_dev, split_label, split_mean_deg
     end
 
-    color_counter = 1
-    for c in keys(color_to_vertices)
-        new_label_groups = _recursive_neighbor_split(g, color_to_vertices[c], 0, label_refining_rounds)
-        for group in new_label_groups
-            if length(group) == 0
+    color_max_dev_label_mean = Dict{Color, Tuple{Float64, Int, Float64}}()
+    for c in 1:existing_colors
+        color_max_dev_label_mean[c] = calc_max_dev_label_mean(c)
+    end
+
+    while next_color < new_colors + existing_colors
+        color_to_nodes[next_color] = []
+        split_color = 1
+        split_label = 1
+        split_mean_deg = -1
+        max_deg_total_dev = -1
+        for c in 1 : next_color - 1
+            if haskey(color_max_dev_label_mean, c)
+                deg_total_dev, label, mean_deg = color_max_dev_label_mean[c]
+                if deg_total_dev > max_deg_total_dev
+                    split_color = c
+                    split_label = label
+                    max_deg_total_dev = deg_total_dev
+                    split_mean_deg = mean_deg
+                end
                 continue
             end
-            for v in group
-                refined_color_hash[v] = color_counter
+        end
+        nodes_to_remove = copy(color_to_nodes[split_color])
+        for node in nodes_to_remove
+            node_degree = node_label_counts[node][split_label]
+            if node_degree <= split_mean_deg
+                filter!(e->e≠node, color_to_nodes[split_color])
+                push!(color_to_nodes[next_color], node)
             end
-            color_counter += 1
+        end
+        color_max_dev_label_mean[split_color] = calc_max_dev_label_mean(split_color)
+        color_max_dev_label_mean[next_color] = calc_max_dev_label_mean(next_color)
+        next_color += 1
+    end
+
+    color_hash = Dict()
+    for (color, nodes) in color_to_nodes
+        for node in nodes
+            color_hash[node] = color
         end
     end
-    return refined_color_hash
+    return color_hash
 end
 
-function color_graph(g::DataGraph, params::ColorSummaryParams, num_colors::Int)
-    color_hash::Dict{NodeId, Color} = if params.partitioner == QuasiStable
-         _quasi_stable_coloring(g, params, num_colors)
-    elseif params.partitioner == Hash
-         _hash_coloring(g, num_colors)
-    elseif params.partitioner == Degree
-         _degree_coloring(g, num_colors)
-    elseif params.partitioner == DirectedDegree
-         _directed_degree_coloring(g, num_colors)
-    elseif params.partitioner == SimpleLabel
-         _simple_label_coloring(g, num_colors)
-    elseif params.partitioner == InOut
-         _edge_ratio_color(g, num_colors)
-    elseif params.partitioner == LabelInOut
-         _label_edge_ratio_coloring(g, num_colors)
-    elseif params.partitioner == NeighborEdges
-         _label_edges_coloring(g, num_colors)
-    elseif params.partitioner == MostNeighbors
-         _label_most_neighbors_coloring(g, num_colors)
-    end
-    if params.label_refining_rounds > 0
-        color_hash = _refine_by_neighbor_labels(g, params, color_hash, params.label_refining_rounds)
+
+function color_graph(g::DataGraph, params::ColorSummaryParams)
+    color_hash::Dict{NodeId, Color} = Dict(i => 1 for i in 1:nv(g.graph))
+    for (partitioner, num_colors) in params.partitioning_scheme
+        color_hash = if partitioner == QuasiStable
+                _quasi_stable_coloring(g, params, color_hash, num_colors)
+        elseif partitioner == Hash
+                _hash_coloring(g, params, color_hash, num_colors)
+        elseif partitioner == Degree
+                _degree_coloring(g, params, color_hash, num_colors)
+        elseif partitioner == NeighborNodeLabels
+                _neighbor_labels_coloring(g, params, color_hash, num_colors)
+#        elseif partitioner == SimpleLabel
+#                _simple_label_coloring(g, params, color_hash, num_colors)
+#        elseif partitioner == InOut
+#                _edge_ratio_color(g, params, color_hash, num_colors)
+#        elseif partitioner == LabelInOut
+#                _label_edge_ratio_coloring(g, params, color_hash, num_colors)
+#        elseif partitioner == NeighborEdges
+#                _label_edges_coloring(g, params, color_hash, num_colors)
+#        elseif partitioner == MostNeighbors
+#                _label_most_neighbors_coloring(g, params, color_hash, num_colors)
+        else
+            throw(ErrorException(string(partitioner) * " Not Implemented"))
+        end
     end
     return color_hash
 end
