@@ -76,12 +76,12 @@ println("started building")
             push!(temp_edges, (current_node, other_node))
         end
         # now, go through all of the added edges and delete them, then go through all of the added nodes and delete them
-        for edge in temp_edges
-            remove_summary_edge!(current_summary, edge[1], edge[2], [])
-        end
-        for vertex in temp_vertices
-            delete_summary_node!(current_summary, [], current_node)
-        end
+        # for edge in temp_edges
+        #     remove_summary_edge!(current_summary, edge[1], edge[2], [])
+        # end
+        # for vertex in temp_vertices
+        #     delete_summary_node!(current_summary, [], current_node)
+        # end
         # if successful, the results should be comparable to the regular results for the queries
         summary_size = Base.summarysize(current_summary)
         serialize(summary_file_location, current_summary)

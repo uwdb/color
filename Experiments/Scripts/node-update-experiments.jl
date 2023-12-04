@@ -116,4 +116,8 @@ println("started graphing")
 # compare how overall accuracy is affected by summary updates
 # graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=estimate_error, grouping=proportion_not_updated, filename="overall-accuracy-and-updates")
 # compare how cycle stat accuracies are affected by summary updates
-graph_grouped_box_plot(experiment_params_list, x_type=proportion_not_updated, y_type=estimate_error, x_label="proportion not updated", y_label="accuracy", grouping=cycle_size, filename="cycle-stats-and-node-updates")
+# graph_grouped_box_plot(experiment_params_list, x_type=proportion_not_updated, y_type=estimate_error, x_label="proportion not updated", y_label="accuracy", grouping=cycle_size, filename="cycle-stats-and-node-updates")
+graph_grouped_bar_plot(experiment_params_list, x_type=proportion_not_updated, y_type=build_time, x_label="Original Graph Content", y_label="Build Time", grouping=dataset, filename="update-build-aids")
+graph_grouped_box_plot(experiment_params_list, x_type=proportion_not_updated, y_type=estimate_error, x_label="Original Graph Content Proportion", y_label="Estimate Error", grouping=dataset, filename="update-error-aids")
+graph_grouped_bar_plot(experiment_params_list, x_type=proportion_not_updated, y_type=runtime, y_lims=[0, 0.02], x_label="Original Graph Content Proportion", y_label="Runtime", grouping=dataset, filename="update-runtime-aids")
+graph_grouped_bar_plot(experiment_params_list, x_type=proportion_not_updated, y_type=memory_footprint, y_lims=[0, 6], x_label="Original Graph Content Proportion", y_label="Memory Footprint", grouping=dataset, filename="update-memory-aids")
