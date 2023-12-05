@@ -59,7 +59,9 @@ function get_largest_color(summary)
     return current_color
 end
 
-function add_summary_node!(summary, node_labels, data_label)
+function add_summary_node!(summary, node_labels, node)
+    data_label = node
+
     color = choose_color(summary)
     # add to the bloom filter
     push!(summary.color_filters[color], data_label)
@@ -75,8 +77,8 @@ function add_summary_node!(summary, node_labels, data_label)
                 if !haskey(summary.edge_deg[edge_label][node_label], other_color)
                     summary.edge_deg[edge_label][node_label][other_color] = Dict()
                 end
-                if !haskey(summary.edge_deg[edge_label][vertex_label][start_color], end_color)
-                    summary.edge_deg[edge_label][vertex_label][start_color][end_color] = DegreeStats(0, 0, 0)
+                if !haskey(summary.edge_deg[edge_label][node_label][other_color], color)
+                    summary.edge_deg[edge_label][node_label][other_color][color] = DegreeStats(0, 0, 0)
                 end
                 current_cardinality = get(summary.color_label_cardinality[color], node_label, 0)
                 summary.edge_deg[edge_label][node_label][other_color][color].avg_out *= (current_cardinality / (current_cardinality + 1))
@@ -100,18 +102,22 @@ function delete_summary_node!(summary, node_labels, node)
     color = get_node_summary_color(summary, node)
 
     # by definition in data graph
-    data_label = node - 1
+    data_label = node
 
     # remove from the cuckoo filter
     pop!(summary.color_filters[color], data_label)
+    if (data_label in summary.color_filters[color])
+        print("deletion from filter didn't work")
+    end
 
     # adjust avg edge degrees
     for edge_label in keys(summary.edge_deg)
         for node_label in node_labels
             for other_color in keys(summary.edge_deg[edge_label][node_label])
                 current_cardinality = get(summary.color_label_cardinality[color], node_label, 0)
-                summary.edge_deg[edge_label][node_label][other_color][color].avg_out *= current_cardinality <= 1 ? 0 : (current_cardinality / (current_cardinality - 1))
-                summary.edge_deg[edge_label][node_label][other_color][color].avg_in *= current_cardinality <= 1 ? 0 : (current_cardinality / (current_cardinality - 1))
+                current_edge_deg = get(summary.edge_deg[edge_label][node_label][other_color], color, DegreeStats(0,0,0))
+                current_edge_deg.avg_out *= current_cardinality <= 1 ? 0 : (current_cardinality / (current_cardinality - 1))
+                current_edge_deg.avg_in *= current_cardinality <= 1 ? 0 : (current_cardinality / (current_cardinality - 1))
             end
         end
     end

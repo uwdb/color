@@ -62,26 +62,31 @@ println("started building")
             end
         end
         # handle deletion testing here:
-        temp_vertices = []
-        temp_edges = []
-        # first, add and keep track of a specific number of nodes as you add them to the graph
-        temp_vertices_to_add = round(convert(Float64, nv(data.graph)) * convert(Float64, experiment_params.summary_params.proportion_deleted))
-        # for each node, choose an already-existing node and add and keep track of an edge between them.
-        for i in 1:temp_vertices_to_add
-            current_node = nv(cloned_data.graph) + i
-            add_summary_node!(current_summary, [], current_node)
-            other_node = rand(0:nv(cloned_data.graph))
-            add_summary_edge!(current_summary, current_node, other_node, [])
-            push!(temp_vertices, current_node)
-            push!(temp_edges, (current_node, other_node))
+        temp_vertices = Dict() # map temp nodes to their labels
+        temp_edges = Dict() # map temp edges to their labels
+        # first, keep track of which nodes you want to delete and then delete them
+        temp_vertices_to_delete = round(convert(Float64, nv(data.graph)) * convert(Float64, experiment_params.summary_params.proportion_deleted))
+        # for each node, delete all edges related to them (and keep track of it), then remove the node
+        for i in 1:temp_vertices_to_delete
+            current_node = rand(1:nv(cloned_data.graph))
+            temp_vertices[current_node] = cloned_data.vertex_labels[current_node]
+            for edge in edges(cloned_data.graph)
+                if (src(edge) == current_node || dst(edge) == current_node)
+                    if !(edge in keys(temp_edges))
+                        temp_edges[edge] = cloned_data.edge_labels[(src(edge), dst(edge))]
+                        remove_summary_edge!(current_summary, src(edge), dst(edge), [])
+                    end
+                end
+            end
+            delete_summary_node!(current_summary, temp_vertices[current_node], current_node)
         end
-        # now, go through all of the added edges and delete them, then go through all of the added nodes and delete them
-        # for edge in temp_edges
-        #     remove_summary_edge!(current_summary, edge[1], edge[2], [])
-        # end
-        # for vertex in temp_vertices
-        #     delete_summary_node!(current_summary, [], current_node)
-        # end
+        # now, go through all of the removed vertices and add them, then add all of the removed edges
+        for vertex in keys(temp_vertices)
+            add_summary_node!(current_summary, temp_vertices[vertex], vertex)
+        end
+        for edge in keys(temp_edges)
+            add_summary_edge!(current_summary, src(edge), dst(edge), temp_edges[edge])
+        end
         # if successful, the results should be comparable to the regular results for the queries
         summary_size = Base.summarysize(current_summary)
         serialize(summary_file_location, current_summary)
