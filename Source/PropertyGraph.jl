@@ -5,6 +5,7 @@ mutable struct DataGraph <: PropertyGraph
     graph::DiGraph
     edge_labels::Dict{Tuple{Int, Int}, Vector{Int}} # edge_labels[n1][n2] = { labels }
     vertex_labels::Vector{Vector{Int}} # vertex_labels[n] = { labels }
+    # might need to add a new field for a data label?
 
     DataGraph(num_vertices::Int) = DataGraph(DiGraph(num_vertices))
 
@@ -81,6 +82,11 @@ end
 
 function display_graph!(g::PropertyGraph)
     display(graphplot(g.graph, curves=false))
+end
+
+function add_labeled_node!(g::DataGraph, node_labels=[], data_label=-1)
+    add_vertex!(g.graph)
+    g.vertex_labels = [g.vertex_labels..., node_labels]
 end
 
 function print_graph!(g::PropertyGraph)

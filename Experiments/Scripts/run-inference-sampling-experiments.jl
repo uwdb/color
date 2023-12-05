@@ -1,13 +1,18 @@
 using Plots.PlotMeasures
 include("../Experiments.jl")
 
-datasets::Vector{DATASET} = [aids, human, yeast, wordnet, youtube, dblp, patents]
-max_paths = 60
-experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, partitioner=QuasiStable, inference_max_paths=current_paths) for current_dataset in datasets for current_paths in 2:10:max_paths]
+# datasets::Vector{DATASET} = [aids, human, lubm80, yago, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
+datasets::Vector{DATASET} = [aids]
+max_paths = 100
+experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, partitioner=QuasiStable, inference_max_paths=current_paths) for current_dataset in datasets for current_paths in 20:20:max_paths]
 
 println("started building")
 build_experiments(experiment_params_list)
 println("started estimating")
 run_estimation_experiments(experiment_params_list)
 println("started graphing")
-graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=estimate_error, grouping=inference_paths, filename="inferencesampling")
+# graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=estimate_error, x_label="dataset", y_label="accuracy", grouping=inference_paths, filename="inferencesampling")
+graph_grouped_bar_plot(experiment_params_list, x_type=inference_paths, y_type=build_time, x_label="Maximum Inference Paths", y_label="Build Time", grouping=dataset, filename="inference-build-aids")
+graph_grouped_box_plot(experiment_params_list, x_type=inference_paths, y_type=estimate_error, x_label="Maximum Inference Paths", y_label="Estimate Error", grouping=dataset, filename="inference-error-aids")
+graph_grouped_bar_plot(experiment_params_list, x_type=inference_paths, y_type=runtime, y_lims=[0, 0.02], x_label="Maximum Inference Paths", y_label="Runtime", grouping=dataset, filename="inference-runtime-aids")
+graph_grouped_bar_plot(experiment_params_list, x_type=inference_paths, y_type=memory_footprint, y_lims=[0, 4], x_label="Maximum Inference Paths", y_label="Memory Footprint", grouping=dataset, filename="inference-memory-aids")

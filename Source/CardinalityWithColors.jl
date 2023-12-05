@@ -34,10 +34,11 @@ struct ColorSummaryParams
     weighting::Bool
     label_refining_rounds::Int
     proportion_not_updated::Float16
+    proportion_deleted::Float16
 
     function ColorSummaryParams(;num_colors::Int=64, max_cycle_size=4, max_partial_paths=1000,
-            partitioner::PARTITIONER = QuasiStable, weighting=true, label_refining_rounds = 0, proportion_not_updated = 1.0)
-        return new(num_colors, max_cycle_size, max_partial_paths, partitioner, weighting, label_refining_rounds, proportion_not_updated)
+            partitioner::PARTITIONER = QuasiStable, weighting=true, label_refining_rounds=0, proportion_not_updated=1.0, proportion_deleted=0.0)
+        return new(num_colors, max_cycle_size, max_partial_paths, partitioner, weighting, label_refining_rounds, proportion_not_updated, proportion_deleted)
     end
 end
 
@@ -47,7 +48,8 @@ function params_to_string(params::ColorSummaryParams)
     summary_name *= string(params.max_cycle_size) * "_"
     summary_name *= string(params.max_partial_paths)* "_"
     summary_name *= string(params.label_refining_rounds)* "_"
-    summary_name *= string(params.proportion_not_updated)
+    summary_name *= string(params.proportion_not_updated) * "_"
+    summary_name *= string(params.proportion_deleted)
     return summary_name
 end
 
