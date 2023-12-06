@@ -249,6 +249,6 @@ function get_value_from_param(experiment_param::ExperimentParams, value_type::GR
         return experiment_param.summary_params.proportion_deleted
     else
         # default to grouping by technique
-        return (experiment_param.summary_params.partitioner, experiment_param.summary_params.label_refining_rounds)
+        return experiment_param.summary_params.partitioning_scheme
     end
 end

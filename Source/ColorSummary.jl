@@ -31,6 +31,7 @@ mutable struct ColorSummary
     max_cycle_size::Int
     total_edges::Int
     total_nodes::Int
+    num_colors::Int
     total_added_edges::Int
     # for outdegrees, c2 is the color of the outneighbor
     # for indegrees, c2 is the color of the inneighbor
@@ -40,7 +41,7 @@ end
 # chooses a color for a new node to be added to
 function choose_color(summary)
     # current implementation: find the biggest color
-    # other future options: 
+    # other future options:
     # - make a brand new color just for added nodes?
     # - find the color with the smallest in/out degree? Doesn't work because with updates the color will be extremely messed up
     return get_largest_color(summary)
@@ -86,13 +87,13 @@ function add_summary_node!(summary, node_labels, node)
             end
         end
     end
-    
+
     # add to the cardinality counts
     for node_label in node_labels
         summary.color_label_cardinality[color][node_label] = get(summary.color_label_cardinality[color], node_label, 0) + 1
     end
 
-    # for cycle stats, since the number of edges/cycles are the same, 
+    # for cycle stats, since the number of edges/cycles are the same,
     # cycle likelihood for an arbitrary edge doesn't change
 end
 
@@ -121,7 +122,7 @@ function delete_summary_node!(summary, node_labels, node)
             end
         end
     end
-    
+
     # subtract from the cardinality counts
     for node_label in node_labels
         summary.color_label_cardinality[color][node_label] -= 1
@@ -184,7 +185,7 @@ function update_edge_degrees!(summary, start_node, end_node, edge_labels::Vector
             if !haskey(summary.edge_deg[edge_label][vertex_label][start_color], end_color)
                 summary.edge_deg[edge_label][vertex_label][start_color][end_color] = DegreeStats(0, 0, 0)
             end
-            summary.edge_deg[edge_label][vertex_label][start_color][end_color].avg_out = c1_count == 0 ? 0 : 
+            summary.edge_deg[edge_label][vertex_label][start_color][end_color].avg_out = c1_count == 0 ? 0 :
                 min(((original_avg_out * c1_count) + probability_end_vertex_label), c1_count * summary.color_label_cardinality[end_color][vertex_label]) / c1_count
             # note we don't have to update the color_label_cardinality since no new nodes were added...
         end
@@ -225,8 +226,9 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     coloring_time = time()
     color_filters::Dict{Color, SmallCuckoo} = Dict()
     color_label_cardinality::Dict{Color, Any} = Dict()
-    color_hash::Dict{NodeId, Color} = color_graph(g, params, params.num_colors)
-    color_sizes = [0 for _ in 1:maximum(values(color_hash))]
+    color_hash::Dict{NodeId, Color} = color_graph(g, params)
+    num_colors = maximum(values(color_hash))
+    color_sizes = [0 for _ in 1:num_colors]
     for c in values(color_hash)
         color_sizes[c] += 1
     end
@@ -443,7 +445,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
 
     return ColorSummary(color_label_cardinality, edge_deg, color_filters,
                 cycle_probabilities, cycle_length_probabilities, params.max_cycle_size,
-                 ne(g.graph), nv(g.graph), 0)
+                 ne(g.graph), nv(g.graph), num_colors, 0)
 end
 
 function color_hash_to_groups(color_hash, num_colors)
@@ -582,7 +584,7 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
         push!(detailed_edges[detailed_edge[1]], detailed_edge)
         push!(detailed_edges[detailed_reverse_edge[1]], detailed_reverse_edge)
     end
-    
+
     # create tables for each size of cycle/path
     stored_cycles::Dict{CyclePathAndColors, Float32} = Dict() # this stores summary info representing the path lengths we want to close
     stored_paths::Dict{CyclePathAndColors, Float32} = Dict() # this stores summary info representing the path lengths that actually closed
@@ -590,16 +592,16 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
 
     # initialize with size two data
     # start up the "current joins" vector
-    updated_paths::Dict{Tuple{Int, Int, Int, Int, Vector{Bool}}, Float64} = Dict() # stores our progress as we repeatedly join 
+    updated_paths::Dict{Tuple{Int, Int, Int, Int, Vector{Bool}}, Float64} = Dict() # stores our progress as we repeatedly join
     for edge_set in values(detailed_edges)
         for edge in edge_set
             summary_info = CyclePathAndColors(edge[5], (edge[3], edge[4]))
             updated_paths[edge] = 1.0
             stored_paths[summary_info] = 1.0
-            stored_cycles[summary_info] = (edge[1], edge[2], color_hash[edge[1]], color_hash[edge[2]], [false]) in detailed_edges[edge[1]] ? 
+            stored_cycles[summary_info] = (edge[1], edge[2], color_hash[edge[1]], color_hash[edge[2]], [false]) in detailed_edges[edge[1]] ?
                                         1.0 : 0.0
         end
-    end 
+    end
 
     # for each cycle size...
     for current_cycle_size in 3: cycle_size

@@ -306,7 +306,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
     end
     # Because the label is implied by the color -> query_graph_vertex mapping stored in current_query_nodes,
     # we don't have to keep the label in the partial paths object.
-    num_colors = length(summary.color_label_cardinality)
+    num_colors = summary.num_colors
     partial_paths = zeros(Color, 1, num_colors) # each tuple contains a pairing of color paths -> bounds
     partial_weights = zeros(Float64, 3, num_colors)
     visited_query_edges::Vector{Tuple{Int,Int}} = []

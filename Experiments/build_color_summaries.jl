@@ -52,37 +52,37 @@ function build_experiments(experiment_params_list::Vector{ExperimentParams})
         summary_size = Base.summarysize(current_summary)
         serialize(summary_file_location, current_summary)
         push!(build_times, (string(dataset),
-                             string(summary_params.partitioner),
+                             string(summary_params.partitioning_scheme),
                              string(summary_params.num_colors),
                              "FullTime",
                              string(results.time),
                              string(summary_size)))
         push!(build_times, (string(dataset),
-                             string(summary_params.partitioner),
+                             string(summary_params.partitioning_scheme),
                              string(summary_params.num_colors),
                              "Coloring",
                              string(timing_vec[1]),
                              string(summary_size)))
         push!(build_times, (string(dataset),
-                             string(summary_params.partitioner),
+                             string(summary_params.partitioning_scheme),
                              string(summary_params.num_colors),
                              "CycleCounting",
                              string(timing_vec[2]),
                              string(summary_size)))
         push!(build_times, (string(dataset),
-                             string(summary_params.partitioner),
+                             string(summary_params.partitioning_scheme),
                              string(summary_params.num_colors),
                              "BloomFilter",
                              string(timing_vec[3]),
                              string(summary_size)))
         push!(build_times, (string(dataset),
-                             string(summary_params.partitioner),
+                             string(summary_params.partitioning_scheme),
                              string(summary_params.num_colors),
                              "CardinalityCounting",
                              string(timing_vec[4]),
                              string(summary_size)))
         push!(build_times, (string(dataset),
-                             string(summary_params.partitioner),
+                             string(summary_params.partitioning_scheme),
                              string(summary_params.num_colors),
                              "EdgeStats",
                              string(timing_vec[5]),

@@ -23,31 +23,29 @@ end
     colors::StartEndColorPair
 end
 
-@enum PARTITIONER QuasiStable Hash Degree DirectedDegree SimpleLabel InOut LabelInOut NeighborEdges MostNeighbors
+@enum PARTITIONER QuasiStable Hash Degree DirectedDegree SimpleLabel InOut LabelInOut NeighborEdges MostNeighbors NeighborNodeLabels
 
 
 struct ColorSummaryParams
     num_colors::Int
     max_cycle_size::Int
     max_partial_paths::Int
-    partitioner::PARTITIONER
+    partitioning_scheme::Vector{Tuple{PARTITIONER, Int}}
     weighting::Bool
-    label_refining_rounds::Int
     proportion_not_updated::Float16
     proportion_deleted::Float16
 
-    function ColorSummaryParams(;num_colors::Int=64, max_cycle_size=4, max_partial_paths=1000,
-            partitioner::PARTITIONER = QuasiStable, weighting=true, label_refining_rounds=0, proportion_not_updated=1.0, proportion_deleted=0.0)
-        return new(num_colors, max_cycle_size, max_partial_paths, partitioner, weighting, label_refining_rounds, proportion_not_updated, proportion_deleted)
+    function ColorSummaryParams(;max_cycle_size=4, max_partial_paths=1000,
+        partitioning_scheme::Vector{Tuple{PARTITIONER, Int}} = [(QuasiStable, 64)], weighting=true, proportion_not_updated = 1.0, proportion_deleted=0.0)
+        num_colors = sum([x[2] for x in partitioning_scheme])
+        return new(num_colors, max_cycle_size, max_partial_paths, partitioning_scheme, weighting, proportion_not_updated, proportion_deleted)
     end
 end
 
 function params_to_string(params::ColorSummaryParams)
-    summary_name = "ColorSummary_" * string(params.partitioner) * "_"
-    summary_name *= string(params.num_colors) * "_"
+    summary_name = "ColorSummary_" * string(params.partitioning_scheme) * "_"
     summary_name *= string(params.max_cycle_size) * "_"
     summary_name *= string(params.max_partial_paths)* "_"
-    summary_name *= string(params.label_refining_rounds)* "_"
     summary_name *= string(params.proportion_not_updated) * "_"
     summary_name *= string(params.proportion_deleted)
     return summary_name
