@@ -152,7 +152,6 @@ function get_all_simple_path_bools(start::Int, finish::Int, max_length::Int,
     return path_bools
 end
 
-
 # gets the directed path from the start to finish node
 function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
     # convert the graph to be undirected

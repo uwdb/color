@@ -72,8 +72,8 @@ function params_to_string(params::ColorSummaryParams)
 end
 
 include("PropertyGraph.jl")
-include("datasets.jl")
-include("utils.jl")
+include("Datasets.jl")
+include("Utils.jl")
 include("ExactSizeCalculator.jl")
 include("ColoringMethods.jl")
 include("DegreeStats.jl")
