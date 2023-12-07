@@ -488,6 +488,9 @@ end
 
 
 function color_graph(g::DataGraph, params::ColorSummaryParams)
+    if nv(g.graph) == 0
+        return Dict()
+    end
     color_hash::Dict{NodeId, Color} = Dict(i => 1 for i in 1:nv(g.graph))
     for (partitioner, num_colors) in params.partitioning_scheme
         color_hash = if partitioner == QuasiStable

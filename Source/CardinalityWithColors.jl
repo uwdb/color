@@ -18,20 +18,45 @@ StartEndColorPair = Tuple{Color, Color}
     colors::StartEndColorPair
 end
 
-@enum PARTITIONER QuasiStable Hash Degree DirectedDegree SimpleLabel InOut LabelInOut NeighborEdges MostNeighbors NeighborNodeLabels
+@enum PARTITIONER QuasiStable Hash Degree NeighborNodeLabels
+
+function partitioner_to_string(x::PARTITIONER)
+    return if x == QuasiStable
+        "QS"
+    elseif x == Hash
+        "H"
+    elseif x == Degree
+        "D"
+    elseif x == NeighborNodeLabels
+        "NNL"
+    end
+end
+
+PartitioningScheme = Vector{Tuple{PARTITIONER, Int}}
+
+function Base.show(io::IO, x::Vector{Tuple{PARTITIONER, Int}})
+    output = "["
+    prefix = ""
+    for (p, n) in x
+        output*= prefix * partitioner_to_string(p) * ":" * string(n)
+        prefix = ";"
+    end
+    output *= "]"
+    show(io, output)
+end
 
 struct ColorSummaryParams
     deg_stats_type::Type
     num_colors::Int
     max_cycle_size::Int
     max_partial_paths::Int
-    partitioning_scheme::Vector{Tuple{PARTITIONER, Int}}
+    partitioning_scheme::PartitioningScheme
     weighting::Bool
     proportion_not_updated::Float16
     proportion_deleted::Float16
 
     function ColorSummaryParams(;deg_stats_type = AvgDegStats, max_cycle_size=4, max_partial_paths=1000,
-        partitioning_scheme::Vector{Tuple{PARTITIONER, Int}} = [(QuasiStable, 64)], weighting=true, proportion_not_updated = 1.0, proportion_deleted=0.0)
+        partitioning_scheme::PartitioningScheme = [(QuasiStable, 64)], weighting=true, proportion_not_updated = 1.0, proportion_deleted=0.0)
         num_colors = sum([x[2] for x in partitioning_scheme])
         return new(deg_stats_type, num_colors, max_cycle_size, max_partial_paths, partitioning_scheme, weighting, proportion_not_updated, proportion_deleted)
     end

@@ -58,7 +58,7 @@ function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node
                 summary.edge_deg[edge_label][node_label] = Dict()
             end
             for other_color in keys(summary.edge_deg[edge_label][node_label])
-                current_ds = get(summary.edge_deg[edge_label][node_label][other_color], color, AvgDegStats(0.0))
+                current_ds = get(summary.edge_deg[edge_label][node_label][other_color], color, AvgDegStats(0, 0))
                 current_cardinality = get(summary.color_label_cardinality[color], node_label, 0)
                 avg_in = current_ds.avg_in * (current_cardinality / (current_cardinality + 1))
                 avg_out = current_ds.avg_out * (current_cardinality / (current_cardinality + 1))
@@ -96,7 +96,7 @@ function delete_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, n
         for node_label in node_labels
             for other_color in keys(summary.edge_deg[edge_label][node_label])
                 current_cardinality = get(summary.color_label_cardinality[color], node_label, 0)
-                current_deg = get(summary.edge_deg[edge_label][node_label][other_color], color, DS(0.0))
+                current_deg = get(summary.edge_deg[edge_label][node_label][other_color], color, AvgDegStats(0, 0))
                 scale_factor = current_cardinality <= 1 ? 0 : (current_cardinality / (current_cardinality - 1))
                 summary.edge_deg[edge_label][node_label][other_color][color] = AvgDegStats(current_deg.avg_in*scale_factor, current_deg.avg_out*scale_factor)
             end
@@ -159,7 +159,7 @@ function update_edge_degrees!(summary::ColorSummary{AvgDegStats}, start_node, en
             if !haskey(summary.edge_deg[edge_label][vertex_label], start_color)
                 summary.edge_deg[edge_label][vertex_label][start_color] = Dict()
             end
-            current_deg = get(summary.edge_deg[edge_label][vertex_label][start_color], end_color, DS(0.0))
+            current_deg = get(summary.edge_deg[edge_label][vertex_label][start_color], end_color, AvgDegStats(0,0))
             original_avg_out = current_deg.avg_out
             new_avg_out = c1_count == 0 ? 0 :
             min(((original_avg_out * c1_count) + probability_end_vertex_label), c1_count * summary.color_label_cardinality[end_color][vertex_label]) / c1_count
@@ -187,7 +187,7 @@ function update_edge_degrees!(summary::ColorSummary{AvgDegStats}, start_node, en
             if !haskey(summary.edge_deg[edge_label][vertex_label], end_color)
                 summary.edge_deg[edge_label][vertex_label][end_color] = Dict()
             end
-            current_deg = get(summary.edge_deg[edge_label][vertex_label][end_color], start_color, DS(0.0))
+            current_deg = get(summary.edge_deg[edge_label][vertex_label][end_color], start_color, AvgDegStats(0, 0))
             original_avg_in = current_deg.avg_in
             new_avg_in =  c2_count == 0 ? 0 :
             min(((original_avg_in * c2_count) + probability_start_vertex_label), c2_count * summary.color_label_cardinality[start_color][vertex_label]) / c2_count
@@ -208,7 +208,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     color_filters::Dict{Color, SmallCuckoo} = Dict()
     color_label_cardinality::Dict{Color, Any} = Dict()
     color_hash::Dict{NodeId, Color} = color_graph(g, params)
-    num_colors = maximum(values(color_hash))
+    num_colors = maximum(values(color_hash); init = 0)
     color_sizes = [0 for _ in 1:num_colors]
     for c in values(color_hash)
         color_sizes[c] += 1

@@ -16,21 +16,15 @@ end
 function get_out_deg_estimate(d::DegreeStats)
     throw(ErrorException("DegreeStats is an abstract type, you probably meant to call a particular instance."))
 end
-
-function scale_out_deg(d::DegreeStats, s::Float64)
+function get_in_deg_estimate(d::DegreeStats)
     throw(ErrorException("DegreeStats is an abstract type, you probably meant to call a particular instance."))
 end
-
-function scale_in_deg(d::DegreeStats, s::Float64)
-    throw(ErrorException("DegreeStats is an abstract type, you probably meant to call a particular instance."))
-end
-
 
 abstract type StatAccumulator end
 
 # Every accumulator needs a way to be initialized to represent a single starting color based
 # on the cardinality of that color.
-function StatAccumulator(c::Float64)
+function StatAccumulator(c)
     throw(ErrorException("StatAccumulator is an abstract type, you probably meant to call a particular instance."))
 end
 
@@ -47,7 +41,7 @@ end
 
 # Multiplication of this kind happens during sampling and handle_extra_edges to scale the
 # weight of a particular path up or down.
-function scale_coloring(w::StatAccumulator, s::Float64)
+function scale_coloring(w::StatAccumulator, s)
     throw(ErrorException("StatAccumulator is an abstract type, you probably meant to call a particular instance."))
 end
 
@@ -72,8 +66,8 @@ end
 ############################ MinDegStats ################################################
 
 struct MinDegStats <:DegreeStats
-    min_in::Float64
-    min_out::Float64
+    min_in::Float32
+    min_out::Float32
 end
 
 function MinDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}}, color_size::Int)
@@ -92,28 +86,15 @@ end
 get_in_deg_estimate(d::MinDegStats) = d.min_in
 get_out_deg_estimate(d::MinDegStats) = d.min_out
 
-
-# In case p is negative, we to reduce the min degree. Otherwise, keep it.
-function add_in_deg(d::MinDegStats, p::Float64, c1::Float64, c2::Float64)
-    return MinDegStats(max(0, min(d.min_in + ceil(p), d.min_in)), d.min_out)
-end
-function add_out_deg(d::MinDegStats, p::Float64, c1::Float64, c2::Float64)
-    return MinDegStats(d.min_in, max(0, min(d.min_out + ceil(p), d.min_out)))
-end
-
-
 struct MinAccumulator <:StatAccumulator
-    weight::Float64
-    MinAccumulator(c::Union{Float64, Int64}) = new(c)
+    weight::Float32
 end
 get_count(w::MinAccumulator) = w.weight
 sum_colorings(w1::MinAccumulator, w2::MinAccumulator) = MinAccumulator(w1.weight + w2.weight)
 
-
-
 # Because the minimum degree estimator aims to produce a lower bound, we generally can't
 # scale up weights during sampling and we have to treat cycle closure as 0 probability.
-function scale_coloring(w::MinAccumulator, s::Float64)
+function scale_coloring(w::MinAccumulator, s)
     if s >= 1.0
         return w
     else
@@ -133,8 +114,8 @@ end
 ############################ AvgDegStats ################################################
 
 struct AvgDegStats <:DegreeStats
-    avg_in::Float64
-    avg_out::Float64
+    avg_in::Float32
+    avg_out::Float32
 end
 
 function AvgDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}}, color_size::Int)
@@ -155,22 +136,14 @@ end
 get_in_deg_estimate(d::AvgDegStats) = d.avg_in
 get_out_deg_estimate(d::AvgDegStats) = d.avg_out
 
-function add_in_deg(d::AvgDegStats, p::Float64, c1::Float64, c2::Float64)
-    return AvgDegStats(max(0, min(d.avg_in + p/c1, c2)), d.avg_out)
-end
-
-function add_out_deg(d::AvgDegStats, p::Float64, c1::Float64, c2::Float64)
-    return AvgDegStats(d.avg_in, max(0, min(d.avg_out + p/c1, c2)))
-end
 
 struct AvgAccumulator <:StatAccumulator
-    weight::Float64
-    AvgAccumulator(c::Union{Float64, Int64}) = new(c)
+    weight::Float32
 end
 
 get_count(w::AvgAccumulator) = w.weight
 sum_colorings(w1::AvgAccumulator, w2::AvgAccumulator) = AvgAccumulator(w1.weight + w2.weight)
-scale_coloring(w::AvgAccumulator, s::Float64) = AvgAccumulator(w.weight * s)
+scale_coloring(w::AvgAccumulator, s) = AvgAccumulator(w.weight * s)
 
 function extend_coloring(w::AvgAccumulator, d::AvgDegStats, out_edge::Bool)
     if out_edge
@@ -183,8 +156,8 @@ end
 ############################ MaxDegStats ################################################
 
 struct MaxDegStats <:DegreeStats
-    max_in::Float64
-    max_out::Float64
+    max_in::Float32
+    max_out::Float32
 end
 
 function MaxDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}}, color_size::Int)
@@ -203,25 +176,15 @@ end
 get_in_deg_estimate(d::MaxDegStats) = d.max_in
 get_out_deg_estimate(d::MaxDegStats) = d.max_out
 
-# In case p is negative, we make sure to never reduce the max degree
-function add_in_deg(d::MaxDegStats, p::Float64, c1::Float64, c2::Float64)
-    return MaxDegStats(min(max(d.max_in, d.max_in + ceil(p)), c2), d.max_out)
-end
-
-function add_out_deg(d::MaxDegStats, p::Float64, c1::Float64, c2::Float64)
-    return MaxDegStats(d.max_in, min(max(d.max_out, d.max_out) + ceil(p), c2))
-end
-
 struct MaxAccumulator <:StatAccumulator
-    weight::Float64
-    MaxAccumulator(c::Union{Float64, Int64}) = new(c)
+    weight::Float32
 end
 get_count(w::MaxAccumulator) = w.weight
 sum_colorings(w1::MaxAccumulator, w2::MaxAccumulator) = MaxAccumulator(w1.weight + w2.weight)
 
 # Because the max degree estimator aims to produce an upper bound, we have to treat cycle
 # closure as 1.0 probability.
-function scale_coloring(w::MaxAccumulator, s::Float64)
+function scale_coloring(w::MaxAccumulator, s)
     if s >= 1.0
         return MaxAccumulator(w.weight * s)
     else

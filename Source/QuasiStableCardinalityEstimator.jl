@@ -24,7 +24,7 @@
     end
     deleteat!(current_query_nodes, nodeIdx)
     partial_paths = zeros(Color, length(current_query_nodes), length(keys(new_partial_paths)))
-    partial_weights = fill(W(0.0), length(keys(new_partial_paths)))
+    partial_weights = fill(W(0), length(keys(new_partial_paths)))
 
     path_idx = 1
     for path in keys(new_partial_paths)
@@ -43,7 +43,7 @@ function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, 
     # if we want to sample more paths than there are existing nonzero paths,
     # then just return the original partial paths
     new_partial_paths = zeros(Color, size(partial_paths))
-    new_partial_weights = fill(W(0.0), size(partial_weights))
+    new_partial_weights = fill(W(0), size(partial_weights))
     new_path_idx = 1
     for i in eachindex(partial_weights)
         if get_count(partial_weights[i]) > 0
@@ -80,7 +80,7 @@ function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, 
         sampled_bounds_sum += get_count(new_partial_weights[idx])
     end
     sampled_partial_paths = zeros(Color, size(new_partial_paths)[1], length(sample_indices))
-    sampled_partial_weights = fill(W(0.0), length(sample_indices))
+    sampled_partial_weights = fill(W(0), length(sample_indices))
 
     for i in eachindex(sample_indices)
         idx = sample_indices[i]
@@ -292,7 +292,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
     # we don't have to keep the label in the partial paths object.
     num_colors = summary.num_colors
     partial_paths = zeros(Color, 1, num_colors) # each tuple contains a pairing of color paths -> bounds
-    partial_weights = fill(W(0.0), num_colors)
+    partial_weights = fill(W(0), num_colors)
     visited_query_edges::Vector{Tuple{Int,Int}} = []
     current_query_nodes::Vector{Int} = []
 
@@ -369,7 +369,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
         new_data_labels = get_data_label(query, new_node)
         num_current_paths = size(partial_paths)[2]
         new_partial_paths = zeros(Color, length(current_query_nodes),  num_current_paths * num_colors)
-        new_partial_weights = fill(W(0.0), num_current_paths * num_colors)
+        new_partial_weights = fill(W(0), num_current_paths * num_colors)
         # Update the partial paths using the parent-child combo that comes next from the query.
         edge_deg::Dict{Color, Dict{Color, DS}} = Dict()
         if haskey(summary.edge_deg, edge_label) &&

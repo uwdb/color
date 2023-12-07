@@ -11,9 +11,7 @@ partitioning_schemes = [
                         [(Hash, 64)],
                         [(Degree, 8), (QuasiStable, 32), (NeighborNodeLabels, 24)],
                         [(Degree, 8), (NeighborNodeLabels, 24), (QuasiStable, 32)]]
-partitioning_schemes = [
-                        [(QuasiStable, 64)],
-]
+partitioning_schemes = [[(QuasiStable, 64)]]
 experiment_params = Vector{ExperimentParams}()
 for dataset in datasets
     for scheme in partitioning_schemes
