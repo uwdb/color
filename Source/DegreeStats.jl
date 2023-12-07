@@ -95,7 +95,7 @@ get_out_deg_estimate(d::MinDegStats) = d.min_out
 
 # In case p is negative, we to reduce the min degree. Otherwise, keep it.
 function add_in_deg(d::MinDegStats, p::Float64, c1::Float64, c2::Float64)
-    return MinDegStats(max(0, min(d.min_in + ceil(p), d.min_in)), d.avg_out)
+    return MinDegStats(max(0, min(d.min_in + ceil(p), d.min_in)), d.min_out)
 end
 function add_out_deg(d::MinDegStats, p::Float64, c1::Float64, c2::Float64)
     return MinDegStats(d.min_in, max(0, min(d.min_out + ceil(p), d.min_out)))

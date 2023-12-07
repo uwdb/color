@@ -43,7 +43,7 @@ function get_largest_color(summary)
     return current_color
 end
 
-function add_summary_node!(summary::ColorSummary{DS}, node_labels, node) where DS
+function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node)
     data_label = node
 
     color = choose_color(summary)
@@ -58,9 +58,12 @@ function add_summary_node!(summary::ColorSummary{DS}, node_labels, node) where D
                 summary.edge_deg[edge_label][node_label] = Dict()
             end
             for other_color in keys(summary.edge_deg[edge_label][node_label])
-                current_ds = get(summary.edge_deg[edge_label][node_label][other_color], color, DS(0.0))
+                current_ds = get(summary.edge_deg[edge_label][node_label][other_color], color, AvgDegStats(0.0))
                 current_cardinality = get(summary.color_label_cardinality[color], node_label, 0)
-                summary.edge_deg[edge_label][node_label][other_color][color] = scale_out_degree(current_ds, (current_cardinality / (current_cardinality + 1)))
+                avg_in = current_ds.avg_in * (current_cardinality / (current_cardinality + 1))
+                avg_out = current_ds.avg_out * (current_cardinality / (current_cardinality + 1))
+                new_ds = AvgDegStats(avg_in, avg_out)
+                summary.edge_deg[edge_label][node_label][other_color][color] = new_ds
             end
         end
     end
@@ -76,7 +79,7 @@ end
 
 # assume that you delete all attached edges before removing a summary node
 # assume that the node to delete actually exists
-function delete_summary_node!(summary::ColorSummary{DS}, node_labels, node) where DS
+function delete_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node)
     color = get_node_summary_color(summary, node)
 
     # by definition in data graph
@@ -95,7 +98,7 @@ function delete_summary_node!(summary::ColorSummary{DS}, node_labels, node) wher
                 current_cardinality = get(summary.color_label_cardinality[color], node_label, 0)
                 current_deg = get(summary.edge_deg[edge_label][node_label][other_color], color, DS(0.0))
                 scale_factor = current_cardinality <= 1 ? 0 : (current_cardinality / (current_cardinality - 1))
-                summary.edge_deg[edge_label][node_label][other_color][color] = scale_out_deg(current_deg, scale_factor)
+                summary.edge_deg[edge_label][node_label][other_color][color] = AvgDegStats(current_deg.avg_in*scale_factor, current_deg.avg_out*scale_factor)
             end
         end
     end
@@ -127,7 +130,7 @@ function remove_summary_edge!(summary, start_node, end_node, edge_labels)
     update_edge_degrees!(summary, start_node, end_node, edge_labels, remove=true)
 end
 
-function update_edge_degrees!(summary::ColorSummary{DS}, start_node, end_node, edge_labels::Vector; remove=false) where DS
+function update_edge_degrees!(summary::ColorSummary{AvgDegStats}, start_node, end_node, edge_labels::Vector; remove=false)
     # need to eventually make sure that the edge label is a set that includes -1 for the label...
     if !(-1 in edge_labels)
         push!(edge_labels, -1)
@@ -157,9 +160,10 @@ function update_edge_degrees!(summary::ColorSummary{DS}, start_node, end_node, e
                 summary.edge_deg[edge_label][vertex_label][start_color] = Dict()
             end
             current_deg = get(summary.edge_deg[edge_label][vertex_label][start_color], end_color, DS(0.0))
-            original_avg_out = get_out_deg_estimate(current_deg)
-            summary.edge_deg[edge_label][vertex_label][start_color][end_color].avg_out = c1_count == 0 ? 0 :
-                min(((original_avg_out * c1_count) + probability_end_vertex_label), c1_count * summary.color_label_cardinality[end_color][vertex_label]) / c1_count
+            original_avg_out = current_deg.avg_out
+            new_avg_out = c1_count == 0 ? 0 :
+            min(((original_avg_out * c1_count) + probability_end_vertex_label), c1_count * summary.color_label_cardinality[end_color][vertex_label]) / c1_count
+            summary.edge_deg[edge_label][vertex_label][start_color][end_color] = AvgDegStats(current_deg.avg_in, new_avg_out)
             # note we don't have to update the color_label_cardinality since no new nodes were added...
         end
         for vertex_label in keys(summary.color_label_cardinality[start_color])
@@ -183,11 +187,11 @@ function update_edge_degrees!(summary::ColorSummary{DS}, start_node, end_node, e
             if !haskey(summary.edge_deg[edge_label][vertex_label], end_color)
                 summary.edge_deg[edge_label][vertex_label][end_color] = Dict()
             end
-            if !haskey(summary.edge_deg[edge_label][vertex_label][end_color], start_color)
-                summary.edge_deg[edge_label][vertex_label][end_color][start_color] = DS(0.0)
-            end
-            summary.edge_deg[edge_label][vertex_label][end_color][start_color].avg_in = c2_count == 0 ? 0 :
-                min(((original_avg_in * c2_count) + probability_start_vertex_label), c2_count * summary.color_label_cardinality[start_color][vertex_label]) / c2_count
+            current_deg = get(summary.edge_deg[edge_label][vertex_label][end_color], start_color, DS(0.0))
+            original_avg_in = current_deg.avg_in
+            new_avg_in =  c2_count == 0 ? 0 :
+            min(((original_avg_in * c2_count) + probability_start_vertex_label), c2_count * summary.color_label_cardinality[start_color][vertex_label]) / c2_count
+            summary.edge_deg[edge_label][vertex_label][end_color][start_color] = AvgDegStats(new_avg_in, current_deg.avg_out)
             # note we don't have to update the color_label_cardinality since no new nodes were added...
         end
     end
@@ -335,7 +339,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
             for c1 in keys(color_to_color_edge_list[edge_label][vertex_label])
                 edge_deg[edge_label][vertex_label][c1] = Dict()
                 for c2 in keys(color_to_color_edge_list[edge_label][vertex_label][c1])
-                    edge_deg[edge_label][vertex_label][c1][c2] = DS(g, color_to_color_edge_list[edge_label][vertex_label][c1][c2], color_label_cardinality[c1][-1])
+                    edge_deg[edge_label][vertex_label][c1][c2] = DS(g, color_to_color_edge_list[edge_label][vertex_label][c1][c2], color_sizes[c1])
                 end
             end
         end

@@ -75,14 +75,13 @@ function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, 
     sample_indices::Vector{Int} = sample(1:length(new_partial_weights), sample_weights,  num_samples; replace=false)
 
     # sum up the sampled bounds
-    sampled_bounds_sum = 0
+    sampled_bounds_sum = 0.0
     for idx in sample_indices
         sampled_bounds_sum += get_count(new_partial_weights[idx])
     end
     sampled_partial_paths = zeros(Color, size(new_partial_paths)[1], length(sample_indices))
     sampled_partial_weights = fill(W(0.0), length(sample_indices))
 
-    new_path_idx = 1
     for i in eachindex(sample_indices)
         idx = sample_indices[i]
         sampled_partial_paths[:, i] .= new_partial_paths[:, idx]
@@ -426,9 +425,6 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
     final_estimate = 0.0
     for w in partial_weights
         final_estimate += get_count(w)
-    end
-    if final_estimate == 0
-        println("ISSUE")
     end
     return final_estimate
 end
