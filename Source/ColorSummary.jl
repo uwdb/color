@@ -335,7 +335,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
             for c1 in keys(color_to_color_edge_list[edge_label][vertex_label])
                 edge_deg[edge_label][vertex_label][c1] = Dict()
                 for c2 in keys(color_to_color_edge_list[edge_label][vertex_label][c1])
-                    edge_deg[edge_label][vertex_label][c1][c2] = DS(g, color_to_color_edge_list[edge_label][vertex_label][c1][c2])
+                    edge_deg[edge_label][vertex_label][c1][c2] = DS(g, color_to_color_edge_list[edge_label][vertex_label][c1][c2], color_label_cardinality[c1][-1])
                 end
             end
         end

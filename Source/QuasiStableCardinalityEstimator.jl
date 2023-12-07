@@ -24,7 +24,7 @@
     end
     deleteat!(current_query_nodes, nodeIdx)
     partial_paths = zeros(Color, length(current_query_nodes), length(keys(new_partial_paths)))
-    partial_weights = fill(W(), length(keys(new_partial_paths)))
+    partial_weights = fill(W(0.0), length(keys(new_partial_paths)))
 
     path_idx = 1
     for path in keys(new_partial_paths)
@@ -43,7 +43,7 @@ function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, 
     # if we want to sample more paths than there are existing nonzero paths,
     # then just return the original partial paths
     new_partial_paths = zeros(Color, size(partial_paths))
-    new_partial_weights = fill(W(), size(partial_weights))
+    new_partial_weights = fill(W(0.0), size(partial_weights))
     new_path_idx = 1
     for i in eachindex(partial_weights)
         if get_count(partial_weights[i]) > 0
@@ -61,7 +61,7 @@ function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, 
     end
 
     # sum up all of the bounds
-    overall_bounds_sum::Float64 = 0.0
+    overall_bounds_sum = 0.0
     for w in new_partial_weights
         overall_bounds_sum += get_count(w)
     end
@@ -75,7 +75,7 @@ function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, 
     sample_indices::Vector{Int} = sample(1:length(new_partial_weights), sample_weights,  num_samples; replace=false)
 
     # sum up the sampled bounds
-    sampled_bounds_sum::Float64 = 0
+    sampled_bounds_sum = 0
     for idx in sample_indices
         sampled_bounds_sum += get_count(new_partial_weights[idx])
     end
@@ -92,7 +92,7 @@ function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, 
         else
             1.0 / sample_weights[i]
         end
-        sampled_partial_weights[i] = scale_colorings(new_partial_weights[idx], inverse_sampling_probability)
+        sampled_partial_weights[i] = scale_coloring(new_partial_weights[idx], inverse_sampling_probability)
     end
     return sampled_partial_paths, sampled_partial_weights
 end
@@ -426,6 +426,9 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
     final_estimate = 0.0
     for w in partial_weights
         final_estimate += get_count(w)
+    end
+    if final_estimate == 0
+        println("ISSUE")
     end
     return final_estimate
 end

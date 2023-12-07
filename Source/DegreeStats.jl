@@ -76,7 +76,7 @@ mutable struct MinDegStats <:DegreeStats
     min_out::Float64
 end
 
-function MinDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}})
+function MinDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}}, color_size::Int)
     length(edges) == 0 && return MinDegStats(0,0)
     in_counter = counter(NodeId)
     out_counter = counter(NodeId)
@@ -104,7 +104,7 @@ end
 
 struct MinAccumulator <:StatAccumulator
     weight::Float64
-    MinAccumulator(c::Float64) = new(c)
+    MinAccumulator(c::Union{Float64, Int64}) = new(c)
 end
 get_count(w::MinAccumulator) = w.weight
 sum_colorings(w1::MinAccumulator, w2::MinAccumulator) = MinAccumulator(w1.weight + w2.weight)
@@ -137,23 +137,19 @@ mutable struct AvgDegStats <:DegreeStats
     avg_out::Float64
 end
 
-function AvgDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}})
+function AvgDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}}, color_size::Int)
     length(edges) == 0 && return AvgDegStats(0,0)
     in_counter = counter(NodeId)
     out_counter = counter(NodeId)
-    unique_nodes = Set()
     for edge in edges
         if edge[3]
             inc!(out_counter, edge[1])
-            push!(unique_nodes, edge[1])
         else
             inc!(in_counter, edge[1])
-            push!(unique_nodes, edge[1])
         end
-
     end
-    avg_in = sum([x for x in values(in_counter)]; init=0)/length(unique_nodes)
-    avg_out = sum([x for x in values(out_counter)]; init=0)/length(unique_nodes)
+    avg_in = sum([x for x in values(in_counter)]; init=0)/color_size
+    avg_out = sum([x for x in values(out_counter)]; init=0)/color_size
     return AvgDegStats(avg_in, avg_out)
 end
 get_in_deg_estimate(d::AvgDegStats) = d.avg_in
@@ -169,7 +165,7 @@ end
 
 struct AvgAccumulator <:StatAccumulator
     weight::Float64
-    AvgAccumulator(c::Float64) = new(c)
+    AvgAccumulator(c::Union{Float64, Int64}) = new(c)
 end
 
 get_count(w::AvgAccumulator) = w.weight
@@ -191,7 +187,7 @@ mutable struct MaxDegStats <:DegreeStats
     max_out::Float64
 end
 
-function MaxDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}})
+function MaxDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}}, color_size::Int)
     length(edges) == 0 && return MaxDegStats(0,0)
     in_counter = counter(NodeId)
     out_counter = counter(NodeId)
@@ -218,7 +214,7 @@ end
 
 struct MaxAccumulator <:StatAccumulator
     weight::Float64
-    MaxAccumulator(c::Float64) = new(c)
+    MaxAccumulator(c::Union{Float64, Int64}) = new(c)
 end
 get_count(w::MaxAccumulator) = w.weight
 sum_colorings(w1::MaxAccumulator, w2::MaxAccumulator) = MaxAccumulator(w1.weight + w2.weight)

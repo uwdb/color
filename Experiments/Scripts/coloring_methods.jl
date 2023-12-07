@@ -2,7 +2,7 @@
 using Profile
 include("../Experiments.jl")
 
-datasets = [human]
+datasets = [aids]
 partitioning_schemes = [
                         [(Degree, 64)],
                         [(NeighborNodeLabels, 64)],
@@ -21,7 +21,7 @@ for dataset in datasets
     end
 end
 
-build_experiments(experiment_params)
+#build_experiments(experiment_params)
 
 run_estimation_experiments(experiment_params)
 

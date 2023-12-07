@@ -6,7 +6,7 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
         !isfile(summary_file_location) && error("The summary has not been built yet! \n Attempted File Location: $(summary_file_location)")
         summary::ColorSummary = deserialize(summary_file_location)
         experiment_results = []
-        push!(experiment_results, ("UpperBound", "Estimate", "LowerBound", "TrueCard", "EstimationTime", "QueryType", "QueryPath"))
+        push!(experiment_results, ("Estimate", "TrueCard", "EstimationTime", "QueryType", "QueryPath"))
         for i in 1:length(all_queries[dataset])
             query::QueryGraph = all_queries[dataset][i].query
             query_path = all_queries[dataset][i].query_path
@@ -17,12 +17,9 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
                                     sampling_strategy=experiment_params.sampling_strategy,
                                     only_shortest_path_cycle= experiment_params.only_shortest_path_cycle)) for _ in 1:3]
             estimate_time = median([x.time for x in  estimate_results]) # Convert back to seconds from nano seconds
-            bounds = estimate_results[1].value
-            upper_bound = bounds[3]
-            estimate = max(1, bounds[2])
-            lower_bound = bounds[1]
+            estimate = estimate_results[1].value
             query_type = all_queries[dataset][i].query_type
-            push!(experiment_results, (upper_bound, estimate, lower_bound, exact_size, estimate_time, query_type, query_path))
+            push!(experiment_results, (estimate, exact_size, estimate_time, query_type, query_path))
         end
         results_file_location = "Experiments/Results/Estimation_"  * params_to_results_filename(experiment_params)
         writedlm(results_file_location, experiment_results, ",")
