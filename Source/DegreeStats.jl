@@ -71,7 +71,7 @@ end
 
 ############################ MinDegStats ################################################
 
-mutable struct MinDegStats <:DegreeStats
+struct MinDegStats <:DegreeStats
     min_in::Float64
     min_out::Float64
 end
@@ -132,7 +132,7 @@ end
 
 ############################ AvgDegStats ################################################
 
-mutable struct AvgDegStats <:DegreeStats
+struct AvgDegStats <:DegreeStats
     avg_in::Float64
     avg_out::Float64
 end
@@ -182,7 +182,7 @@ end
 
 ############################ MaxDegStats ################################################
 
-mutable struct MaxDegStats <:DegreeStats
+struct MaxDegStats <:DegreeStats
     max_in::Float64
     max_out::Float64
 end
