@@ -1,4 +1,4 @@
-@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_not_updated proportion_deleted
+@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_not_updated proportion_deleted deg_stat_type
 
 @enum VALUE estimate_error runtime build_time memory_footprint
 
@@ -247,6 +247,8 @@ function get_value_from_param(experiment_param::ExperimentParams, value_type::GR
         return experiment_param.summary_params.proportion_not_updated
     elseif value_type == proportion_deleted
         return experiment_param.summary_params.proportion_deleted
+    elseif value_type == deg_stat_type
+        return experiment_param.summary_params.deg_stats_type
     else
         # default to grouping by technique
         return experiment_param.summary_params.partitioning_scheme

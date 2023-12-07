@@ -4,7 +4,7 @@
 # Equivalently, they perform a groupby on all other nodes of the query graph. The goal of this is to prevent
 # an exponential growth in the number of paths through the lifted color graph. However, we can only remove query nodes whose
 # edges have already been processed.
-@inline function sum_over_node(partial_paths::Matrix{Color}, partial_weights::Matrix{Float64}, current_query_nodes, node_to_remove)
+@inline function sum_over_node(partial_paths::Matrix{Color}, partial_weights::Vector{W}, current_query_nodes, node_to_remove) where W
     nodeIdx = 1
     for node in current_query_nodes
         if node == node_to_remove
@@ -12,29 +12,26 @@
         end
         nodeIdx += 1
     end
-    new_partial_paths::Dict{Vector{Color}, Vector{Float64}} = Dict()
+    new_partial_paths::Dict{Vector{Color}, W} = Dict()
     for i in 1:size(partial_paths)[2]
         new_path = copy(partial_paths[:, i])
         deleteat!(new_path, nodeIdx)
         if !haskey(new_partial_paths, new_path)
-            new_partial_paths[new_path] = partial_weights[:, i]
+            new_partial_paths[new_path] = partial_weights[i]
         else
-            new_partial_paths[new_path] .+= partial_weights[:, i]
+            new_partial_paths[new_path] = sum_colorings(new_partial_paths[new_path], partial_weights[i])
         end
     end
     deleteat!(current_query_nodes, nodeIdx)
     partial_paths = zeros(Color, length(current_query_nodes), length(keys(new_partial_paths)))
-    partial_weights = zeros(Float64, 3, length(keys(new_partial_paths)))
+    partial_weights = fill(W(0), length(keys(new_partial_paths)))
 
     path_idx = 1
     for path in keys(new_partial_paths)
         for i in 1:length(path)
             partial_paths[i, path_idx] = path[i]
         end
-        weights = new_partial_paths[path]
-        partial_weights[1, path_idx] = weights[1]
-        partial_weights[2, path_idx] = weights[2]
-        partial_weights[3, path_idx] = weights[3]
+        partial_weights[path_idx] = new_partial_paths[path]
         path_idx += 1
     end
     return partial_paths, partial_weights
@@ -42,72 +39,59 @@ end
 
 @enum SAMPLING_STRATEGY uniform weighted redistributive online
 
-@inline function sample_paths(partial_paths::Matrix{Color}, partial_weights::Matrix{Float64}, num_samples::Int, sampling_strategy::SAMPLING_STRATEGY)
-
+function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, num_samples::Int, sampling_strategy::SAMPLING_STRATEGY) where W
     # if we want to sample more paths than there are existing nonzero paths,
     # then just return the original partial paths
     new_partial_paths = zeros(Color, size(partial_paths))
-    new_partial_weights = zeros(Float64, size(partial_weights))
+    new_partial_weights = fill(W(0), size(partial_weights))
     new_path_idx = 1
-    for i in 1:size(partial_weights)[2]
-        if partial_weights[2, i] > 0
+    for i in eachindex(partial_weights)
+        if get_count(partial_weights[i]) > 0
             new_partial_paths[:, new_path_idx] = partial_paths[:, i]
-            new_partial_weights[:, new_path_idx] = partial_weights[:, i]
+            new_partial_weights[new_path_idx] = partial_weights[i]
             new_path_idx += 1
         end
     end
     new_path_idx -= 1
     new_partial_paths = new_partial_paths[:, 1:new_path_idx]
-    new_partial_weights = new_partial_weights[:, 1:new_path_idx]
+    new_partial_weights = new_partial_weights[1:new_path_idx]
 
-    if size(new_partial_weights)[2] < num_samples
+    if length(new_partial_weights) < num_samples
         return new_partial_paths, new_partial_weights
     end
 
-
     # sum up all of the bounds
-    overall_bounds_sum::Float64 = sum(new_partial_weights[2, :])
+    overall_bounds_sum = 0.0
+    for w in new_partial_weights
+        overall_bounds_sum += get_count(w)
+    end
+
     # choose a sample of the paths
-    sample_weights = new_partial_weights[2, :]
+    sample_weights = [get_count(w) for w in new_partial_weights]
     sample_weights = AnalyticWeights(sample_weights ./ overall_bounds_sum)
     if sampling_strategy == uniform
         sample_weights = AnalyticWeights([1.0 for i in eachindex(new_partial_paths)] ./ num_nonzero_entries)
     end
-    sample_indices::Vector{Int} = sample(1:size(new_partial_weights)[2], sample_weights,  num_samples; replace=false)
+    sample_indices::Vector{Int} = sample(1:length(new_partial_weights), sample_weights,  num_samples; replace=false)
 
     # sum up the sampled bounds
-    sampled_bounds_sum::Float64 = 0
+    sampled_bounds_sum = 0.0
     for idx in sample_indices
-        sampled_bounds_sum += new_partial_weights[2, idx]
+        sampled_bounds_sum += get_count(new_partial_weights[idx])
     end
-
-    # get the difference between the overall and sampled bound sum_over_finished_query_nodes
-    bound_diff::Float64 = overall_bounds_sum - sampled_bounds_sum
-
     sampled_partial_paths = zeros(Color, size(new_partial_paths)[1], length(sample_indices))
-    sampled_partial_weights = zeros(Float64, 3, length(sample_indices))
+    sampled_partial_weights = fill(W(0), length(sample_indices))
 
-    # for each sampled path...
-    new_path_idx = 1
-    for idx in sample_indices
-        sampled_partial_paths[:, new_path_idx] .= new_partial_paths[:, idx]
-
-        # figure out what fraction of the sampled bounds is in the current Bounds
-        # higher bounds will have more weight redistributed to them
-        if sampling_strategy == redistributive
-            bound_fractions = new_partial_weights[2, idx] / sampled_bounds_sum
-            # use that fraction of the difference (i.e. the removed path weights) and add it to the partial path
-            redistributed_weights = bound_fractions * bound_diff
-            sampled_partial_weights[:, new_path_idx] .= new_partial_weights[:, idx] .+ redistributed_weights
-
-        elseif sampling_strategy == weighted
-            inverse_sampling_probability = total_weight /  new_partial_weights[2, idx] / length(sample_indices)
-            sampled_partial_weights[:, new_path_idx] .= new_partial_weights[:, idx] .* inverse_sampling_probability
-        elseif sampling_strategy == uniform
-            inverse_sampling_probability = size(partial_paths)[2] / length(sample_indices)
-            sampled_partial_weights[:, new_path_idx] .= new_partial_weights[:, idx] .* inverse_sampling_probability
+    for i in eachindex(sample_indices)
+        idx = sample_indices[i]
+        sampled_partial_paths[:, i] .= new_partial_paths[:, idx]
+        inverse_sampling_probability = if sampling_strategy == redistributive
+            # scale the weights so that their sum equals the input weight's sum
+            overall_bounds_sum / sampled_bounds_sum
+        else
+            1.0 / sample_weights[i]
         end
-        new_path_idx += 1
+        sampled_partial_weights[i] = scale_coloring(new_partial_weights[idx], inverse_sampling_probability)
     end
     return sampled_partial_paths, sampled_partial_weights
 end
@@ -193,9 +177,9 @@ function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
     return new_graph
 end
 
-function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_paths::Array{Color}, partial_weights::Array{Float64},
+function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, partial_paths::Array{Color}, partial_weights::Vector{W},
                                 current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int,Int}}, usingStoredStats::Bool,
-                                only_shortest_path_cycle::Bool)
+                                only_shortest_path_cycle::Bool) where DS where W
     # To account for cyclic queries, we check whether there are any remaining edges that have not
     # been processed. If so, we set the lower bound to 0, reduce the average estimate accordingly, and leave
     # the upper bound unchanged.
@@ -235,13 +219,13 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
             elseif haskey(summary.cycle_length_probabilities, path_length)
                 probability_no_edge *= (1.0 - summary.cycle_length_probabilities[path_length])^path_count
             else
-                probability_no_edge *= (1.0 - get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary))^path_count
+                probability_no_edge *= (1.0 - get_independent_cycle_likelihood(summary))^path_count
             end
             default_no_edge_probability *= probability_no_edge
             default_no_edge_probabilities[path_bools] = probability_no_edge
         end
 
-        edge_deg::Dict{Int, Dict{Int, DegreeStats}} = Dict()
+        edge_deg::Dict{Int, Dict{Int, DS}} = Dict()
         if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], child_label)
             edge_deg = summary.edge_deg[edge_label][child_label]
         end
@@ -267,14 +251,14 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary, partial_p
                     probability_no_edge *= 1.0 - get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
                 end
             end
-            partial_weights[1, i] = 0
-            partial_weights[2, i] *=  (1.0 - probability_no_edge)
+            probability_no_edge *= 1.0 - summary.total_added_edges/summary.total_nodes^2
+            partial_weights[i] = scale_coloring(partial_weights[i], (1.0 - probability_no_edge))
         end
     end
 end
 
-function sum_over_finished_query_nodes(query::QueryGraph, partial_paths::Matrix{Color}, partial_weights::Matrix{Float64},
-                                            current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int, Int}})
+function sum_over_finished_query_nodes(query::QueryGraph, partial_paths::Matrix{Color}, partial_weights::Vector{W},
+                                            current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int, Int}}) where W
     new_partial_paths, new_partial_weights = partial_paths, partial_weights
     prev_query_nodes = copy(current_query_nodes)
     for node in prev_query_nodes
@@ -296,10 +280,11 @@ function sum_over_finished_query_nodes(query::QueryGraph, partial_paths::Matrix{
     return new_partial_paths, new_partial_weights
 end
 
-function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_partial_paths::Union{Nothing, Int} = nothing,
+function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; max_partial_paths::Union{Nothing, Int} = nothing,
                                 use_partial_sums::Bool = true, verbose::Bool = false, usingStoredStats::Bool = false,
                                 include_cycles::Bool = true, sampling_strategy::SAMPLING_STRATEGY=weighted,
-                                only_shortest_path_cycle::Bool=false)
+                                only_shortest_path_cycle::Bool=false) where DS
+    W = stat_type_to_accumulator(DS)
     node_order::Vector{Int} = get_min_width_node_order(query.graph) #spanning tree to cut out cycles
     if verbose
         println("Node Order:", node_order)
@@ -308,7 +293,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
     # we don't have to keep the label in the partial paths object.
     num_colors = summary.num_colors
     partial_paths = zeros(Color, 1, num_colors) # each tuple contains a pairing of color paths -> bounds
-    partial_weights = zeros(Float64, 3, num_colors)
+    partial_weights = fill(W(0), num_colors)
     visited_query_edges::Vector{Tuple{Int,Int}} = []
     current_query_nodes::Vector{Int} = []
 
@@ -333,13 +318,10 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
             end
             if (data_label_is_in_color)
                 partial_paths[1, color] = color
-                partial_weights[1, color] = summary.color_label_cardinality[color][parent_label]
-                partial_weights[2, color] = summary.color_label_cardinality[color][parent_label]
-                partial_weights[3, color] = summary.color_label_cardinality[color][parent_label]
+                partial_weights[color] = W(summary.color_label_cardinality[color][parent_label])
             end
         end
     end
-
     new_node = old_node
     while length(node_order) > 0
         if verbose
@@ -388,9 +370,9 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
         new_data_labels = get_data_label(query, new_node)
         num_current_paths = size(partial_paths)[2]
         new_partial_paths = zeros(Color, length(current_query_nodes),  num_current_paths * num_colors)
-        new_partial_weights = zeros(Float64, 3, num_current_paths * num_colors)
+        new_partial_weights = fill(W(0), num_current_paths * num_colors)
         # Update the partial paths using the parent-child combo that comes next from the query.
-        edge_deg::Dict{Color, Dict{Color, DegreeStats}} = Dict()
+        edge_deg::Dict{Color, Dict{Color, DS}} = Dict()
         if haskey(summary.edge_deg, edge_label) &&
                         haskey(summary.edge_deg[edge_label], new_label)
             edge_deg = summary.edge_deg[edge_label][new_label]
@@ -398,7 +380,6 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
         new_path_idx = 1
         for i in 1:num_current_paths
             old_color = partial_paths[parent_idx, i]
-
             # Account for colors with no outgoing children.
             if haskey(edge_deg, old_color)
                 for new_color in keys(edge_deg[old_color])
@@ -417,33 +398,21 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
                     if !data_label_in_color
                         continue
                     end
-                    degree_stats::DegreeStats = edge_deg[old_color][new_color]
                     for j in 1:length(current_query_nodes)-1
                         new_partial_paths[j, new_path_idx] = partial_paths[j, i]
                     end
                     new_partial_paths[length(current_query_nodes), new_path_idx] = new_color
-                    if out_edge
-                        new_partial_weights[1, new_path_idx] = partial_weights[1, i]*degree_stats.min_out
-                        new_partial_weights[2, new_path_idx] = partial_weights[2, i]*degree_stats.avg_out
-                        new_partial_weights[3, new_path_idx] = partial_weights[3, i]*degree_stats.max_out
-                    else
-                        new_partial_weights[1, new_path_idx] = partial_weights[1, i]*degree_stats.min_in
-                        new_partial_weights[2, new_path_idx] = partial_weights[2, i]*degree_stats.avg_in
-                        new_partial_weights[3, new_path_idx] = partial_weights[3, i]*degree_stats.max_in
-                    end
+                    degree_stats::DS = edge_deg[old_color][new_color]
+                    new_partial_weights[new_path_idx] = extend_coloring(partial_weights[i], degree_stats, out_edge)
                     if !(length(new_data_labels) == 1 && new_data_labels[1] == -1)
-                        # we have already confirmed that the data label is in the color, but if the data label isn't -1
-                        # then we need to scale down the result since we only want to consider one of the many nodes in the new color
-                        # we also need to set the minimum to 0 but keep the maximum the same
-                        new_partial_weights[1, new_path_idx] = 0
-                        new_partial_weights[2, new_path_idx] /= summary.color_label_cardinality[new_color][new_label]
+                        new_partial_weights[new_path_idx] = scale_coloring(new_partial_weights[new_path_idx], 1.0/summary.color_label_cardinality[new_color][new_label])
                     end
                     new_path_idx += 1
                 end
             end
         end
         partial_paths = new_partial_paths[:, 1:new_path_idx-1]
-        partial_weights = new_partial_weights[:, 1:new_path_idx-1]
+        partial_weights = new_partial_weights[1:new_path_idx-1]
         if !(isnothing(max_partial_paths)) && (size(partial_paths)[2] > max_partial_paths)
             partial_paths, partial_weights = sample_paths(partial_paths, partial_weights, max_partial_paths, sampling_strategy)
         end
@@ -454,9 +423,9 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary; max_pa
     end
 
     # Sum over the calculated partial paths to get the final bounds.
-    final_bounds = [0,0,0]
-    for i in 1:size(partial_weights)[2]
-        final_bounds = final_bounds .+ partial_weights[:, i]
+    final_estimate = 0.0
+    for w in partial_weights
+        final_estimate += get_count(w)
     end
-    return final_bounds
+    return final_estimate
 end

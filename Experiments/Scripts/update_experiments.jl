@@ -1,15 +1,13 @@
-using Plots.PlotMeasures
-using Graphs
 include("../Experiments.jl")
 
-# datasets::Vector{DATASET} = [wordnet]
-datasets::Vector{DATASET} = [aids, human, yeast, wordnet, youtube, dblp, patents]
+ datasets::Vector{DATASET} = [wordnet]
+# datasets::Vector{DATASET} = [aids, human, yeast, wordnet, youtube, dblp, patents]
 # datasets::Vector{DATASET} = [aids, human, lubm80, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
 max_cycles = 6
-proportions_not_updated = [0, 0.2, 0.4, 0.6, 0.8, 1]
+proportions_not_updated = [0.05, 0.2, 0.4, 0.6, 0.8, 1]
 
-experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, partitioner=QuasiStable, max_cycle_size=current_cycle, proportion_not_updated=current_proportion) 
-                                                    for current_dataset in datasets for current_cycle in 2:max_cycles for current_proportion in proportions_not_updated]
+experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, max_cycle_size=current_cycle, proportion_not_updated=current_proportion)
+                                                    for current_dataset in datasets for current_cycle in 6:max_cycles for current_proportion in proportions_not_updated]
 println("started building")
 build_experiments(experiment_params_list)
 println("started estimating")
