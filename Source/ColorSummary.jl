@@ -235,76 +235,6 @@ end
     return min(1.0, 5.0 * summary.total_edges / summary.total_nodes ^ 2)
 end
 
-# approximates the probability of a cycle existing based on the starting color of the path to be closed and the
-# directionality of the path that will be closed
-function get_start_color_cycle_likelihoods(max_cycle_size::Int, data::DataGraph, color_hash; num_samples_per_color::Int=0)
-    # right now the color hash is a mapping of node -> color, but we want to invert that:
-    color_nodes_mapping::Dict{Int, Vector{Int}} = Dict()
-    for node in keys(color_hash)
-        if (!haskey(color_nodes_mapping, color_hash[node]))
-            color_nodes_mapping[color_hash[node]] = []
-        end
-        push!(color_nodes_mapping[color_hash[node]], node)
-    end
-
-    cycle_likelihoods::Dict{Int, Dict{Vector{Bool}, Float64}} = Dict() # [c1][bool_path] = likelihood
-    # basically the same as the other method, except the query graph should now have a set of data labels attached to it
-
-    for color in keys(color_nodes_mapping)
-        cycle_likelihoods[color] = Dict()
-        for size in 2: max_cycle_size
-            paths = generate_graphs(size - 1, 0, (Vector{DiGraph})([DiGraph(size)]), false)
-            for path_query in paths
-                cycle = copy(path_query.graph)
-                add_edge!(cycle, nv(cycle), 1)
-                if (ne(cycle) == 1)
-                    # accounts for case where the two edges from one node
-                    # point to the same destination node
-                    continue
-                end
-                cycle_query = QueryGraph(cycle)
-                current_starting_nodes = nothing
-                if !(num_samples_per_color === 0)
-                    sample_size = min(num_samples_per_color, length(color_nodes_mapping[color]))
-                    current_starting_nodes = sample(color_nodes_mapping[color], sample_size, replace=false)
-                end
-                numCycles::Float64 = get_exact_size(cycle_query, data, max_partial_paths=max_partial_paths)
-                numPaths::Float64 = get_exact_size(path_query, data, max_partial_paths=max_partial_paths)
-                bool_representation = convert_path_graph_to_bools(path_query.graph)
-                if (numPaths == 0)
-                    println("issue with start color cycle likelihood")
-                end
-                likelihood = numCycles / numPaths
-                cycle_likelihoods[color][bool_representation] = likelihood
-            end
-        end
-    end
-    return cycle_likelihoods
-end
-
-# gets the directed path from the start to finish node
-function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
-    # convert the graph to be undirected
-    graph_copy = Graph(copy(query.graph))
-    rem_edge!(graph_copy, start, finish)
-    # get a path from the start to finish node
-    edges = a_star(graph_copy, start, finish)
-    # currently assumes the edges go in order of the path,
-    # will have to debug through and see if it works
-    new_graph = DiGraph(length(edges) + 1)
-    current_start = 0
-    for edge in edges
-        current_start += 1
-        if src(edge) in outneighbors(query.graph, dst(edge))
-            # this is a backwards edge
-            add_edge!(new_graph, current_start + 1, current_start)
-        else
-            # this is a forwards edge
-            add_edge!(new_graph, current_start, current_start + 1)
-        end
-    end
-    return new_graph
-end
 
 function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int, max_partial_paths)
     # define a specific_edge as [n1, n2, c1, c2, d]
@@ -401,33 +331,6 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
     return cycle_likelihoods, cycle_length_likelihoods
 end
 
-# approximates the probability of a cycle existing based on the directionality of the path that will be closed
-function get_cycle_likelihoods(max_size::Int, data::DataGraph, num_sample_nodes)
-    # we map the path that needs to be closed to its likelihood
-    # of actually closing
-    cycle_likelihoods::Dict{Vector{Bool}, Float64} = Dict()
-    if (max_size < 2)
-        return cycle_likelihoods
-    end
-    for i in 2:max_size
-        println("Generating Cycles of Size: ", i)
-        paths = generate_graphs(i - 1, 0, (Vector{DiGraph})([DiGraph(i)]), false)
-        for path in paths
-            cycle = copy(path.graph)
-            add_edge!(cycle, nv(cycle), 1)
-            if (ne(cycle) == 1)
-                # accounts for case where the two edges from one node
-                # point to the same destination node
-                continue
-            end
-            cycleGraph = QueryGraph(cycle)
-            likelihood = approximate_cycle_likelihood(path, cycleGraph, data, num_sample_nodes) # output a dictionary of start-end color pairs -> likelihood
-            cycle_likelihoods[convert_path_graph_to_bools(path.graph)] = likelihood
-        end
-    end
-    return cycle_likelihoods
-end
-
 # this is the one where we also have the directionality of the path
 # returns a mapping from start/end-colors => cycle-likelihood
 function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, max_partial_paths, min_partial_paths=50)
@@ -484,17 +387,6 @@ function convert_path_graph_to_bools(graph::DiGraph)
     return bool_representation
 end
 
-# for a specific path, calculates the
-# probability that the cycle closes
-function approximate_cycle_likelihood(path::QueryGraph, cycle::QueryGraph, data::DataGraph, max_partial_paths)
-    numCycles::Float64 = get_exact_size(cycle, data, max_partial_paths=max_partial_paths)
-    # add parameter for query nodes that shouldn't be aggregated out (the starting/ending nodes)
-    # will now output a vector of tuples where first thing is a path (should only have start/end nodes after aggregations), second is the weight of the path
-    # iterate through list to figure out cycle closure likelihoods
-    numPaths::Float64 = get_exact_size(path, data, max_partial_paths=max_partial_paths)
-    # only find paths, use data graph to find closing edge if existing
-    return numPaths != 0 ? numCycles / numPaths : 0
-end
 
 # returns a mapping of start/end-colors => path-count/cycle-count
 function approximate_color_cycle_likelihood(path::QueryGraph, data::DataGraph, color_hash, max_partial_paths)
@@ -526,23 +418,6 @@ function approximate_color_cycle_likelihood(path::QueryGraph, data::DataGraph, c
 
     # return mapping of color pairs -> path/cycle likelihood
     return color_matches
-end
-
-# Given a cycle size, find the probability that a chain with the same number of nodes
-# will also have an edge closing the cycle
-# Note: used for old version that mapped cycle-size -> cycle-likelihood
-function approximate_cycle_likelihood(max_cycle_size::Int, data::DataGraph)
-    cycle_likelihoods::Dict{Int,Float64}
-    for size in 2:max_cycle_size
-        # convert to undirected graphs so we don't have to deal with duplicate generated graphs
-        undirected_data = DataGraph(DiGraph(Graph(data.graph)))
-        undirected_path = QueryGraph(DiGraph(path_graph(max_cycle_size)))
-        undirected_cycle = QueryGraph(DiGraph(cycle_graph(max_cycle_size)))
-        num_paths = get_exact_size(undirected_path, undirected_data)
-        num_cycles = get_exact_size(undirected_cycle, undirected_data)
-        cycle_likelihoods[size] = num_paths == 0 ? 0 : num_cycles / num_paths
-    end
-    return cycle_likelihoods
 end
 
 # For a given number of edges, generates all possible directed graphs
@@ -586,18 +461,4 @@ function generate_graphs(desiredEdges::Int, finishedEdges::Int, graphs::Vector{D
         end
     end
     return generate_graphs(desiredEdges, finishedEdges + 1, newGraphs, isCyclic)
-end
-
-# Returns the shortest distance between two nodes not including their directly-connecting edge
-# Note: previously used for path-length -> cycle-likelihood mapping
-function shortestPathNotDirectlyConnected(startNode::Int, endNode::Int, query::QueryGraph)
-    copiedDiGraph = copy(query.graph)
-    # remove the edge we are trying to close in the query
-    rem_edge!(copiedDiGraph, startNode, endNode)
-    # find the shortest path between the start and end node
-    # start by removing directionality because we're just concerned with the shortest
-    # number of connections between the two nodes
-    undirectedGraph = Graph(copiedDiGraph)
-    ds = dijkstra_shortest_paths(undirectedGraph, startNode)
-    return ds.dists[endNode]
 end
