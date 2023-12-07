@@ -1,7 +1,6 @@
 # This file defines the interface and several instantiations of degree statistics. These are
 # the core statistic that is used in the estimation procedure.
 
-
 abstract type DegreeStats end
 
 # A degree statistic is derived from a set of edges. We include the data graph as well in
@@ -16,6 +15,7 @@ end
 function get_out_deg_estimate(d::DegreeStats)
     throw(ErrorException("DegreeStats is an abstract type, you probably meant to call a particular instance."))
 end
+
 function get_in_deg_estimate(d::DegreeStats)
     throw(ErrorException("DegreeStats is an abstract type, you probably meant to call a particular instance."))
 end
@@ -136,7 +136,6 @@ end
 get_in_deg_estimate(d::AvgDegStats) = d.avg_in
 get_out_deg_estimate(d::AvgDegStats) = d.avg_out
 
-
 struct AvgAccumulator <:StatAccumulator
     weight::Float32
 end
@@ -147,9 +146,9 @@ scale_coloring(w::AvgAccumulator, s) = AvgAccumulator(w.weight * s)
 
 function extend_coloring(w::AvgAccumulator, d::AvgDegStats, out_edge::Bool)
     if out_edge
-        return AvgAccumulator(w.weight*d.avg_out)
+        return scale_coloring(w, d.avg_out)
     else
-        return AvgAccumulator(w.weight*d.avg_in)
+        return scale_coloring(w, d.avg_in)
     end
 end
 

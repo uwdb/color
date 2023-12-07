@@ -8,7 +8,6 @@ QSC = QuasiStableColors
 using Graphs: SimpleDiGraphFromIterator, Edge, DiGraph, edges, nv, ne, add_edge!,
                 add_vertex!, vertices, all_neighbors, src, dst, outneighbors, inneighbors
 
-
 BoolPath = Vector{Bool}
 NodeId = Int
 Color = Int16
@@ -71,8 +70,6 @@ function params_to_string(params::ColorSummaryParams)
     summary_name *= string(params.proportion_deleted)
     return summary_name
 end
-
-
 
 include("PropertyGraph.jl")
 include("datasets.jl")

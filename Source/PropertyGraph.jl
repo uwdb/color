@@ -86,7 +86,7 @@ end
 
 function add_labeled_node!(g::DataGraph, node_labels=[], data_label=-1)
     add_vertex!(g.graph)
-    g.vertex_labels = [g.vertex_labels..., node_labels]
+    push!(g.vertex_labels, node_labels)
 end
 
 function print_graph!(g::PropertyGraph)

@@ -198,7 +198,6 @@ function update_edge_degrees!(summary::ColorSummary{AvgDegStats}, start_node, en
     summary.total_added_edges += 1
 end
 
-
 function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, timing_vec::Vector{Float64} = Float64[], use_cycle_join_table=true)
     DS = params.deg_stats_type
     if (verbose > 0)
