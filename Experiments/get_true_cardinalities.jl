@@ -32,8 +32,6 @@ function calculate_true_cardinalities(datasets::Vector{DATASET}; timeout=120, qu
     end
 end
 
-
-
 function verify_true_cardinalities(datasets::Vector{DATASET}; timeout=120)
     queries = load_querysets(datasets; require_true_cardinality=true)
     for dataset in datasets

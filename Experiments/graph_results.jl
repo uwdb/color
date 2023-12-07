@@ -1,4 +1,4 @@
-@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_not_updated proportion_deleted deg_stat_type
+@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_not_updated proportion_deleted deg_stat_type description
 
 @enum VALUE estimate_error runtime build_time memory_footprint
 
@@ -61,7 +61,7 @@ function comparison_dataset()
         elseif dataset in ["aids", "human", "yago"]
             comparison_results[i, :QueryType] = match(r"(.*)_.*/.*", query_path).captures[1]
         else
-            comparison_results[i, :QueryType] = match(r".*/queryset/.*/query_(.*)_.*", query_path).captures[1]
+            comparison_results[i, :QueryType] = match(r".*/query_(.*)_.*", query_path).captures[1]
         end
     end
     return comparison_results
@@ -98,7 +98,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
         for i in 1:nrow(results_df)
             current_x = string(get_value_from_param(experiment_params, dataset))
 
-            current_group = string(grouping) * '_' * string(grouping == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, grouping))
+            current_group = string(grouping == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, grouping))
             current_y = 0
             if y_type == estimate_error
                 current_y = results_df[i, :Estimate] / results_df[i, :TrueCard]
@@ -138,7 +138,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
     ENV["GKSwstype"]="100"
     gbplot = groupedboxplot(x_values, y_values, group = estimators, yscale =:log10,
                             ylims=ylims,
-                            legend = :outertopleft, size = (1000, 600))
+                            legend = :outertopleft, size = (1000, 600), whisker_range=0)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
@@ -208,9 +208,6 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
     # This seems to be necessary for using Plots.jl outside of the ipynb framework.
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
     ENV["GKSwstype"]="100"
-    println(x_values)
-    println(y_values)
-    println(groups)
     gbplot = StatsPlots.groupedbar(x_values,
                             y_values,
                             group = groups,
@@ -249,6 +246,8 @@ function get_value_from_param(experiment_param::ExperimentParams, value_type::GR
         return experiment_param.summary_params.proportion_deleted
     elseif value_type == deg_stat_type
         return experiment_param.summary_params.deg_stats_type
+    elseif value_type == description
+        return experiment_param.description
     else
         # default to grouping by technique
         return experiment_param.summary_params.partitioning_scheme
