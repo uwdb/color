@@ -1,30 +1,16 @@
 using Graphs
 using Probably
 
-mutable struct DegreeStats
-    min_out::Float32
-    avg_out::Float32
-    max_out::Float32
-    min_in::Float32
-    avg_in::Float32
-    max_in::Float32
-
-    function DegreeStats(min_out, avg_out, max_out)
-        return new(min_out, avg_out, max_out, 0, 0, 0)
-    end
-
-    function DegreeStats(partial_deg, min_in, avg_in, max_in)
-        return new(partial_deg.min_out, partial_deg.avg_out, partial_deg.max_out, min_in, avg_in, max_in)
-    end
-end
-
 # The ColorSummary struct holds statistical information associated with the colored graph.
 # It keeps detailed information about the number of edges between colors of a particular color and which land in
 # a particular color. Note that `-1` is used to represent a "wildcard" label. These do not appear in the data graph,
 # but they do occur in the query graph.
-mutable struct ColorSummary
+mutable struct ColorSummary{DS}
+    # for outdegrees, c2 is the color of the outneighbor
+    # for indegrees, c2 is the color of the inneighbor
+    # v2 represents the label of the node in c1
     color_label_cardinality::Dict{Color, Dict{Int, Int}} # color_label_cardinality[c][v] = num_vertices
-    edge_deg::Dict{Int, Dict{Int, Dict{Color, Dict{Color, DegreeStats}}}} # edge_deg[e][v2][c1][c2] = degreestat
+    edge_deg::Dict{Int, Dict{Int, Dict{Color, Dict{Color, DS}}}} # edge_deg[e][v2][c1][c2] = degreestat
     color_filters::Dict{Color, SmallCuckoo} # color_filters[c] = filter
     cycle_probabilities::Dict{CyclePathAndColors, Float64} # cycle_probabilities[[c1, c2], path] = likelihood
     cycle_length_probabilities::Dict{Int, Float64} #cycle_probabilities[path_length] = likelihood
@@ -33,9 +19,6 @@ mutable struct ColorSummary
     total_nodes::Int
     num_colors::Int
     total_added_edges::Int
-    # for outdegrees, c2 is the color of the outneighbor
-    # for indegrees, c2 is the color of the inneighbor
-    # v2 represents the label of the node in c1
 end
 
 # chooses a color for a new node to be added to
@@ -60,7 +43,7 @@ function get_largest_color(summary)
     return current_color
 end
 
-function add_summary_node!(summary, node_labels, node)
+function add_summary_node!(summary::ColorSummary{DS}, node_labels, node) where DS
     data_label = node
 
     color = choose_color(summary)
@@ -75,15 +58,9 @@ function add_summary_node!(summary, node_labels, node)
                 summary.edge_deg[edge_label][node_label] = Dict()
             end
             for other_color in keys(summary.edge_deg[edge_label][node_label])
-                if !haskey(summary.edge_deg[edge_label][node_label], other_color)
-                    summary.edge_deg[edge_label][node_label][other_color] = Dict()
-                end
-                if !haskey(summary.edge_deg[edge_label][node_label][other_color], color)
-                    summary.edge_deg[edge_label][node_label][other_color][color] = DegreeStats(0, 0, 0)
-                end
+                current_ds = get(summary.edge_deg[edge_label][node_label][other_color], color, DS(0.0))
                 current_cardinality = get(summary.color_label_cardinality[color], node_label, 0)
-                summary.edge_deg[edge_label][node_label][other_color][color].avg_out *= (current_cardinality / (current_cardinality + 1))
-                summary.edge_deg[edge_label][node_label][other_color][color].avg_in *= (current_cardinality / (current_cardinality + 1))
+                summary.edge_deg[edge_label][node_label][other_color][color] = scale_out_degree(current_ds, (current_cardinality / (current_cardinality + 1)))
             end
         end
     end
@@ -99,7 +76,7 @@ end
 
 # assume that you delete all attached edges before removing a summary node
 # assume that the node to delete actually exists
-function delete_summary_node!(summary, node_labels, node)
+function delete_summary_node!(summary::ColorSummary{DS}, node_labels, node) where DS
     color = get_node_summary_color(summary, node)
 
     # by definition in data graph
@@ -116,9 +93,9 @@ function delete_summary_node!(summary, node_labels, node)
         for node_label in node_labels
             for other_color in keys(summary.edge_deg[edge_label][node_label])
                 current_cardinality = get(summary.color_label_cardinality[color], node_label, 0)
-                current_edge_deg = get(summary.edge_deg[edge_label][node_label][other_color], color, DegreeStats(0,0,0))
-                current_edge_deg.avg_out *= current_cardinality <= 1 ? 0 : (current_cardinality / (current_cardinality - 1))
-                current_edge_deg.avg_in *= current_cardinality <= 1 ? 0 : (current_cardinality / (current_cardinality - 1))
+                current_deg = get(summary.edge_deg[edge_label][node_label][other_color], color, DS(0.0))
+                scale_factor = current_cardinality <= 1 ? 0 : (current_cardinality / (current_cardinality - 1))
+                summary.edge_deg[edge_label][node_label][other_color][color] = scale_out_deg(current_deg, scale_factor)
             end
         end
     end
@@ -150,7 +127,7 @@ function remove_summary_edge!(summary, start_node, end_node, edge_labels)
     update_edge_degrees!(summary, start_node, end_node, edge_labels, remove=true)
 end
 
-function update_edge_degrees!(summary, start_node, end_node, edge_labels::Vector; remove=false)
+function update_edge_degrees!(summary::ColorSummary{DS}, start_node, end_node, edge_labels::Vector; remove=false) where DS
     # need to eventually make sure that the edge label is a set that includes -1 for the label...
     if !(-1 in edge_labels)
         push!(edge_labels, -1)
@@ -166,13 +143,10 @@ function update_edge_degrees!(summary, start_node, end_node, edge_labels::Vector
         for vertex_label in keys(summary.color_label_cardinality[end_color])
             # this is the probability that the vertex label will be included
             probability_end_vertex_label = summary.color_label_cardinality[end_color][vertex_label] / summary.color_label_cardinality[end_color][-1]
-            # the avg is based on the # of vertices in c1
-            original_avg_out = 0
-            if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], vertex_label) &&
-                    haskey(summary.edge_deg[edge_label][vertex_label], start_color) &&
-                    haskey(summary.edge_deg[edge_label][vertex_label][start_color], end_color)
-                original_avg_out = summary.edge_deg[edge_label][vertex_label][start_color][end_color].avg_out
+            if remove
+                probability_end_vertex_label *= -1
             end
+            # the avg is based on the # of vertices in c1
             if !haskey(summary.edge_deg, edge_label)
                 summary.edge_deg[edge_label] = Dict()
             end
@@ -182,15 +156,17 @@ function update_edge_degrees!(summary, start_node, end_node, edge_labels::Vector
             if !haskey(summary.edge_deg[edge_label][vertex_label], start_color)
                 summary.edge_deg[edge_label][vertex_label][start_color] = Dict()
             end
-            if !haskey(summary.edge_deg[edge_label][vertex_label][start_color], end_color)
-                summary.edge_deg[edge_label][vertex_label][start_color][end_color] = DegreeStats(0, 0, 0)
-            end
+            current_deg = get(summary.edge_deg[edge_label][vertex_label][start_color], end_color, DS(0.0))
+            original_avg_out = get_out_deg_estimate(current_deg)
             summary.edge_deg[edge_label][vertex_label][start_color][end_color].avg_out = c1_count == 0 ? 0 :
                 min(((original_avg_out * c1_count) + probability_end_vertex_label), c1_count * summary.color_label_cardinality[end_color][vertex_label]) / c1_count
             # note we don't have to update the color_label_cardinality since no new nodes were added...
         end
         for vertex_label in keys(summary.color_label_cardinality[start_color])
             probability_start_vertex_label = summary.color_label_cardinality[start_color][vertex_label] / summary.color_label_cardinality[start_color][-1]
+            if remove
+                probability_start_vertex_label *= -1
+            end
             # now adjust the averages of the appropriate in/out degreestats...
             original_avg_in = 0
             if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], vertex_label) &&
@@ -208,7 +184,7 @@ function update_edge_degrees!(summary, start_node, end_node, edge_labels::Vector
                 summary.edge_deg[edge_label][vertex_label][end_color] = Dict()
             end
             if !haskey(summary.edge_deg[edge_label][vertex_label][end_color], start_color)
-                summary.edge_deg[edge_label][vertex_label][end_color][start_color] = DegreeStats(0, 0, 0)
+                summary.edge_deg[edge_label][vertex_label][end_color][start_color] = DS(0.0)
             end
             summary.edge_deg[edge_label][vertex_label][end_color][start_color].avg_in = c2_count == 0 ? 0 :
                 min(((original_avg_in * c2_count) + probability_start_vertex_label), c2_count * summary.color_label_cardinality[start_color][vertex_label]) / c2_count
@@ -219,7 +195,8 @@ function update_edge_degrees!(summary, start_node, end_node, edge_labels::Vector
 end
 
 
-function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, precolor=false, timing_vec::Vector{Float64} = Float64[], use_cycle_join_table=true)
+function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, timing_vec::Vector{Float64} = Float64[], use_cycle_join_table=true)
+    DS = params.deg_stats_type
     if (verbose > 0)
         println("Started coloring")
     end
@@ -298,7 +275,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     end
     edge_stats_time = time()
     # We keep separate degree statistics for in-degree and out-degree.
-    color_to_color_out_counter::Dict{Int, Dict{Int, Any}} = Dict()
+    color_to_color_edge_list::Dict{Int, Dict{Int, Dict{Color, Dict{Color, Vector{Tuple{NodeId, NodeId, Bool}}}}}} = Dict()
     for x in vertices(g.graph)
         c1 = color_hash[x]
         for y in outneighbors(g.graph,x)
@@ -306,132 +283,64 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
             edge_labels = []
             copy!(edge_labels, g.edge_labels[(x, y)])
             push!(edge_labels, -1)
-            vertex_labels = []
-            copy!(vertex_labels, g.vertex_labels[y])
-            push!(vertex_labels, -1)
+            y_vertex_labels = []
+            copy!(y_vertex_labels, g.vertex_labels[y])
+            push!(y_vertex_labels, -1)
+            x_vertex_labels = []
+            copy!(x_vertex_labels, g.vertex_labels[x])
+            push!(x_vertex_labels, -1)
 
             # Since each edge/vertex can have multiple labels associated with it,
             # we must count each edge/vertex label separately in our counter.
             # Additionally, we need to include a count for the implicit `-1` wildcard label.
             for edge_label in edge_labels
-                if !haskey(color_to_color_out_counter, edge_label)
-                    color_to_color_out_counter[edge_label] = Dict()
+                if !haskey(color_to_color_edge_list, edge_label)
+                    color_to_color_edge_list[edge_label] = Dict()
                 end
-                for vertex_label in vertex_labels
-                    if !haskey(color_to_color_out_counter[edge_label], vertex_label)
-                        color_to_color_out_counter[edge_label][vertex_label] = Dict()
+                # We also need to consider both outgoing and incoming labels
+                for vertex_label in y_vertex_labels
+                    if !haskey(color_to_color_edge_list[edge_label], vertex_label)
+                        color_to_color_edge_list[edge_label][vertex_label] = Dict()
                     end
-                    if !haskey(color_to_color_out_counter[edge_label][vertex_label], c1)
-                        color_to_color_out_counter[edge_label][vertex_label][c1] = Dict()
+                    if !haskey(color_to_color_edge_list[edge_label][vertex_label], c1)
+                        color_to_color_edge_list[edge_label][vertex_label][c1] = Dict()
                     end
-                    if !haskey(color_to_color_out_counter[edge_label][vertex_label][c1], c2)
-                        color_to_color_out_counter[edge_label][vertex_label][c1][c2] = counter(Int)
+                    if !haskey(color_to_color_edge_list[edge_label][vertex_label][c1], c2)
+                        color_to_color_edge_list[edge_label][vertex_label][c1][c2] = []
                     end
-                    inc!(color_to_color_out_counter[edge_label][vertex_label][c1][c2], x)
+                    push!(color_to_color_edge_list[edge_label][vertex_label][c1][c2], (x, y, true))
+                end
+
+                for vertex_label in x_vertex_labels
+                    if !haskey(color_to_color_edge_list[edge_label], vertex_label)
+                        color_to_color_edge_list[edge_label][vertex_label] = Dict()
+                    end
+                    if !haskey(color_to_color_edge_list[edge_label][vertex_label], c2)
+                        color_to_color_edge_list[edge_label][vertex_label][c2] = Dict()
+                    end
+                    if !haskey(color_to_color_edge_list[edge_label][vertex_label][c2], c1)
+                        color_to_color_edge_list[edge_label][vertex_label][c2][c1] = []
+                    end
+                    push!(color_to_color_edge_list[edge_label][vertex_label][c2][c1], (y, x, false))
                 end
             end
         end
     end
 
     edge_deg::Dict{Int, Dict{Int, Dict{Color, Dict{Color, DegreeStats}}}} = Dict()
-    for edge_label in keys(color_to_color_out_counter)
+    for edge_label in keys(color_to_color_edge_list)
         edge_deg[edge_label] = Dict()
-        for vertex_label in keys(color_to_color_out_counter[edge_label])
+        for vertex_label in keys(color_to_color_edge_list[edge_label])
             edge_deg[edge_label][vertex_label] = Dict()
-            for c1 in keys(color_to_color_out_counter[edge_label][vertex_label])
+            for c1 in keys(color_to_color_edge_list[edge_label][vertex_label])
                 edge_deg[edge_label][vertex_label][c1] = Dict()
-                for c2 in keys(color_to_color_out_counter[edge_label][vertex_label][c1])
-                    min_deg = nv(g.graph) # set this to the max possible value for comparison later
-                    max_deg = 0 # set to min possible value for comparison later
-                    for v in values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])
-                        min_deg = min(v, min_deg)
-                        max_deg = max(v, max_deg)
-                    end
-                    avg_deg = sum(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) / color_sizes[c1]
-
-                    # if the number of connections is less than the number of vertices in the color,
-                    # we can't guarantee the minimum bounds since they won't all map to the same vertex
-                    if length(values(color_to_color_out_counter[edge_label][vertex_label][c1][c2])) < color_sizes[c1]
-                        min_deg = 0
-                    end
-                    edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(min_deg, avg_deg, max_deg)
+                for c2 in keys(color_to_color_edge_list[edge_label][vertex_label][c1])
+                    edge_deg[edge_label][vertex_label][c1][c2] = DS(g, color_to_color_edge_list[edge_label][vertex_label][c1][c2])
                 end
             end
         end
     end
 
-    # We keep separate degree statistics for in-degree and out-degree.
-    color_to_color_in_counter::Dict{Int, Dict{Int, Any}} = Dict()
-    for x in vertices(g.graph)
-        c1 = color_hash[x]
-        for y in inneighbors(g.graph,x)
-            c2 = color_hash[y]
-            edge_labels = []
-            copy!(edge_labels, g.edge_labels[(y, x)])
-            push!(edge_labels, -1)
-            vertex_labels = []
-            copy!(vertex_labels, g.vertex_labels[y])
-            push!(vertex_labels, -1)
-
-            # Since each edge/vertex can have multiple labels associated with it,
-            # we must count each edge/vertex label separately in our counter.
-            # Additionally, we need to include a count for the implicit `-1` wildcard label.
-            for edge_label in edge_labels
-                if !haskey(color_to_color_in_counter, edge_label)
-                    color_to_color_in_counter[edge_label] = Dict()
-                end
-                for vertex_label in vertex_labels
-                    if !haskey(color_to_color_in_counter[edge_label], vertex_label)
-                        color_to_color_in_counter[edge_label][vertex_label] = Dict()
-                    end
-                    if !haskey(color_to_color_in_counter[edge_label][vertex_label], c1)
-                        color_to_color_in_counter[edge_label][vertex_label][c1] = Dict()
-                    end
-                    if !haskey(color_to_color_in_counter[edge_label][vertex_label][c1], c2)
-                        color_to_color_in_counter[edge_label][vertex_label][c1][c2] = counter(Int)
-                    end
-                    inc!(color_to_color_in_counter[edge_label][vertex_label][c1][c2], x)
-                end
-            end
-        end
-    end
-
-    for edge_label in keys(color_to_color_in_counter)
-        if !haskey(edge_deg, edge_label)
-            edge_deg[edge_label] = Dict()
-        end
-        for vertex_label in keys(color_to_color_in_counter[edge_label])
-            if !haskey(edge_deg[edge_label], vertex_label)
-                edge_deg[edge_label][vertex_label] = Dict()
-            end
-            for c1 in keys(color_to_color_in_counter[edge_label][vertex_label])
-                if !haskey(edge_deg[edge_label][vertex_label], c1)
-                    edge_deg[edge_label][vertex_label][c1] = Dict()
-                end
-                for c2 in keys(color_to_color_in_counter[edge_label][vertex_label][c1])
-                    if !haskey(edge_deg[edge_label][vertex_label][c1], c2)
-                        edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(0,0,0)
-                    end
-
-                    min_deg = nv(g.graph) # set this to the max possible value for comparison later
-                    max_deg = 0 # set to min possible value for comparison later
-                    for v in values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])
-                        min_deg = min(v, min_deg)
-                        max_deg = max(v, max_deg)
-                    end
-                    avg_deg = sum(values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])) / color_sizes[c1]
-
-                    # if the number of connections is less than the number of vertices in the color,
-                    # we can't guarantee the minimum bounds since they won't all map to the same vertex
-                    if length(values(color_to_color_in_counter[edge_label][vertex_label][c1][c2])) < color_sizes[c1]
-                        min_deg = 0
-                    end
-                    out_degree_stats = edge_deg[edge_label][vertex_label][c1][c2]
-                    edge_deg[edge_label][vertex_label][c1][c2] = DegreeStats(out_degree_stats, min_deg, avg_deg, max_deg)
-                end
-            end
-        end
-    end
     if (verbose > 0)
         println("Finished tracking statistics")
     end
@@ -443,7 +352,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     # println("number of nodes: ", nv(g.graph))
     # println("number of edges: ", ne(g.graph))
 
-    return ColorSummary(color_label_cardinality, edge_deg, color_filters,
+    return ColorSummary{DS}(color_label_cardinality, edge_deg, color_filters,
                 cycle_probabilities, cycle_length_probabilities, params.max_cycle_size,
                  ne(g.graph), nv(g.graph), num_colors, 0)
 end
@@ -491,8 +400,12 @@ end
     if (summary.color_label_cardinality[child_color][child_label] == 0)
         println("issue with independent cycle likelihood")
     end
-    # right now the independent cycle likelihood is greater than 1...
-    return summary.edge_deg[edge_label][child_label][parent_color][child_color].avg_out/summary.color_label_cardinality[child_color][child_label]
+    return get_out_deg_estimate(summary.edge_deg[edge_label][child_label][parent_color][child_color])/summary.color_label_cardinality[child_color][child_label]
+end
+
+# When colors are unavailable, we use a coarser probability
+@inline function get_independent_cycle_likelihood(summary::ColorSummary)
+    return min(1.0, 5.0 * summary.total_edges / summary.total_nodes ^ 2)
 end
 
 # approximates the probability of a cycle existing based on the starting color of the path to be closed and the

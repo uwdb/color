@@ -13,11 +13,6 @@ BoolPath = Vector{Bool}
 NodeId = Int
 Color = Int16
 StartEndColorPair = Tuple{Color, Color}
-abstract type Comparable end
-import Base .==
-function ==(a::T, b::T) where T <: Comparable
-    (a.path == b.path) && (a.colors == b.colors)
-end
 @auto_hash_equals mutable struct CyclePathAndColors
     path::BoolPath
     colors::StartEndColorPair
@@ -25,8 +20,8 @@ end
 
 @enum PARTITIONER QuasiStable Hash Degree DirectedDegree SimpleLabel InOut LabelInOut NeighborEdges MostNeighbors NeighborNodeLabels
 
-
 struct ColorSummaryParams
+    deg_stats_type::Type
     num_colors::Int
     max_cycle_size::Int
     max_partial_paths::Int
@@ -35,15 +30,16 @@ struct ColorSummaryParams
     proportion_not_updated::Float16
     proportion_deleted::Float16
 
-    function ColorSummaryParams(;max_cycle_size=4, max_partial_paths=1000,
+    function ColorSummaryParams(;deg_stats_type = AvgDegStats, max_cycle_size=4, max_partial_paths=1000,
         partitioning_scheme::Vector{Tuple{PARTITIONER, Int}} = [(QuasiStable, 64)], weighting=true, proportion_not_updated = 1.0, proportion_deleted=0.0)
         num_colors = sum([x[2] for x in partitioning_scheme])
-        return new(num_colors, max_cycle_size, max_partial_paths, partitioning_scheme, weighting, proportion_not_updated, proportion_deleted)
+        return new(deg_stats_type, num_colors, max_cycle_size, max_partial_paths, partitioning_scheme, weighting, proportion_not_updated, proportion_deleted)
     end
 end
 
 function params_to_string(params::ColorSummaryParams)
-    summary_name = "ColorSummary_" * string(params.partitioning_scheme) * "_"
+    summary_name = "ColorSummary_" * string(params.deg_stats_type) * "_"
+    summary_name *= string(params.partitioning_scheme) * "_"
     summary_name *= string(params.max_cycle_size) * "_"
     summary_name *= string(params.max_partial_paths)* "_"
     summary_name *= string(params.proportion_not_updated) * "_"
@@ -58,5 +54,6 @@ include("datasets.jl")
 include("utils.jl")
 include("ExactSizeCalculator.jl")
 include("ColoringMethods.jl")
+include("DegreeStats.jl")
 include("ColorSummary.jl")
 include("QuasiStableCardinalityEstimator.jl")
