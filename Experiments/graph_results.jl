@@ -101,7 +101,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
             current_group = string(grouping == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, grouping))
             current_y = 0
             if y_type == estimate_error
-                current_y = results_df[i, :Estimate] / results_df[i, :TrueCard]
+                current_y = min(10^30, max(1, results_df[i, :Estimate])) / results_df[i, :TrueCard]
             else # y_type == runtime
                 current_y = results_df[i, :EstimationTime]
             end
@@ -122,7 +122,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
             continue
         end
         if y_type == estimate_error
-            current_y = max(1, comparison_results[i, :Value]) / true_card[(current_x, comparison_results[i, :Query])]
+            current_y = min(10^30, max(1, comparison_results[i, :Value])) / true_card[(current_x, comparison_results[i, :Query])]
         else # y_type == runtime
             current_y = comparison_results[i, :Runtime] / 1000.0
         end
