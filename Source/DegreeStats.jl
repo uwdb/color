@@ -58,6 +58,8 @@ function stat_type_to_accumulator(D::Type)
         AvgAccumulator
     elseif D == MaxDegStats
         MaxAccumulator
+    elseif D == CorrDegStats
+        CorrAccumulator
     else
         throw(ErrorException(string(D)* " doesn't have an associated accumulator!"))
     end
@@ -200,4 +202,103 @@ function extend_coloring(w::MaxAccumulator, d::MaxDegStats, out_edge::Bool)
 end
 
 ############################ VarianceDegreeStats ################################################
-# TODO: Add the variance stats here
+
+struct CorrDegStats <:DegreeStats
+    avg_in::Float32
+    var_in::Float32
+    corr_in::Float32
+    avg_out::Float32
+    var_out::Float32
+    corr_out::Float32
+end
+
+function CorrDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}}, color_size::Int)
+    length(edges) == 0 && return CorrDegStats(0,0,0,0,0)
+
+    l_1st = [0.0, 0.0]
+    l_2nd = [0.0, 0.0]
+    r_1st = [0.0, 0.0]
+    r_2nd = [0.0, 0.0]
+    e_1st = [0.0, 0.0]
+    e_count = [0.0, 0.0]
+    for (x, y, out_edge) in edges
+        if out_edge
+            l_1st[1] += degree(g.graph, x)
+            l_2nd[1] += degree(g.graph, x)^2
+            r_1st[1] += degree(g.graph, y)
+            r_2nd[1] += degree(g.graph, y)^2
+            e_1st[1] += degree(g.graph, x) * degree(g.graph, y)
+            e_count[1] += 1
+        else
+            l_1st[2] += degree(g.graph, x)
+            l_2nd[2] += degree(g.graph, x)^2
+            r_1st[2] += degree(g.graph, y)
+            r_2nd[2] += degree(g.graph, y)^2
+            e_1st[2] += degree(g.graph, x) * degree(g.graph, y)
+            e_count[2] += 1
+        end
+    end
+    corrs = [0.0, 0.0]
+    for i in 1:2
+        l_1st[i] /= e_count[i]
+        l_2nd[i] /= e_count[i]
+        r_1st[i] /= e_count[i]
+        r_2nd[i] /= e_count[i]
+        e_1st[i] /= e_count[i]
+        r_denom = sqrt(r_2nd[i]-r_1st[i]^2)
+        l_denom = sqrt(l_2nd[i]-l_1st[i]^2)
+        if r_denom > 0 && l_denom > 0
+            corrs[i] = (e_1st[i] - l_1st[i]*r_1st[i])/(sqrt(l_2nd[i] - l_1st[i]^2) * sqrt(r_2nd[i]-r_1st[i]^2))
+        else
+            corrs[i] = 0
+        end
+    end
+
+    in_counter = counter(NodeId)
+    out_counter = counter(NodeId)
+    for edge in edges
+        if edge[3]
+            inc!(out_counter, edge[1])
+        else
+            inc!(in_counter, edge[1])
+        end
+    end
+    avg_in = sum([x for x in values(in_counter)]; init=0)/color_size
+    var_in = sum([x^2 for x in values(in_counter)]) / color_size - avg_in^2
+    avg_out = sum([x for x in values(out_counter)]; init=0)/color_size
+    var_out = sum([x^2 for x in values(out_counter)]) / color_size - avg_out^2
+    return CorrDegStats(avg_in, var_in, corrs[1], avg_out, var_out, corrs[2])
+end
+get_in_deg_estimate(d::CorrDegStats) = d.avg_in
+get_out_deg_estimate(d::CorrDegStats) = d.avg_out
+
+struct CorrAccumulator <:StatAccumulator
+    weight::Float64
+    var::Float64
+    CorrAccumulator(w) = new(w, 0)
+    CorrAccumulator(w, v) = new(w, v)
+end
+
+get_count(w::CorrAccumulator) = w.weight
+sum_colorings(w1::CorrAccumulator, w2::CorrAccumulator) = CorrAccumulator(w1.weight + w2.weight, w1.var + w2.var)
+scale_coloring(w::CorrAccumulator, s) = CorrAccumulator(w.weight * s, w.var * s^2)
+
+function extend_coloring(w::CorrAccumulator, d::CorrDegStats, out_edge::Bool)
+    w_std = sqrt(w.var)
+    w_2nd = w.var + w.weight^2
+    if out_edge
+        d_std = sqrt(d.var_out)
+        d_2nd = d.var_out + d.avg_out^2
+        new_w = w.weight * d.avg_out + w_std * d_std * d.corr_out
+        new_2nd = w_2nd * d_2nd + 4 * w.weight * d.avg_out * w_std * d_std *d.corr_out + 2 * d.corr_out^2 * w.var * d.var_out
+        new_var = max(0.0, new_2nd - new_w^2) # Needed to handle FP errors & epsilon negatives
+        return CorrAccumulator(new_w, new_var)
+    else
+        d_std = sqrt(d.var_in)
+        d_2nd = d.var_in + d.avg_in^2
+        new_w = w.weight * d.avg_in + w_std * d_std * d.corr_in
+        new_2nd = w_2nd * d_2nd + 4 * w.weight * d.avg_in * w_std * d_std * d.corr_in + 2 * d.corr_in^2 * w.var * d.var_in
+        new_var = max(0.0, new_2nd - new_w^2) # Needed to handle FP errors & epsilon negatives
+        return CorrAccumulator(new_w, new_var)
+    end
+end

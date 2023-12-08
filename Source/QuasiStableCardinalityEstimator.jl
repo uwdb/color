@@ -406,6 +406,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
                     if !(length(new_data_labels) == 1 && new_data_labels[1] == -1)
                         new_partial_weights[new_path_idx] = scale_coloring(new_partial_weights[new_path_idx], 1.0/summary.color_label_cardinality[new_color][new_label])
                     end
+                    isinf(get_count(new_partial_weights[new_path_idx])) && return Inf
                     new_path_idx += 1
                 end
             end
