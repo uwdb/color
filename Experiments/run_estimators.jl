@@ -7,7 +7,8 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
         summary::ColorSummary = deserialize(summary_file_location)
         experiment_results = []
         push!(experiment_results, ("Estimate", "TrueCard", "EstimationTime", "QueryType", "QueryPath"))
-        for i in 1:length(all_queries[dataset])
+        lk = ReentrantLock()
+        Threads.@threads for i in shuffle(collect(1:length(all_queries[dataset])))
             query::QueryGraph = all_queries[dataset][i].query
             query_path = all_queries[dataset][i].query_path
             exact_size = all_queries[dataset][i].exact_size
@@ -19,7 +20,9 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
             estimate_time = median([x.time for x in  estimate_results]) # Convert back to seconds from nano seconds
             estimate = max(1, estimate_results[1].value)
             query_type = all_queries[dataset][i].query_type
+            lock(lk)
             push!(experiment_results, (estimate, exact_size, estimate_time, query_type, query_path))
+            unlock(lk)
         end
         results_file_location = "Experiments/Results/Estimation_"  * params_to_results_filename(experiment_params)
         writedlm(results_file_location, experiment_results, ",")
