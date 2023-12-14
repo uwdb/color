@@ -4,14 +4,14 @@ function build_experiments(experiment_params_list::Vector{ExperimentParams})
         dataset = experiment_params.dataset
         summary_params = experiment_params.summary_params
         data = load_dataset(dataset)
-        vertices_to_add = round(convert(Float64, nv(data.graph)) * convert(Float64, experiment_params.summary_params.proportion_not_updated))
+        vertices_to_add = nv(data.graph) - round(convert(Float64, nv(data.graph)) * convert(Float64, experiment_params.summary_params.proportion_updated))
         cloned_data = DataGraph(convert(Int64, vertices_to_add))
         vertices_for_later = []
         old_to_new_node_mapping = Dict()
         edges_for_later = []
         current_node = vertices_to_add
         # chooses a subset of the graph to be preloaded
-        if (convert(Float64, experiment_params.summary_params.proportion_not_updated) < 1.0)
+        if (convert(Float64, experiment_params.summary_params.proportion_updated) > 0.0)
             graph_vertices = collect(vertices(data.graph))
             shuffle(graph_vertices)
             graph_edges = collect(edges(data.graph)) # these store the connections of the original nodes...
@@ -38,10 +38,10 @@ function build_experiments(experiment_params_list::Vector{ExperimentParams})
         summary_file_location = "Experiments/SerializedSummaries/" * summary_name
         println("Building Color Summary: ", summary_name)
         timing_vec = Float64[]
-        results = @timed generate_color_summary((experiment_params.summary_params.proportion_not_updated < 1.0) ? cloned_data : data, summary_params; verbose=1, timing_vec=timing_vec)
+        results = @timed generate_color_summary((experiment_params.summary_params.proportion_updated > 0) ? cloned_data : data, summary_params; verbose=1, timing_vec=timing_vec)
         current_summary = results.value
         # updates the remaining portion of the graph
-        if (experiment_params.summary_params.proportion_not_updated < 1.0)
+        if (experiment_params.summary_params.proportion_updated > 0)
             for vertex in vertices_for_later
                 add_summary_node!(current_summary, get(data.vertex_labels, vertex, []), vertex + 1) # need to double check if you do add one here
             end

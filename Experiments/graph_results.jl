@@ -1,4 +1,4 @@
-@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_not_updated proportion_deleted deg_stat_type description
+@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_updated proportion_deleted deg_stat_type description
 
 @enum VALUE estimate_error runtime build_time memory_footprint
 
@@ -42,10 +42,12 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
     ENV["GKSwstype"]="100"
     gbplot = groupedboxplot(x_values, y_values, group = groups, yscale =:log10,
-                            ylims=[10^-13, 10^11], yticks=[10^-10, 10^-5, 10^-2, 1, 10^2, 10^5, 10^10],
-                            legend = :outertopleft, size = (1000, 600))
+                            ylims=[10^-16, 10^16], yticks=[10^-10, 10^-5, 10^-2, 1, 10^2, 10^5, 10^10],
+                            thickness_scaling=1.25,
+                            legend=:outerright, left_margin=-2Plots.mm, bottom_margin=-2Plots.mm)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
+    hline!([1.0], label="exact", linestyle=:solid, lw=2)
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
     savefig(gbplot, "Experiments/Results/Figures/" * plotname)
 end
@@ -138,7 +140,8 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
     ENV["GKSwstype"]="100"
     gbplot = groupedboxplot(x_values, y_values, group = estimators, yscale =:log10,
                             ylims=ylims,
-                            legend = :outertopleft, size = (1000, 600), whisker_range=0)
+                            thickness_scaling=1.25,
+                            legend=:outerright, left_margin=-2Plots.mm, bottom_margin=-2Plots.mm, whisker_range=0)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
@@ -213,8 +216,8 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
                             group = groups,
                             ylims=y_lims,
 #                            yticks = [1, 10^.5, 10, 10^2, 10^2.5],
-                            legend = :outertopleft,
-                            size = (1000, 600))
+                            thickness_scaling=1.25,
+                            legend=:outerright, left_margin=-2Plots.mm, bottom_margin=-2Plots.mm)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
@@ -240,8 +243,8 @@ function get_value_from_param(experiment_param::ExperimentParams, value_type::GR
         return experiment_param.only_shortest_path_cycle
     elseif value_type == number_of_colors
         return experiment_param.summary_params.num_colors
-    elseif value_type == proportion_not_updated
-        return experiment_param.summary_params.proportion_not_updated
+    elseif value_type == proportion_updated
+        return experiment_param.summary_params.proportion_updated
     elseif value_type == proportion_deleted
         return experiment_param.summary_params.proportion_deleted
     elseif value_type == deg_stat_type
