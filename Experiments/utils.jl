@@ -18,7 +18,7 @@ struct ExperimentParams
         only_shortest_path_cycle=false, summary_max_paths=1000,
         partitioning_scheme::Vector{Tuple{PARTITIONER, Int}} = [(QuasiStable, 64)], weighting=true,
         inference_max_paths=500, use_partial_sums=true,
-        sampling_strategy=redistributive, proportion_not_updated=1.0, proportion_deleted=0.0,
+        sampling_strategy=redistributive, proportion_updated=0.0, proportion_deleted=0.0,
         deg_stats_type::Type=AvgDegStats, description="")
         return new(dataset,
                     ColorSummaryParams(deg_stats_type=deg_stats_type,
@@ -26,7 +26,7 @@ struct ExperimentParams
                                         max_partial_paths=summary_max_paths,
                                         partitioning_scheme=partitioning_scheme,
                                         weighting=weighting,
-                                        proportion_not_updated=proportion_not_updated,
+                                        proportion_updated=proportion_updated,
                                                        proportion_deleted=proportion_deleted),
                     inference_max_paths,
                     only_shortest_path_cycle,
