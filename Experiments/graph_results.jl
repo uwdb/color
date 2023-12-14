@@ -9,7 +9,8 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
                                         legend_pos = :outertopleft,
                                         x_label=nothing,
                                         y_label=nothing,
-                                        filename=nothing)
+                                        filename=nothing,
+                                        dimensions = (1000, 600))
     # for now let's just use the dataset as the x-values and the cycle size as the groups
     x_values = []
     y_values = []
@@ -52,8 +53,16 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
                             ylims=[10^-13, 10^11],
                             yticks=[10^-10, 10^-5, 10^-2, 1, 10^2, 10^5, 10^10],
                             legend = legend_pos,
-                            legend_column = -1,
-                            size = (1000, 600))
+                            legend_column = 2,
+                            thickness_scaling=1.25,
+                            bottom_margin = 20px,
+                            top_margin = 20px,
+                            left_margin = 10mm,
+                            titlefont = (12, :black),
+                            legendfont = (11, :black),
+                            tickfont = (12, :black),
+                            guidefont = (15, :black),
+                            size = dimensions)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
@@ -246,6 +255,7 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
                             y_ticks = y_ticks,
                             legend = legend_pos,
                             size = dimensions,
+                            thickness_scaling=1.25,
                             titlefont = (12, :black),
                             legendfont = (11, :black),
                             tickfont = (12, :black),

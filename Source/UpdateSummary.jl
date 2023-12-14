@@ -4,14 +4,13 @@ function choose_color(summary)
     # current implementation: find the biggest color
     # other future options:
     # - make a brand new color just for added nodes?
-    # - find the color with the smallest in/out degree? Doesn't work because with updates the color will be extremely messed up
     return get_largest_color(summary)
 end
 
 function get_largest_color(summary)
     # current implementation: find the biggest color
     max_color_cardinality = 0
-    current_color = -1
+    current_color = collect(keys(summary.color_label_cardinality))[1] # initialize with the first color
     for color in keys(summary.color_label_cardinality)
         if summary.color_label_cardinality[color][-1] >= max_color_cardinality
             max_color_cardinality = summary.color_label_cardinality[color][-1]
@@ -22,7 +21,7 @@ function get_largest_color(summary)
 end
 
 function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node)
-    data_label = node
+    data_label = node 
 
     color = choose_color(summary)
     # add to the bloom filter

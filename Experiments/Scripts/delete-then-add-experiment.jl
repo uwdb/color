@@ -11,7 +11,7 @@ proportions_deleted = [0, 0.2, 0.4, 0.6, 0.8, 1.0]
 # To test deletion, we will add a random node / edge and then delete them...
 # proportion_not_updated = 0.5
 
-experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, partitioner=QuasiStable, max_cycle_size=current_cycle, proportion_deleted=current_proportion) 
+experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, max_cycle_size=current_cycle, proportion_deleted=current_proportion) 
                                                     for current_dataset in datasets for current_cycle in 2:max_cycles for current_proportion in proportions_deleted]
 println("started building")
     for experiment_params in experiment_params_list
@@ -91,37 +91,37 @@ println("started building")
         summary_size = Base.summarysize(current_summary)
         serialize(summary_file_location, current_summary)
         push!(build_times, (string(dataset),
-                             string(summary_params.partitioner),
+                             string(summary_params.partitioning_scheme),
                              string(summary_params.num_colors),
                              "FullTime",
                              string(results.time),
                              string(summary_size)))
         push!(build_times, (string(dataset),
-                             string(summary_params.partitioner),
+                             string(summary_params.partitioning_scheme),
                              string(summary_params.num_colors),
                              "Coloring",
                              string(timing_vec[1]),
                              string(summary_size)))
         push!(build_times, (string(dataset),
-                             string(summary_params.partitioner),
+                             string(summary_params.partitioning_scheme),
                              string(summary_params.num_colors),
                              "CycleCounting",
                              string(timing_vec[2]),
                              string(summary_size)))
         push!(build_times, (string(dataset),
-                             string(summary_params.partitioner),
+                             string(summary_params.partitioning_scheme),
                              string(summary_params.num_colors),
                              "BloomFilter",
                              string(timing_vec[3]),
                              string(summary_size)))
         push!(build_times, (string(dataset),
-                             string(summary_params.partitioner),
+                             string(summary_params.partitioning_scheme),
                              string(summary_params.num_colors),
                              "CardinalityCounting",
                              string(timing_vec[4]),
                              string(summary_size)))
         push!(build_times, (string(dataset),
-                             string(summary_params.partitioner),
+                             string(summary_params.partitioning_scheme),
                              string(summary_params.num_colors),
                              "EdgeStats",
                              string(timing_vec[5]),
