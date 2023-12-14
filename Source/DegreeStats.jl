@@ -245,10 +245,10 @@ function CorrDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}}, 
         r_1st[i] /= e_count[i]
         r_2nd[i] /= e_count[i]
         e_1st[i] /= e_count[i]
-        r_denom = sqrt(r_2nd[i]-r_1st[i]^2)
-        l_denom = sqrt(l_2nd[i]-l_1st[i]^2)
+        r_denom = sqrt(max(0.0, r_2nd[i]-r_1st[i]^2))
+        l_denom = sqrt(max(0.0, l_2nd[i]-l_1st[i]^2))
         if r_denom > 0 && l_denom > 0
-            corrs[i] = (e_1st[i] - l_1st[i]*r_1st[i])/(sqrt(l_2nd[i] - l_1st[i]^2) * sqrt(r_2nd[i]-r_1st[i]^2))
+            corrs[i] = (e_1st[i] - l_1st[i]*r_1st[i])/(l_denom * r_denom)
         else
             corrs[i] = 0
         end
@@ -283,7 +283,7 @@ get_count(w::CorrAccumulator) = w.weight
 sum_colorings(w1::CorrAccumulator, w2::CorrAccumulator) = CorrAccumulator(w1.weight + w2.weight, w1.var + w2.var)
 scale_coloring(w::CorrAccumulator, s) = CorrAccumulator(w.weight * s, w.var * s^2)
 
-function extend_coloring(w::CorrAccumulator, d::CorrDegStats, out_edge::Bool)
+@inline function extend_coloring(w::CorrAccumulator, d::CorrDegStats, out_edge::Bool)
     w_std = sqrt(w.var)
     w_2nd = w.var + w.weight^2
     if out_edge
