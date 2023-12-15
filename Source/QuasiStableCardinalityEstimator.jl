@@ -250,8 +250,39 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
                     probability_no_edge *= 1.0 - get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary)
                 end
             end
+            # probability_no_edge *= 1.0 - summary.total_added_edges/summary.total_nodes^2
+            # partial_weights[i] = scale_coloring(partial_weights[i], (1.0 - probability_no_edge))
+
+            # cycle probability that at least one edge closes the cycle or one of the added edges closes the cycle
+
+            # probability that one of the added edges was added in this specific possible position to close the cycle
+            # prob_added_edge_cycle = min(1, summary.total_added_edges/(get(summary.color_label_cardinality[child_color], -1, 1)*get(summary.color_label_cardinality[parent_color],-1, 1)))
+            # if(summary.color_label_cardinality[child_color][-1]*summary.color_label_cardinality[parent_color][-1] == 0)
+            #     print("found a NaN in the cycle stuff")
+            # end
+            # probability that an existing edge closes the cycle or an added edge closes the cycle
+
+            # this tells us how many edges between nodes weren't done by the original graph
+            # remaining_possible_edges = summary.total_nodes^2 - (summary.total_edges - summary.total_added_edges)
+            # cycle_probability = 1
+            # if remaining_possible_edges != 0
+            #     p_cycle_closed_by_existing = 1-probability_no_edge
+            #     p_cycle_closed_by_update = 1 - ((remaining_possible_edges-1)/remaining_possible_edges)^summary.total_added_edges
+    
+            #     cycle_probability = p_cycle_closed_by_existing*(1-p_cycle_closed_by_update) + 
+            #                         (1-p_cycle_closed_by_existing)*p_cycle_closed_by_update
+            # end
+            # consider: what if we add enough edges for all possible color combinations?
+            # cycle_probability = (1-probability_no_edge) + probability_no_edge * prob_added_edge_cycle
+            # cycle_probability = (1-probability_no_edge) + probability_no_edge * summary.total_edges/summary.total_nodes^2 
+            # the above isn't desired since it messes with graphs without updates...
             probability_no_edge *= 1.0 - summary.total_added_edges/summary.total_nodes^2
+            # current issue is that this is overestimating...
+            # when most of the graph consists of updates, the probability of no edge is very high, but so is
+            # the probability that the number of edges works..
             partial_weights[i] = scale_coloring(partial_weights[i], (1.0 - probability_no_edge))
+
+            # partial_weights[i] = scale_coloring(partial_weights[i], cycle_probability)
         end
     end
 end

@@ -3,7 +3,7 @@ using Graphs
 using Random
 include("../Experiments.jl")
 
-datasets::Vector{DATASET} = [wordnet]
+datasets::Vector{DATASET} = [aids, human, wordnet]
 # datasets::Vector{DATASET} = [aids, human, wordnet, dblp]
 # datasets::Vector{DATASET} = [aids, human, yeast, wordnet, youtube, dblp, patents]
 # datasets::Vector{DATASET} = [aids, human, lubm80, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
@@ -17,7 +17,7 @@ experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=cur
 # println("started building")
 # shuffled_edges = Dict()
 # for experiment_params in experiment_params_list
-#     build_times = [("Dataset", "Partitioner", "NumColors", "BuildPhase", "BuildTime", "MemoryFootprint", "UpdateTime")]
+#     build_times = [("Dataset", "Partitioner", "NumColors", "BuildPhase", "BuildTime", "MemoryFootprint")]
 #     dataset = experiment_params.dataset
 #     summary_params = experiment_params.summary_params
 #     data = load_dataset(dataset)
@@ -74,29 +74,27 @@ experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=cur
 #     timing_vec = Float64[]
 #     results = @timed generate_color_summary((experiment_params.summary_params.proportion_updated > 0) ? cloned_data : data, summary_params; verbose=1, timing_vec=timing_vec)
 #     current_summary = results.value
-#     summary_updating_time = @elapsed begin
-#         if (experiment_params.summary_params.proportion_updated > 0)
-#             for edge in edges_for_later
-#                 # first add the summary nodes to the graph if need
-#                 current_vertices = (src(edge), dst(edge))
-#                 for current_vertex in current_vertices
-#                     # update the mapping if the nodes haven't already been added
-#                     if !(current_vertex in added_nodes)
-#                         vertex_in_clone += 1
-#                         vertex_mapping[current_vertex] = vertex_in_clone
-#                         # now add a summary node_label
-#                         add_summary_node!(current_summary, data.vertex_labels[current_vertex], vertex_in_clone)
-#                     end
-#                     push!(added_nodes, current_vertex)
-#                 end
-#                 # now add the summary edge to the graph
-#                 mapped_start = vertex_mapping[current_vertices[1]]
-#                 mapped_end = vertex_mapping[current_vertices[2]]
-#                 add_summary_edge!(current_summary, mapped_start, mapped_end, data.edge_labels[current_vertices])
-#             end
-#         end
-#     end
-    
+#     # don't add the nodes and edges back and see if there is an improvement in the accuracy?
+#     # if (experiment_params.summary_params.proportion_updated > 0)
+#     #     for edge in edges_for_later
+#     #         # first add the summary nodes to the graph if need
+#     #         current_vertices = (src(edge), dst(edge))
+#     #         for current_vertex in current_vertices
+#     #             # update the mapping if the nodes haven't already been added
+#     #             if !(current_vertex in added_nodes)
+#     #                 vertex_in_clone += 1
+#     #                 vertex_mapping[current_vertex] = vertex_in_clone
+#     #                 # now add a summary node_label
+#     #                 add_summary_node!(current_summary, data.vertex_labels[current_vertex], vertex_in_clone)
+#     #             end
+#     #             push!(added_nodes, current_vertex)
+#     #         end
+#     #         # now add the summary edge to the graph
+#     #         mapped_start = vertex_mapping[current_vertices[1]]
+#     #         mapped_end = vertex_mapping[current_vertices[2]]
+#     #         add_summary_edge!(current_summary, mapped_start, mapped_end, data.edge_labels[current_vertices])
+#     #     end
+#     # end
 #     summary_size = Base.summarysize(current_summary)
 #     serialize(summary_file_location, current_summary)
 #     push!(build_times, (string(dataset),
@@ -104,43 +102,37 @@ experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=cur
 #         string(summary_params.num_colors),
 #         "FullTime",
 #         string(results.time),
-#         string(summary_size),
-#         string(summary_updating_time)))
+#         string(summary_size)))
 #     push!(build_times, (string(dataset),
 #         string(summary_params.partitioning_scheme),
 #         string(summary_params.num_colors),
 #         "Coloring",
 #         string(timing_vec[1]),
-#         string(summary_size),
-#         string(summary_updating_time)))
+#         string(summary_size)))
 #     push!(build_times, (string(dataset),
 #         string(summary_params.partitioning_scheme),
 #         string(summary_params.num_colors),
 #         "CycleCounting",
 #         string(timing_vec[2]),
-#         string(summary_size),
-#         string(summary_updating_time)))
+#         string(summary_size)))
 #     push!(build_times, (string(dataset),
 #         string(summary_params.partitioning_scheme),
 #         string(summary_params.num_colors),
 #         "BloomFilter",
 #         string(timing_vec[3]),
-#         string(summary_size),
-#         string(summary_updating_time)))
+#         string(summary_size)))
 #     push!(build_times, (string(dataset),
 #         string(summary_params.partitioning_scheme),
 #         string(summary_params.num_colors),
 #         "CardinalityCounting",
 #         string(timing_vec[4]),
-#         string(summary_size),
-#         string(summary_updating_time)))
+#         string(summary_size)))
 #     push!(build_times, (string(dataset),
 #         string(summary_params.partitioning_scheme),
 #         string(summary_params.num_colors),
 #         "EdgeStats",
 #         string(timing_vec[5]),
-#         string(summary_size),
-#         string(summary_updating_time)))
+#         string(summary_size)))
 #     results_filename = params_to_results_filename(experiment_params)
 #     result_file_location = "Experiments/Results/Build_" * results_filename
 #     writedlm(result_file_location, build_times, ",")
@@ -153,7 +145,7 @@ println("started graphing")
 # graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=estimate_error, grouping=proportion_not_updated, filename="overall-accuracy-and-updates")
 # compare how cycle stat accuracies are affected by summary updates
 # graph_grouped_box_plot(experiment_params_list, x_type=proportion_deleted, y_type=estimate_error, x_label="proportion added then deleted", y_label="accuracy", grouping=cycle_size, filename="deletion-experiment")
-graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=build_time, y_lims=[0, 30], x_label="Proportion Updated", y_label="Build Time (S)", grouping=proportion_updated, filename="ve-update-build")
-graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=estimate_error, x_label="Proportion Updated", y_label="Estimate Error", grouping=proportion_updated, filename="ve-update-error")
-graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=runtime, y_lims=[0, 0.6], x_label="Proportion Updated", y_label="Runtime (S)", grouping=proportion_updated, filename="ve-update-runtime")
-graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=memory_footprint, y_lims=[0, 20], x_label="Proportion Updated", y_label="Memory Footprint (B)", grouping=proportion_updated, filename="ve-update-memory")
+graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=build_time, y_lims=[0, 30], x_label="Proportion Updated", y_label="Build Time (S)", grouping=proportion_updated, filename="ve-control-build")
+graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=estimate_error, x_label="Proportion Updated", y_label="Estimate Error", grouping=proportion_updated, filename="ve-control-error")
+graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=runtime, y_lims=[0, 0.6], x_label="Proportion Updated", y_label="Runtime (S)", grouping=proportion_updated, filename="ve-control-runtime")
+graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=memory_footprint, y_lims=[0, 20], x_label="Proportion Updated", y_label="Memory Footprint (B)", grouping=proportion_updated, filename="ve-control-memory")
