@@ -21,7 +21,7 @@ function get_largest_color(summary)
 end
 
 function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node)
-    data_label = node 
+    data_label = node - 1
 
     color = choose_color(summary)
     # add to the bloom filter
@@ -49,6 +49,9 @@ function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node
     for node_label in node_labels
         summary.color_label_cardinality[color][node_label] = get(summary.color_label_cardinality[color], node_label, 0) + 1
     end
+    summary.color_label_cardinality[color][node_label] = get(summary.color_label_cardinality[color], -1, 0) + 1
+    summary.total_nodes += 1
+
 
     # for cycle stats, since the number of edges/cycles are the same,
     # cycle likelihood for an arbitrary edge doesn't change
