@@ -1,5 +1,5 @@
 function build_experiments(experiment_params_list::Vector{ExperimentParams})
-    for experiment_params in experiment_params_list
+    Threads.@threads for experiment_params in experiment_params_list
         build_times = [("Dataset", "Partitioner", "NumColors",  "BuildPhase", "BuildTime", "MemoryFootprint")]
         dataset = experiment_params.dataset
         summary_params = experiment_params.summary_params
