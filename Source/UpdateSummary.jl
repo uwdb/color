@@ -20,34 +20,15 @@ function get_largest_color(summary)
     return current_color
 end
 
-function create_new_color(summary)
-    # find the id of the next color
-    new_color = length(collect(keys(summary.color_label_cardinality))) + 1
-    # create a filter for it
-    num_nodes = max(1, color_sizes[color])
-    accepted_error = 0.00001
-    cuckoo_params = constrain(SmallCuckoo, fpr=accepted_error, capacity=num_nodes)
-    summary.color_filters[new_color] = SmallCuckoo{cuckoo_params.F}(cuckoo_params.nfingerprints)
-    # update the color label cardinality
-    summary.color_label_cardinality[new_color][-1] = 0
-    return new_color
-end
-
 function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node)
-    # nodes start at 1, data labels start at 0
-    data_label = node - 1
+    data_label = node 
 
     color = choose_color(summary)
     # add to the bloom filter
     push!(summary.color_filters[color], data_label)
-
-    # update the color label cardinality
-    summary.total_nodes += 1
-
     # for edge degrees, it decreases the average.
     # we want to update all the avg out degrees where this is the landing node (c2 == color && v2 == label),
     # and update all the avg in degrees where this is the starting node (c2 == color && v2 == label)
-
     for edge_label in keys(summary.edge_deg)
         for node_label in node_labels
             if !haskey(summary.edge_deg[edge_label], node_label)
@@ -63,10 +44,11 @@ function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node
             end
         end
     end
-    for label in node_labels
-        summary.color_label_cardinality[color][label] = get(summary.color_label_cardinality[color], label, 0) + 1
+
+    # add to the cardinality counts
+    for node_label in node_labels
+        summary.color_label_cardinality[color][node_label] = get(summary.color_label_cardinality[color], node_label, 0) + 1
     end
-    summary.color_label_cardinality[color][-1] = get(summary.color_label_cardinality[color], -1, 0) + 1
 
     # for cycle stats, since the number of edges/cycles are the same,
     # cycle likelihood for an arbitrary edge doesn't change
@@ -118,7 +100,6 @@ function get_node_summary_color(summary, node)
 end
 
 function add_summary_edge!(summary, start_node, end_node, edge_labels)
-    summary.total_edges += 1
     update_edge_degrees!(summary, start_node, end_node, edge_labels, remove=false)
 end
 
@@ -141,7 +122,7 @@ function update_edge_degrees!(summary::ColorSummary{AvgDegStats}, start_node, en
         c2_count = summary.color_label_cardinality[end_color][-1]
         for vertex_label in keys(summary.color_label_cardinality[end_color])
             # this is the probability that the vertex label will be included
-            probability_end_vertex_label = summary.color_label_cardinality[end_color][-1] == 0 ? 0 : summary.color_label_cardinality[end_color][vertex_label] / summary.color_label_cardinality[end_color][-1]
+            probability_end_vertex_label = summary.color_label_cardinality[end_color][vertex_label] / summary.color_label_cardinality[end_color][-1]
             if remove
                 probability_end_vertex_label *= -1
             end
@@ -163,7 +144,7 @@ function update_edge_degrees!(summary::ColorSummary{AvgDegStats}, start_node, en
             # note we don't have to update the color_label_cardinality since no new nodes were added...
         end
         for vertex_label in keys(summary.color_label_cardinality[start_color])
-            probability_start_vertex_label = summary.color_label_cardinality[start_color][-1] == 0 ? 0 : summary.color_label_cardinality[start_color][vertex_label] / summary.color_label_cardinality[start_color][-1]
+            probability_start_vertex_label = summary.color_label_cardinality[start_color][vertex_label] / summary.color_label_cardinality[start_color][-1]
             if remove
                 probability_start_vertex_label *= -1
             end

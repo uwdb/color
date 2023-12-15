@@ -1,6 +1,6 @@
 @enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_updated proportion_deleted deg_stat_type description
 
-@enum VALUE estimate_error runtime build_time memory_footprint
+@enum VALUE estimate_error runtime build_time memory_footprint update_time total_time
 
 function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams};
                                         x_type::GROUP=dataset, y_type::VALUE=estimate_error,
@@ -225,6 +225,85 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
 end
 
 
+function graph_multi_group_bar_graph(experiment_params_list::Vector{ExperimentParams};
+    x_type::GROUP=proportion_updated,
+    y_type::Vector{VALUE}=[build_time, update_time, total_time],
+    # grouping::GROUP=technique,
+    x_label=nothing,
+    y_label=nothing,
+    y_lims=[0, 10],
+    filename=nothing)
+    # for now let's just use the dataset as the x-values and the cycle size as the groups
+    x_values = []
+    y_values = []
+    groups = []
+    for experiment_params in experiment_params_list
+        # load the results
+        results_filename = params_to_results_filename(experiment_params)
+        prefix = "Experiments/Results/Estimation_"
+        if y_type == memory_footprint || y_type == build_time
+            prefix = "Experiments/Results/Build_"
+        end
+        results_path = prefix * results_filename
+        results_df = CSV.read(results_path, DataFrame; normalizenames=true)
+
+        # get the x_value and grouping (same for all results in this experiment param)
+        println(results_df)
+        # keep track of the data points
+        for i in 1:nrow(results_df)
+            current_x = nothing
+            if x_type == query_type
+                current_x = results_df[i, :QueryType]
+            else
+            current_x = get_value_from_param(experiment_params, x_type)
+            end
+            for y_value in y_type
+                current_y = 0
+                current_group = ""
+                if y_value == estimate_error
+                    current_group = "Estimate Error"
+                    current_y = results_df[i, :Estimate] / results_df[i, :TrueCard]
+                elseif y_value == memory_footprint
+                    current_group = "Memory Footprint"
+                    current_y = results_df[i, :MemoryFootprint]/(10^6)
+                elseif y_value == build_time
+                    current_group = "Build Time"
+                    current_y = results_df[i, :BuildTime]
+                elseif y_value == update_time
+                    current_group = "Update Time"
+                    current_y = results_df[i, :UpdateTime]
+                elseif y_value == total_time
+                    current_group = "Total Time"
+                    current_y = results_df[i, :BuildTime] + results_df[i, :UpdateTime]
+                else
+                # y_type == runtime
+                    current_group = "Run Time"
+                    current_y = results_df[i, :EstimationTime]
+                end
+                push!(x_values, current_x)
+                push!(y_values, current_y)
+                push!(groups, current_group)
+            end
+        end
+    end
+    results_filename = params_to_results_filename(experiment_params_list[1])
+    println("starting graphs")
+
+    # This seems to be necessary for using Plots.jl outside of the ipynb framework.
+    # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
+    ENV["GKSwstype"]="100"
+    gbplot = StatsPlots.groupedbar(x_values,
+    y_values,
+    group = groups,
+    ylims=y_lims,
+    #                            yticks = [1, 10^.5, 10, 10^2, 10^2.5],
+    thickness_scaling=1.25,
+    legend=:outerright, left_margin=-2Plots.mm, bottom_margin=-2Plots.mm)
+    x_label !== nothing && xlabel!(gbplot, x_label)
+    y_label !== nothing && ylabel!(gbplot, y_label)
+    plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
+    savefig(gbplot, "Experiments/Results/Figures/" * plotname)
+end
 
 
 # default to grouping by dataset
