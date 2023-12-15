@@ -16,6 +16,8 @@ StartEndColorPair = Tuple{Color, Color}
     path::BoolPath
     colors::StartEndColorPair
 end
+color_path_to_default(path::CyclePathAndColors) = CyclePathAndColors(path.path, (-1, -1))
+
 
 @enum PARTITIONER QuasiStable Hash Degree NeighborNodeLabels
 
