@@ -1,4 +1,4 @@
-@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_not_updated proportion_deleted deg_stat_type description
+@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_updated proportion_deleted deg_stat_type description
 
 @enum VALUE estimate_error runtime build_time memory_footprint
 
@@ -10,7 +10,9 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
                                         x_label=nothing,
                                         y_label=nothing,
                                         filename=nothing,
-                                        dimensions = (1000, 600))
+                                        y_lims=[0, 10^2.5],
+                                        y_ticks=[10^-10, 10^-5, 10^-2, 1, 10^2, 10^5, 10^10],
+                                        dimensions = (1000, 800))
     # for now let's just use the dataset as the x-values and the cycle size as the groups
     x_values = []
     y_values = []
@@ -50,12 +52,12 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
                             y_values,
                             group = groups,
                             yscale =:log10,
-                            ylims=[10^-13, 10^11],
-                            yticks=[10^-10, 10^-5, 10^-2, 1, 10^2, 10^5, 10^10],
+                            ylims=y_lims,
+                            y_ticks=y_ticks,
                             legend = legend_pos,
                             legend_column = 2,
                             thickness_scaling=1.25,
-                            bottom_margin = 20px,
+                            bottom_margin = 40px,
                             top_margin = 20px,
                             left_margin = 10mm,
                             titlefont = (12, :black),
@@ -83,7 +85,17 @@ function comparison_dataset()
             comparison_results[i, :QueryType] = match(r".*/query_(.*)_.*", query_path).captures[1]
         end
     end
-    return comparison_results
+    results_dict = Dict()
+    for i in 1:nrow(comparison_results)
+        dataset = comparison_results[i, :Dataset]
+        estimator = comparison_results[i, :Estimator]
+        query_path = comparison_results[i, :Query]
+        results_dict[(dataset, estimator, query_path)] = (Estimate=comparison_results[i, :Value],
+                                                            Runtime=comparison_results[i, :Runtime],
+                                                            QueryType=comparison_results[i,:QueryType])
+    end
+    estimators = unique(comparison_results[:, :Estimator])
+    return estimators, results_dict
 end
 
 function get_query_id(dataset, query_path)
@@ -120,7 +132,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
 
         # keep track of the data points
         for i in 1:nrow(results_df)
-            current_x = string(get_value_from_param(experiment_params, dataset))
+            data = string(get_value_from_param(experiment_params, dataset))
 
             current_group = string(grouping == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, grouping))
             current_y = 0
@@ -129,31 +141,37 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
             else # y_type == runtime
                 current_y = results_df[i, :EstimationTime]
             end
-            true_card[(current_x, get_query_id(string(experiment_params.dataset), results_df[i, :QueryPath]))] = results_df[i, :TrueCard]
+            true_card[(data, get_query_id(string(experiment_params.dataset), results_df[i, :QueryPath]))] = results_df[i, :TrueCard]
             # push the errors and their groupings into the correct vector
-            push!(x_values, current_x)
+            push!(x_values, data)
             push!(y_values, current_y)
             push!(estimators, current_group)
         end
     end
     results_filename = params_to_results_filename(experiment_params_list[1])
-    comparison_results = comparison_dataset()
-    for i in 1:nrow(comparison_results)
-        current_x = comparison_results[i, :Dataset]
-        estimator = comparison_results[i, :Estimator]
-        current_y = 0
-        if !haskey(true_card, (current_x, comparison_results[i, :Query]))
-            continue
+    estimator_types, comparison_results = comparison_dataset()
+    for (query_key, card) in true_card
+        data = query_key[1]
+        query_path = query_key[2]
+        for estimator in estimator_types
+            comp_key = (data, estimator, query_path)
+            (estimate, runtime) = 1, 10 # TODO: We shouldn't use an arbitrary number for runtime here
+            if haskey(comparison_results, comp_key)
+                result = comparison_results[comp_key]
+                estimate = result.Estimate
+                runtime = result.Runtime
+            end
+
+            if y_type == estimate_error
+                current_y = min(10^30, max(1, estimate)) / card
+            else # y_type == runtime
+                current_y = runtime / 1000.0
+            end
+            # push the errors and their groupings into the correct vector
+            push!(x_values, data)
+            push!(y_values, current_y)
+            push!(estimators, estimator)
         end
-        if y_type == estimate_error
-            current_y = min(10^30, max(1, comparison_results[i, :Value])) / true_card[(current_x, comparison_results[i, :Query])]
-        else # y_type == runtime
-            current_y = comparison_results[i, :Runtime] / 1000.0
-        end
-        # push the errors and their groupings into the correct vector
-        push!(x_values, current_x)
-        push!(y_values, current_y)
-        push!(estimators, estimator)
     end
     println("starting graphs")
 
@@ -161,11 +179,10 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
     ENV["GKSwstype"]="100"
     gbplot = groupedboxplot(x_values,
-                            y_values,
+                            [log10(y)  for y in y_values],
                             group = estimators,
-                            yscale =:log10,
-                            ylims = ylims,
-                            y_ticks = y_ticks,
+                            ylims =  (log10(ylims[1]),log10(ylims[2])),
+                            y_ticks = [log10(y) for y in y_ticks],
                             legend = legend_pos,
                             size = dimensions,
                             bottom_margin = 20px,
@@ -176,7 +193,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
                             legendfont = (11, :black),
                             tickfont = (12, :black),
                             guidefont = (15, :black),
-                            whisker_range=0)
+                            whisker_range=2)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
@@ -268,9 +285,6 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
     savefig(gbplot, "Experiments/Results/Figures/" * plotname)
 end
 
-
-
-
 # default to grouping by dataset
 function get_value_from_param(experiment_param::ExperimentParams, value_type::GROUP)
     if value_type == dataset
@@ -287,8 +301,8 @@ function get_value_from_param(experiment_param::ExperimentParams, value_type::GR
         return experiment_param.only_shortest_path_cycle
     elseif value_type == number_of_colors
         return experiment_param.summary_params.num_colors
-    elseif value_type == proportion_not_updated
-        return experiment_param.summary_params.proportion_not_updated
+    elseif value_type == proportion_updated
+        return experiment_param.summary_params.proportion_updated
     elseif value_type == proportion_deleted
         return experiment_param.summary_params.proportion_deleted
     elseif value_type == deg_stat_type

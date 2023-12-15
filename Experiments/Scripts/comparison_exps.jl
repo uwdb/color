@@ -7,14 +7,6 @@ datasets = [human, aids, lubm80, yeast, dblp, youtube, eu2005, patents]
 
 experiment_params = Vector{ExperimentParams}()
 for dataset in datasets
-    #= push!(experiment_params, ExperimentParams(deg_stats_type=CorrDegStats,
-                                                dataset=dataset,
-                                                partitioning_scheme=[(QuasiStable, 64)],
-                                                description = "CorrQ64"))
-    push!(experiment_params, ExperimentParams(deg_stats_type=CorrDegStats,
-                                                dataset=dataset,
-                                                partitioning_scheme=[(QuasiStable, 32), (NeighborNodeLabels, 32),(QuasiStable, 32), (NeighborNodeLabels, 32)],
-                                                description = "CorrQ64N64")) =#
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=[(QuasiStable, 64)],
@@ -54,7 +46,7 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 grouping=description,
                                                 dimensions = (1450, 550),
                                                 legend_pos=:top,
-                                                y_label="Runtime (s)",
+                                                y_label="Runtime (10^ s)",
                                                 filename="runtime")
 
 graph_grouped_boxplot_with_comparison_methods(experiment_params;
@@ -64,7 +56,7 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 grouping=description,
                                                 dimensions = (1450, 550),
                                                 legend_pos=:bottomleft,
-                                                y_label="Relative Error",
+                                                y_label="Relative Error (10^)",
                                                 filename="error")
 
 graph_grouped_bar_plot(experiment_params;
@@ -72,7 +64,7 @@ graph_grouped_bar_plot(experiment_params;
                         y_type=memory_footprint,
                         y_lims=[0, 30],
                         y_ticks = [5, 10, 15, 20, 25, 30],
-                        dimensions = (775, 550),
+                        dimensions = (900, 550),
                         y_label="Memory (MBs)",
                         filename="memory")
 
@@ -81,6 +73,6 @@ graph_grouped_bar_plot(experiment_params;
                         y_type=build_time,
                         y_lims=[0, 720],
                         y_ticks = [0, 100, 200, 300, 400, 500, 600, 700],
-                        dimensions = (775, 550),
+                        dimensions = (900, 550),
                         y_label="Build Time (s)",
                         filename="build_time")
