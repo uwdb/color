@@ -235,7 +235,6 @@ end
     return min(1.0, 5.0 * summary.total_edges / summary.total_nodes ^ 2)
 end
 
-
 function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int, max_partial_paths)
     # define a specific_edge as [n1, n2, c1, c2, d]
     # we can make a table mapping these to their counts, or just have an array of specific_edges
@@ -317,15 +316,30 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
     end
 
     # now go through and aggregate all duplicates
+    MinPathWeight = 25
     cycle_likelihoods::Dict = Dict()
+    default_cycle_weights = Dict()
+    default_cycle_counts = Dict()
     cycle_length_weights = Dict(i => 0.0 for i in 2:cycle_size)
     cycle_length_counts = Dict(i => 0.0 for i in 2:cycle_size)
     for path in keys(stored_paths)
         # CyclePathAndColors => count
-        cycle_likelihoods[path] = get(stored_cycles, path, 0) / stored_paths[path]
+        if stored_paths[path] >= MinPathWeight
+            cycle_likelihoods[path] = get(stored_cycles, path, 0) / stored_paths[path]
+        end
+        default_path = color_path_to_default(path)
+        default_cycle_weights[default_path] = get(default_cycle_weights, default_path, 0) + get(stored_cycles, path, 0)
+        default_cycle_counts[default_path] = get(default_cycle_counts, default_path, 0) + stored_paths[path]
+
         path_length = length(path.path) + 1
-        cycle_length_weights[path_length] = get(cycle_length_weights, path_length, 0) + cycle_likelihoods[path]
-        cycle_length_counts[path_length] = get(cycle_length_counts, path_length, 0) + 1
+        cycle_length_weights[path_length] = get(cycle_length_weights, path_length, 0) + get(stored_cycles, path, 0)
+        cycle_length_counts[path_length] = get(cycle_length_counts, path_length, 0) + stored_paths[path]
+    end
+    for default_path in keys(default_cycle_weights)
+        if default_cycle_counts[default_path] < MinPathWeight
+            continue
+        end
+        cycle_likelihoods[default_path] = default_cycle_weights[default_path] / default_cycle_counts[default_path]
     end
     cycle_length_likelihoods = Dict(i => cycle_length_counts[i] == 0 ? 0 : cycle_length_weights[i] / cycle_length_counts[i] for i in 2:cycle_size)
     return cycle_likelihoods, cycle_length_likelihoods
