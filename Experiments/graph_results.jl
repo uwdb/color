@@ -243,6 +243,12 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
             else
                 current_group = get_value_from_param(experiment_params, grouping)
             end
+
+            if grouping != build_phase && results_df[i, :BuildPhase] != "FullTime"
+                continue
+            end
+
+
             current_y = 0
             if y_type == estimate_error
                 current_y = results_df[i, :Estimate] / results_df[i, :TrueCard]
