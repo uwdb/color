@@ -6,7 +6,7 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
         !isfile(summary_file_location) && error("The summary has not been built yet! \n Attempted File Location: $(summary_file_location)")
         summary::ColorSummary = deserialize(summary_file_location)
         experiment_results = []
-        push!(experiment_results, ("Estimate", "TrueCard", "EstimationTime", "QueryType", "QueryPath"))
+        push!(experiment_results, ("Estimate", "TrueCard", "EstimationTime", "QueryType", "QueryPath", "QuerySize"))
         lk = ReentrantLock()
         Threads.@threads for i in shuffle(collect(1:length(all_queries[dataset])))
             query::QueryGraph = all_queries[dataset][i].query
@@ -21,7 +21,7 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
             estimate = max(1, estimate_results[1].value)
             query_type = all_queries[dataset][i].query_type
             lock(lk)
-            push!(experiment_results, (estimate, exact_size, estimate_time, query_type, query_path))
+            push!(experiment_results, (estimate, exact_size, estimate_time, query_type, query_path, nv(query.graph)))
             unlock(lk)
         end
         results_file_location = "Experiments/Results/Estimation_"  * params_to_results_filename(experiment_params)

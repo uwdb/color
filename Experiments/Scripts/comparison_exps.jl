@@ -4,6 +4,7 @@ include("../Experiments.jl")
 
 #datasets = [human, aids, lubm80, yeast, hprd, dblp, youtube, eu2005, patents, wordnet]
 datasets = [human, aids, lubm80, yeast, dblp, youtube, eu2005, patents]
+#datasets = [aids]
 
 experiment_params = Vector{ExperimentParams}()
 for dataset in datasets
@@ -26,7 +27,7 @@ for dataset in datasets
     push!(experiment_params, ExperimentParams(deg_stats_type=MaxDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=[(Hash, 64)],
-                                                description = "MaxH64"))
+                                                description = "BSK"))
 
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
@@ -35,7 +36,7 @@ for dataset in datasets
                                                 description = "IndEst"))
 end
 
-#build_experiments(experiment_params)
+build_experiments(experiment_params)
 
 #run_estimation_experiments(experiment_params)
 
@@ -51,7 +52,7 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
 
 graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 ylims=[10^-21, 10^21],
-                                                y_ticks=[10^-20, 10^-15, 10^-5, 10^-2, 10^0, 10^2, 10^5, 10^10, 10^15, 10^20],
+                                                y_ticks=[10^-20, 10^-15, 10^-10, 10^-5, 10^-2, 10^0, 10^2, 10^5, 10^10, 10^15, 10^20],
                                                 y_type = estimate_error,
                                                 grouping=description,
                                                 dimensions = (1450, 550),
@@ -59,20 +60,32 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 y_label="Relative Error (10^)",
                                                 filename="error")
 
+
+graph_grouped_boxplot_with_comparison_methods(experiment_params;
+                                                ylims=[10^-21, 10^21],
+                                                x_type = query_size,
+                                                y_ticks=[10^-20, 10^-15, 10^-10, 10^-5, 10^-2, 10^0, 10^2, 10^5, 10^10, 10^15, 10^20],
+                                                y_type = estimate_error,
+                                                grouping=description,
+                                                dimensions = (1450, 550),
+                                                legend_pos=:bottomleft,
+                                                y_label="Relative Error (10^)",
+                                                filename="error-query-size")
+
 graph_grouped_bar_plot(experiment_params;
                         grouping=description,
                         y_type=memory_footprint,
-                        y_lims=[0, 30],
+                        ylims=[0, 30],
                         y_ticks = [5, 10, 15, 20, 25, 30],
-                        dimensions = (900, 550),
+                        dimensions = (1000, 550),
                         y_label="Memory (MBs)",
                         filename="memory")
 
 graph_grouped_bar_plot(experiment_params;
                         grouping=description,
                         y_type=build_time,
-                        y_lims=[0, 720],
-                        y_ticks = [0, 100, 200, 300, 400, 500, 600, 700],
-                        dimensions = (900, 550),
+                        ylims=[0, 100],
+                        y_ticks = [20, 40, 60, 80, 100],
+                        dimensions = (1000, 550),
                         y_label="Build Time (s)",
                         filename="build_time")

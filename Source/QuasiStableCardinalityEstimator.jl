@@ -237,7 +237,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
             # partial path, so we have already ensured that the colors are appropriate
             probability_no_edge = 1.0
             if (haskey(edge_deg, parent_color) && haskey(edge_deg[parent_color], child_color))
-                if usingStoredStats && length(all_path_bools) > 0
+                if usingStoredStats
                     for (path_bools, path_count) in path_counts
                         current_cycle_description = CyclePathAndColors(path_bools, current_colors)
                         if haskey(summary.cycle_probabilities, current_cycle_description)

@@ -1,4 +1,4 @@
-@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_updated proportion_deleted deg_stat_type description
+@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_updated proportion_deleted deg_stat_type description query_size
 
 @enum VALUE estimate_error runtime build_time memory_footprint
 
@@ -10,7 +10,7 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
                                         x_label=nothing,
                                         y_label=nothing,
                                         filename=nothing,
-                                        y_lims=[0, 10^2.5],
+                                        ylims=[0, 10^2.5],
                                         y_ticks=[10^-10, 10^-5, 10^-2, 1, 10^2, 10^5, 10^10],
                                         dimensions = (1000, 800))
     # for now let's just use the dataset as the x-values and the cycle size as the groups
@@ -49,22 +49,21 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
     ENV["GKSwstype"]="100"
     gbplot = groupedboxplot(x_values,
-                            y_values,
+                            [log10(y)  for y in y_values],
                             group = groups,
-                            yscale =:log10,
-                            ylims=y_lims,
-                            y_ticks=y_ticks,
+                            ylims =  (log10(ylims[1]),log10(ylims[2])),
+                            y_ticks = [log10(y) for y in y_ticks],
                             legend = legend_pos,
-                            legend_column = 2,
-                            thickness_scaling=1.25,
-                            bottom_margin = 40px,
+                            size = dimensions,
+                            bottom_margin = 20px,
                             top_margin = 20px,
                             left_margin = 10mm,
+                            legend_column = 2,
                             titlefont = (12, :black),
                             legendfont = (11, :black),
                             tickfont = (12, :black),
                             guidefont = (15, :black),
-                            size = dimensions)
+                            whisker_range=2)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
@@ -109,6 +108,7 @@ function get_query_id(dataset, query_path)
 end
 
 function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::Vector{ExperimentParams};
+                                        x_type::GROUP=dataset,
                                         y_type::VALUE=estimate_error,
                                         grouping::GROUP=technique,
                                         ylims = [10^-7, 10^7],
@@ -133,26 +133,31 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
         # keep track of the data points
         for i in 1:nrow(results_df)
             data = string(get_value_from_param(experiment_params, dataset))
-
-            current_group = string(grouping == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, grouping))
-            current_y = 0
-            if y_type == estimate_error
-                current_y = min(10^30, max(1, results_df[i, :Estimate])) / results_df[i, :TrueCard]
-            else # y_type == runtime
-                current_y = results_df[i, :EstimationTime]
+            current_x = if x_type == dataset
+                data
+            elseif x_type == query_size
+                results_df[i, :QuerySize]
             end
-            true_card[(data, get_query_id(string(experiment_params.dataset), results_df[i, :QueryPath]))] = results_df[i, :TrueCard]
+            current_group = string(grouping == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, grouping))
+            current_y = if y_type == estimate_error
+                min(10^30, max(1, results_df[i, :Estimate])) / results_df[i, :TrueCard]
+            else # y_type == runtime
+                results_df[i, :EstimationTime]
+            end
+            true_card[(data, get_query_id(string(experiment_params.dataset), results_df[i, :QueryPath]))] = (results_df[i, :TrueCard], current_x)
             # push the errors and their groupings into the correct vector
-            push!(x_values, data)
+            push!(x_values, current_x)
             push!(y_values, current_y)
             push!(estimators, current_group)
         end
     end
     results_filename = params_to_results_filename(experiment_params_list[1])
     estimator_types, comparison_results = comparison_dataset()
-    for (query_key, card) in true_card
+    for (query_key, query_card_and_size) in true_card
         data = query_key[1]
         query_path = query_key[2]
+        card = query_card_and_size[1]
+        size = query_card_and_size[2]
         for estimator in estimator_types
             comp_key = (data, estimator, query_path)
             (estimate, runtime) = 1, 10 # TODO: We shouldn't use an arbitrary number for runtime here
@@ -162,13 +167,19 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
                 runtime = result.Runtime
             end
 
-            if y_type == estimate_error
-                current_y = min(10^30, max(1, estimate)) / card
+            current_x = if x_type == dataset
+                data
+            elseif x_type == query_size
+                size
+            end
+
+            current_y = if y_type == estimate_error
+                min(10^30, max(1, estimate)) / card
             else # y_type == runtime
-                current_y = runtime / 1000.0
+                runtime / 1000.0
             end
             # push the errors and their groupings into the correct vector
-            push!(x_values, data)
+            push!(x_values, current_x)
             push!(y_values, current_y)
             push!(estimators, estimator)
         end
@@ -207,7 +218,7 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
                                         grouping::GROUP=technique,
                                         x_label=nothing,
                                         y_label=nothing,
-                                        y_lims=[0, 10^2.5],
+                                        ylims=[0, 10^2.5],
                                         y_ticks = [1, 10^.5, 10, 10^2, 10^2.5],
                                         dimensions = (800, 300),
                                         legend_pos = :topleft,
@@ -244,9 +255,6 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
                 current_group = get_value_from_param(experiment_params, grouping)
             end
 
-            if grouping != build_phase && results_df[i, :BuildPhase] != "FullTime"
-                continue
-            end
 
 
             current_y = 0
@@ -255,6 +263,9 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
             elseif y_type == memory_footprint
                 current_y = results_df[i, :MemoryFootprint]/(10^6)
             elseif y_type == build_time
+                if grouping != build_phase && results_df[i, :BuildPhase] != "FullTime"
+                    continue
+                end
                 current_y = results_df[i, :BuildTime]
             else
                      # y_type == runtime
@@ -275,7 +286,7 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
     gbplot = StatsPlots.groupedbar(x_values,
                             y_values,
                             group = groups,
-                            ylims=y_lims,
+                            ylims=ylims,
                             y_ticks = y_ticks,
                             legend = legend_pos,
                             size = dimensions,
