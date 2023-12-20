@@ -107,6 +107,15 @@ function get_query_id(dataset, query_path)
     end
 end
 
+function query_size_category(s)
+    categories = [3, 4, 6, 9, 12, 16, 24, 32]
+    for cat in categories
+        if s <= cat
+            return cat
+        end
+    end
+end
+
 function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::Vector{ExperimentParams};
                                         x_type::GROUP=dataset,
                                         y_type::VALUE=estimate_error,
@@ -136,7 +145,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
             current_x = if x_type == dataset
                 data
             elseif x_type == query_size
-                results_df[i, :QuerySize]
+                @sprintf "%02i" query_size_category(results_df[i, :QuerySize])
             end
             current_group = string(grouping == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, grouping))
             current_y = if y_type == estimate_error
@@ -146,7 +155,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
             end
             true_card[(data, get_query_id(string(experiment_params.dataset), results_df[i, :QueryPath]))] = (results_df[i, :TrueCard], current_x)
             # push the errors and their groupings into the correct vector
-            push!(x_values, current_x)
+            push!(x_values, string(current_x))
             push!(y_values, current_y)
             push!(estimators, current_group)
         end
@@ -179,13 +188,16 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
                 runtime / 1000.0
             end
             # push the errors and their groupings into the correct vector
-            push!(x_values, current_x)
+            push!(x_values, string(current_x))
             push!(y_values, current_y)
             push!(estimators, estimator)
         end
     end
+    sorted_vals = sort(zip(x_values, y_values, estimators), by=(x)->x[1])
+    x_values = [x[1] for x in sorted_vals]
+    y_values = [x[2] for x in sorted_vals]
+    estimators = [x[3] for x in sorted_vals]
     println("starting graphs")
-
     # This seems to be necessary for using Plots.jl outside of the ipynb framework.
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
     ENV["GKSwstype"]="100"
@@ -196,7 +208,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
                             y_ticks = [log10(y) for y in y_ticks],
                             legend = legend_pos,
                             size = dimensions,
-                            bottom_margin = 20px,
+                            bottom_margin = 40px,
                             top_margin = 20px,
                             left_margin = 10mm,
                             legend_column = 2,
