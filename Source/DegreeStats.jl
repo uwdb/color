@@ -121,18 +121,17 @@ struct AvgDegStats <:DegreeStats
 end
 
 function AvgDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}}, color_size::Int)
-    length(edges) == 0 && return AvgDegStats(0,0)
-    in_counter = counter(NodeId)
-    out_counter = counter(NodeId)
+    in_edges = 0
+    out_edges = 0
     for edge in edges
         if edge[3]
-            inc!(out_counter, edge[1])
+            out_edges += 1
         else
-            inc!(in_counter, edge[1])
+            in_edges += 1
         end
     end
-    avg_in = sum([x for x in values(in_counter)]; init=0)/color_size
-    avg_out = sum([x for x in values(out_counter)]; init=0)/color_size
+    avg_in = in_edges/color_size
+    avg_out = out_edges/color_size
     return AvgDegStats(avg_in, avg_out)
 end
 get_in_deg_estimate(d::AvgDegStats) = d.avg_in
