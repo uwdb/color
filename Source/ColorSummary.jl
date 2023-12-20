@@ -236,6 +236,12 @@ end
 end
 
 function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int, max_partial_paths)
+    cycle_length_likelihoods::Dict{Int, Float64} = Dict()
+    cycle_likelihoods::Dict{CyclePathAndColors, Float64} = Dict()
+    if (cycle_size < 2)
+        return cycle_likelihoods, cycle_length_likelihoods
+    end
+
     # define a specific_edge as [n1, n2, c1, c2, d]
     # we can make a table mapping these to their counts, or just have an array of specific_edges
 
@@ -317,7 +323,6 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
 
     # now go through and aggregate all duplicates
     MinPathWeight = 25
-    cycle_likelihoods::Dict = Dict()
     default_cycle_weights = Dict()
     default_cycle_counts = Dict()
     cycle_length_weights = Dict(i => 0.0 for i in 2:cycle_size)
