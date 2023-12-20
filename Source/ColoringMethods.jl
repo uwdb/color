@@ -24,16 +24,18 @@ function _hash_coloring(g::DataGraph, params::ColorSummaryParams, color_hash::Di
         nodes_to_remove = copy(color_to_nodes[split_color])
         color_to_nodes[split_color] = []
         for node in nodes_to_remove
-            if (node % 2) == 1
+            if rand() < .5
                 push!(color_to_nodes[next_color], node)
             else
                 push!(color_to_nodes[split_color], node)
             end
         end
-        split_color += 1
+
         if split_color == colors_this_round
             colors_this_round = next_color
             split_color = 1
+        else
+            split_color += 1
         end
         next_color += 1
     end
