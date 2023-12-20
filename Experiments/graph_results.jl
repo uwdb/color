@@ -6,6 +6,7 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
                                         x_type::GROUP=dataset,
                                         y_type::VALUE=estimate_error,
                                         grouping::GROUP=technique,
+                                        x_order = nothing,
                                         legend_pos = :outertopleft,
                                         x_label=nothing,
                                         y_label=nothing,
@@ -42,6 +43,13 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
             push!(groups, current_group)
         end
     end
+
+    if isnothing(x_order)
+        x_order = sort(unique(x_values))
+    end
+    x_ticks = ([x for x in 1:length(x_order)], x_order)
+    x_order_hash = [hash(x) for x in x_order]
+    x_values = [only(indexin(hash(x), x_order_hash)) for x in x_values]
     results_filename = params_to_results_filename(experiment_params_list[1])
     println("starting graphs")
 
@@ -51,6 +59,8 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
     gbplot = groupedboxplot(x_values,
                             [log10(y)  for y in y_values],
                             group = groups,
+                            x_ticks = x_ticks,
+                            xlims = [0, length(x_order)],
                             ylims =  (log10(ylims[1]),log10(ylims[2])),
                             y_ticks = [log10(y) for y in y_ticks],
                             legend = legend_pos,
@@ -117,6 +127,7 @@ function query_size_category(s)
 end
 
 function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::Vector{ExperimentParams};
+                                        x_order = nothing,
                                         x_type::GROUP=dataset,
                                         y_type::VALUE=estimate_error,
                                         grouping::GROUP=technique,
@@ -193,6 +204,12 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
             push!(estimators, estimator)
         end
     end
+    if isnothing(x_order)
+        x_order = sort(unique(x_values))
+    end
+    x_ticks = ([x for x in 1:length(x_order)], x_order)
+    x_order_hash = [hash(x) for x in x_order]
+    x_values = [only(indexin(hash(x), x_order_hash)) for x in x_values]
     sorted_vals = sort(zip(x_values, y_values, estimators), by=(x)->x[1])
     x_values = [x[1] for x in sorted_vals]
     y_values = [x[2] for x in sorted_vals]
@@ -204,6 +221,8 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
     gbplot = groupedboxplot(x_values,
                             [log10(y)  for y in y_values],
                             group = estimators,
+                            x_ticks = x_ticks,
+                            xlims = [0.5, length(x_order)+.5],
                             ylims =  (log10(ylims[1]),log10(ylims[2])),
                             y_ticks = [log10(y) for y in y_ticks],
                             legend = legend_pos,
@@ -228,6 +247,7 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
                                         x_type::GROUP=dataset,
                                         y_type::VALUE=estimate_error,
                                         grouping::GROUP=technique,
+                                        x_order = nothing,
                                         x_label=nothing,
                                         y_label=nothing,
                                         ylims=[0, 10^2.5],
@@ -284,11 +304,17 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
                 current_y = results_df[i, :EstimationTime]
             end
             # push the errors and their groupings into the correct vector
-            push!(x_values, current_x)
+            push!(x_values, string(current_x))
             push!(y_values, current_y)
             push!(groups, current_group)
         end
     end
+    if isnothing(x_order)
+        x_order = collect(sort(unique(x_values)))
+    end
+    x_ticks = ([x for x in 1:length(x_order)], x_order)
+    x_order_hash = [hash(x) for x in x_order]
+    x_values = [only(indexin(hash(x), x_order_hash)) for x in x_values]
     results_filename = params_to_results_filename(experiment_params_list[1])
     println("starting graphs")
 
@@ -298,7 +324,9 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
     gbplot = StatsPlots.groupedbar(x_values,
                             y_values,
                             group = groups,
+                            x_ticks = x_ticks,
                             ylims=ylims,
+                            xlims = [0.5, length(x_order)+.5],
                             y_ticks = y_ticks,
                             legend = legend_pos,
                             size = dimensions,

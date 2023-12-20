@@ -19,11 +19,12 @@ for dataset in datasets
     push!(experiment_params, ExperimentParams(deg_stats_type=MinDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=[(QuasiStable, 64)],
+                                                max_cycle_size = -1,
                                                 description = "MinQ64"))
-
     push!(experiment_params, ExperimentParams(deg_stats_type=MaxDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=[(QuasiStable, 64)],
+                                                max_cycle_size = -1,
                                                 description = "MaxQ64"))
 
     push!(experiment_params, ExperimentParams(deg_stats_type=MaxDegStats,
@@ -45,13 +46,13 @@ end
 
 graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 ylims=[10^-5, 10^4],
-                                                y_ticks=[10^-5, 10^-2, 10^0, 10^2, 10^4],
+                                                y_ticks=[10^-5, 10^-4, 10^-3, 10^-2, 10^-1, 10^0, 10^1, 10^2, 10^3, 10^4],
                                                 x_type = query_size,
                                                 y_type = runtime,
                                                 grouping=description,
                                                 dimensions = (1450, 550),
-                                                legend_pos=:topleft,
-                                                y_label="Runtime 10^ (s)",
+                                                legend_pos=:topright,
+                                                y_label="Inference Latency 10^ (s)",
                                                 x_label = "Query Size",
                                                 filename="query_size_runtime")
 

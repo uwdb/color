@@ -6,7 +6,7 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
         !isfile(summary_file_location) && error("The summary has not been built yet! \n Attempted File Location: $(summary_file_location)")
         summary::ColorSummary = deserialize(summary_file_location)
         experiment_results = SharedArray{Tuple{Float64, Float64, Float64, String255, String255, Float64}}(length(all_queries[dataset]))
-        @sync @distributed for i in 1:length(experiment_results)
+        @sync @distributed for i in shuffle(collect(eachindex(experiment_results)))
             query::QueryGraph = all_queries[dataset][i].query
             query_path = all_queries[dataset][i].query_path
             exact_size = all_queries[dataset][i].exact_size
