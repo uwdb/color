@@ -17,6 +17,9 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
                                     only_shortest_path_cycle= experiment_params.only_shortest_path_cycle)) for _ in 1:3]
             estimate_time = median([x.time for x in  estimate_results]) # Convert back to seconds from nano seconds
             estimate = max(1, estimate_results[1].value)
+            if isinf(estimate) || isnan(estimate)
+                estimate = 1.0
+            end
             query_type = all_queries[dataset][i].query_type
             experiment_results[i] = (estimate, exact_size, estimate_time, query_type, query_path, nv(query.graph))
         end

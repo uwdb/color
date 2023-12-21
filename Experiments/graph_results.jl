@@ -60,7 +60,7 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
                             [log10(y)  for y in y_values],
                             group = groups,
                             x_ticks = x_ticks,
-                            xlims = [0, length(x_order)],
+                            xlims = [0, length(x_order) + .5],
                             ylims =  (log10(ylims[1]),log10(ylims[2])),
                             y_ticks = [log10(y) for y in y_ticks],
                             legend = legend_pos,

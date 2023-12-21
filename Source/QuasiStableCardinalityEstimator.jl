@@ -70,7 +70,7 @@ function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, 
     sample_weights = [get_count(w) for w in new_partial_weights]
     sample_weights = AnalyticWeights(sample_weights ./ overall_bounds_sum)
     if sampling_strategy == uniform
-        sample_weights = AnalyticWeights([1.0 for i in eachindex(new_partial_paths)] ./ num_nonzero_entries)
+        sample_weights = AnalyticWeights([1.0 for i in eachindex(new_partial_weights)] ./ length(new_partial_weights))
     end
     sample_indices::Vector{Int} = sample(1:length(new_partial_weights), sample_weights,  num_samples; replace=false)
 
@@ -89,7 +89,7 @@ function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, 
             # scale the weights so that their sum equals the input weight's sum
             overall_bounds_sum / sampled_bounds_sum
         else
-            1.0 / sample_weights[i]
+            1.0 / (sample_weights[i] * num_samples)
         end
         sampled_partial_weights[i] = scale_coloring(new_partial_weights[idx], inverse_sampling_probability)
     end
