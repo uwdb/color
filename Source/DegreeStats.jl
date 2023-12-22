@@ -51,6 +51,20 @@ function get_count(w::StatAccumulator)
     throw(ErrorException("StatAccumulator is an abstract type, you probably meant to call a particular instance."))
 end
 
+function get_default_count(D::Type)
+    return if D == MinDegStats
+        0
+    elseif D == AvgDegStats
+        0
+    elseif D == MaxDegStats
+        Inf
+    elseif D == CorrDegStats
+        0
+    else
+        throw(ErrorException(string(D)* " doesn't have an associated default count"))
+    end
+end
+
 function stat_type_to_accumulator(D::Type)
     return if D == MinDegStats
         MinAccumulator
@@ -200,7 +214,9 @@ function extend_coloring(w::MaxAccumulator, d::MaxDegStats, out_edge::Bool)
     end
 end
 
-############################ VarianceDegreeStats ################################################
+
+
+############################ CorrDegStats ################################################
 
 struct CorrDegStats <:DegreeStats
     avg_in::Float32

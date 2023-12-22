@@ -218,24 +218,24 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
     # This seems to be necessary for using Plots.jl outside of the ipynb framework.
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
     ENV["GKSwstype"]="100"
-    gbplot = groupedboxplot(x_values,
-                            [log10(y)  for y in y_values],
-                            group = estimators,
-                            x_ticks = x_ticks,
-                            xlims = [0.5, length(x_order)+.5],
-                            ylims =  (log10(ylims[1]),log10(ylims[2])),
-                            y_ticks = [log10(y) for y in y_ticks],
-                            legend = legend_pos,
-                            size = dimensions,
-                            bottom_margin = 40px,
-                            top_margin = 20px,
-                            left_margin = 10mm,
-                            legend_column = 2,
-                            titlefont = (12, :black),
-                            legendfont = (11, :black),
-                            tickfont = (12, :black),
-                            guidefont = (15, :black),
-                            whisker_range=2)
+    gbplot =  groupedboxplot(x_values,
+                        [log10(y)  for y in y_values],
+                        group = estimators,
+                        x_ticks = x_ticks,
+                        xlims = [0.5, length(x_order)+.5],
+                        ylims =  (log10(ylims[1]),log10(ylims[2])),
+                        y_ticks = [log10(y) for y in y_ticks],
+                        legend = legend_pos,
+                        size = dimensions,
+                        bottom_margin = 40px,
+                        top_margin = 20px,
+                        left_margin = 10mm,
+                        legend_column = 2,
+                        titlefont = (12, :black),
+                        legendfont = (11, :black),
+                        tickfont = (12, :black),
+                        guidefont = (15, :black),
+                        whisker_range=2)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     y_type == estimate_error && hline!([0], label="exact", linestyle=:solid, lw=2)

@@ -149,6 +149,10 @@ function get_all_simple_path_bools(start::Int, finish::Int, max_length::Int,
         end
         push!(path_bools, bools)
     end
+    includes_1_length_path = start in outneighbors(query_graph, finish)
+    if includes_1_length_path
+        push!(path_bools, Bool[false])
+    end
     return path_bools
 end
 
@@ -189,7 +193,6 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
             push!(remaining_edges, (src(edge), dst(edge)))
         end
     end
-
     # scale down the average if there are remaining non-tree-edges
     for edge in remaining_edges
         push!(visited_query_edges, edge)
@@ -197,7 +200,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
         new_node_idx::Int = only(indexin(edge[2], current_query_nodes))
         child_label::Int = only(query.vertex_labels[edge[2]])
         edge_label::Int = only(query.edge_labels[(edge[1],edge[2])])
-        all_path_bools = Vector{BoolPath}()
+        all_path_bools::Vector{BoolPath} = []
         if only_shortest_path_cycle
             all_path_bools = [convert_path_graph_to_bools(get_matching_graph(edge[2], edge[1], query))]
         else
@@ -207,7 +210,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
         default_colors::StartEndColorPair = (-1, -1)
         path_counts = counter(all_path_bools)
 
-        default_no_edge_probability = 1.0
+        default_no_edge_probability::Float64 = 1.0
         default_no_edge_probabilities::Dict{BoolPath, Float64} = Dict()
         for (path_bools, path_count) in path_counts
             probability_no_edge = 1.0
@@ -235,7 +238,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
             current_colors::StartEndColorPair = (child_color, parent_color)
             # We don't have to check data label because these nodes are already in the
             # partial path, so we have already ensured that the colors are appropriate
-            probability_no_edge = 1.0
+            probability_no_edge::Float64 = 1.0
             if (haskey(edge_deg, parent_color) && haskey(edge_deg[parent_color], child_color))
                 if usingStoredStats
                     for (path_bools, path_count) in path_counts
@@ -282,7 +285,8 @@ end
 function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; max_partial_paths::Union{Nothing, Int} = nothing,
                                 use_partial_sums::Bool = true, verbose::Bool = false, usingStoredStats::Bool = false,
                                 include_cycles::Bool = true, sampling_strategy::SAMPLING_STRATEGY=weighted,
-                                only_shortest_path_cycle::Bool=false) where DS
+                                only_shortest_path_cycle::Bool=false, timeout::Float64 = Inf) where DS
+    start_time = time()
     W = stat_type_to_accumulator(DS)
     node_order::Vector{Int} = get_min_width_node_order(query.graph) #spanning tree to cut out cycles
     if verbose
@@ -323,6 +327,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
     end
     new_node = old_node
     while length(node_order) > 0
+        time() - start_time > timeout && return get_default_count(DS)
         if verbose
             println("Current Query Nodes: ", current_query_nodes)
             println("Visited Query Edges: ", visited_query_edges)
@@ -378,6 +383,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
         end
         new_path_idx = 1
         for i in 1:num_current_paths
+            time() - start_time > timeout && return get_default_count(DS)
             old_color = partial_paths[parent_idx, i]
             # Account for colors with no outgoing children.
             if haskey(edge_deg, old_color)
@@ -411,6 +417,8 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
                 end
             end
         end
+        time() - start_time > timeout && return get_default_count(DS)
+
         partial_paths = new_partial_paths[:, 1:new_path_idx-1]
         partial_weights = new_partial_weights[1:new_path_idx-1]
         if !(isnothing(max_partial_paths)) && (size(partial_paths)[2] > max_partial_paths)

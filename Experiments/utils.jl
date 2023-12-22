@@ -13,13 +13,14 @@ struct ExperimentParams
     use_partial_sums::Bool
     sampling_strategy::SAMPLING_STRATEGY
     description::String
+    n_replications::Int
 
     function ExperimentParams(;dataset::DATASET, max_cycle_size=6,
         only_shortest_path_cycle=false, summary_max_paths=1000,
         partitioning_scheme::Vector{Tuple{PARTITIONER, Int}} = [(QuasiStable, 64)], weighting=true,
         inference_max_paths=500, use_partial_sums=true,
         sampling_strategy=redistributive, proportion_updated=0.0, proportion_deleted=0.0,
-        deg_stats_type::Type=AvgDegStats, description="")
+        deg_stats_type::Type=AvgDegStats, description="", n_replications=3)
         return new(dataset,
                     ColorSummaryParams(deg_stats_type=deg_stats_type,
                                         max_cycle_size=max_cycle_size,
@@ -32,7 +33,8 @@ struct ExperimentParams
                     only_shortest_path_cycle,
                     use_partial_sums,
                     sampling_strategy,
-                    description
+                    description,
+                    n_replications
                )
     end
 end
