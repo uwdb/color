@@ -19,6 +19,7 @@ mutable struct ColorSummary{DS}
     total_nodes::Int
     num_colors::Int
     total_added_edges::Int
+    added_color::Bool
 end
 
 
@@ -181,7 +182,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
 
     return ColorSummary{DS}(color_label_cardinality, edge_deg, color_filters,
                 cycle_probabilities, cycle_length_probabilities, params.max_cycle_size,
-                 ne(g.graph), nv(g.graph), num_colors, 0)
+                 ne(g.graph), nv(g.graph), num_colors, 0, false)
 end
 
 function color_hash_to_groups(color_hash, num_colors)

@@ -255,7 +255,7 @@ function graph_multi_group_bar_graph(experiment_params_list::Vector{ExperimentPa
             if x_type == query_type
                 current_x = results_df[i, :QueryType]
             else
-            current_x = get_value_from_param(experiment_params, x_type)
+                current_x = get_value_from_param(experiment_params, x_type)
             end
             for y_value in y_type
                 current_y = 0
