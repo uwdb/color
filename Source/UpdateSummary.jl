@@ -4,8 +4,8 @@ function choose_color(summary)
     # current implementation: find the biggest color
     # other future options:
     # - make a brand new color just for added nodes?
-    # return get_largest_color(summary)
-    return get_update_only_color!(summary)
+    return get_largest_color(summary)
+    # return get_update_only_color!(summary)
 end
 
 function get_largest_color(summary)
@@ -40,7 +40,7 @@ function get_update_only_color!(summary)
 end 
 
 function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node)
-    data_label = node 
+    data_label = node - 1
 
     color = choose_color(summary)
     # add to the bloom filter

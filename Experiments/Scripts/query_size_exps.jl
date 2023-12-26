@@ -4,7 +4,6 @@ include("../Experiments.jl")
 
 #datasets = [human, aids, lubm80, yeast, hprd, dblp, youtube, eu2005, patents, wordnet]
 datasets = [human, aids, lubm80, yeast, dblp, youtube, eu2005, patents]
-#datasets = [human, aids, lubm80]
 
 experiment_params = Vector{ExperimentParams}()
 for dataset in datasets
@@ -16,7 +15,7 @@ for dataset in datasets
                                                 dataset=dataset,
                                                 partitioning_scheme=[(QuasiStable, 32), (NeighborNodeLabels, 32),(QuasiStable, 32), (NeighborNodeLabels, 32)],
                                                 description = "AvgQ64N64"))
-#=
+
     push!(experiment_params, ExperimentParams(deg_stats_type=MinDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=[(QuasiStable, 64)],
@@ -32,65 +31,40 @@ for dataset in datasets
                                                 dataset=dataset,
                                                 partitioning_scheme=[(Hash, 64)],
                                                 max_cycle_size = -1,
-                                                inference_max_paths = 10^30,
-                                                use_partial_sums = false,
                                                 description = "BSK"))
 
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=[(QuasiStable, 1)],
                                                 max_cycle_size = -1,
-                                                description = "IndEst")) =#
+                                                description = "IndEst"))
 end
 
 #build_experiments(experiment_params)
 
-run_estimation_experiments(experiment_params; timeout=1.0)
-
-order = [string(data) for data in datasets]
+#run_estimation_experiments(experiment_params)
 
 graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 ylims=[10^-5, 10^4],
                                                 y_ticks=[10^-5, 10^-4, 10^-3, 10^-2, 10^-1, 10^0, 10^1, 10^2, 10^3, 10^4],
+                                                x_type = query_size,
                                                 y_type = runtime,
-                                                x_type = dataset,
-                                                x_order = order,
                                                 grouping=description,
                                                 dimensions = (1450, 550),
-                                                legend_pos=:top,
+                                                legend_pos=:topright,
                                                 y_label="Inference Latency 10^ (s)",
-                                                filename="overall_runtime")
+                                                x_label = "Query Size",
+                                                filename="query_size_runtime")
+
 
 graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 ylims=[10^-21, 10^21],
+                                                x_type = query_size,
                                                 y_ticks=[10^-20, 10^-15, 10^-10, 10^-5, 10^-2, 10^0, 10^2, 10^5, 10^10, 10^15, 10^20],
                                                 y_type = estimate_error,
-                                                x_type = dataset,
-                                                x_order = order,
                                                 grouping=description,
                                                 dimensions = (1450, 550),
                                                 legend_pos=:bottomleft,
                                                 y_label="Relative Error 10^",
-                                                filename="overall_error")
-
-
-graph_grouped_bar_plot(experiment_params;
-                        grouping=description,
-                        y_type=memory_footprint,
-                        x_order = order,
-                        ylims=[0, 50],
-                        y_ticks = [10, 20, 30, 40, 50],
-                        legend_pos=:topright,
-                        dimensions = (1000, 550),
-                        y_label="Memory (MBs)",
-                        filename="overall_memory")
-
-graph_grouped_bar_plot(experiment_params;
-                        grouping=description,
-                        y_type=build_time,
-                        x_order = order,
-                        ylims=[0, 1600],
-                        y_ticks = [200, 400, 600, 800, 1000, 1200, 1400, 1600],
-                        dimensions = (1000, 550),
-                        y_label="Build Time (s)",
-                        filename="overall_build_time")
+                                                x_label = "Query Size",
+                                                filename="query_size_error")

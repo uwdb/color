@@ -51,6 +51,20 @@ function get_count(w::StatAccumulator)
     throw(ErrorException("StatAccumulator is an abstract type, you probably meant to call a particular instance."))
 end
 
+function get_default_count(D::Type)
+    return if D == MinDegStats
+        0
+    elseif D == AvgDegStats
+        0
+    elseif D == MaxDegStats
+        Inf
+    elseif D == CorrDegStats
+        0
+    else
+        throw(ErrorException(string(D)* " doesn't have an associated default count"))
+    end
+end
+
 function stat_type_to_accumulator(D::Type)
     return if D == MinDegStats
         MinAccumulator
@@ -121,18 +135,17 @@ struct AvgDegStats <:DegreeStats
 end
 
 function AvgDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}}, color_size::Int)
-    length(edges) == 0 && return AvgDegStats(0,0)
-    in_counter = counter(NodeId)
-    out_counter = counter(NodeId)
+    in_edges = 0
+    out_edges = 0
     for edge in edges
         if edge[3]
-            inc!(out_counter, edge[1])
+            out_edges += 1
         else
-            inc!(in_counter, edge[1])
+            in_edges += 1
         end
     end
-    avg_in = sum([x for x in values(in_counter)]; init=0)/color_size
-    avg_out = sum([x for x in values(out_counter)]; init=0)/color_size
+    avg_in = in_edges/color_size
+    avg_out = out_edges/color_size
     return AvgDegStats(avg_in, avg_out)
 end
 get_in_deg_estimate(d::AvgDegStats) = d.avg_in
@@ -201,7 +214,9 @@ function extend_coloring(w::MaxAccumulator, d::MaxDegStats, out_edge::Bool)
     end
 end
 
-############################ VarianceDegreeStats ################################################
+
+
+############################ CorrDegStats ################################################
 
 struct CorrDegStats <:DegreeStats
     avg_in::Float32
@@ -245,10 +260,10 @@ function CorrDegStats(g::DataGraph, edges::Vector{Tuple{NodeId, NodeId, Bool}}, 
         r_1st[i] /= e_count[i]
         r_2nd[i] /= e_count[i]
         e_1st[i] /= e_count[i]
-        r_denom = sqrt(r_2nd[i]-r_1st[i]^2)
-        l_denom = sqrt(l_2nd[i]-l_1st[i]^2)
+        r_denom = sqrt(max(0.0, r_2nd[i]-r_1st[i]^2))
+        l_denom = sqrt(max(0.0, l_2nd[i]-l_1st[i]^2))
         if r_denom > 0 && l_denom > 0
-            corrs[i] = (e_1st[i] - l_1st[i]*r_1st[i])/(sqrt(l_2nd[i] - l_1st[i]^2) * sqrt(r_2nd[i]-r_1st[i]^2))
+            corrs[i] = (e_1st[i] - l_1st[i]*r_1st[i])/(l_denom * r_denom)
         else
             corrs[i] = 0
         end
@@ -283,7 +298,7 @@ get_count(w::CorrAccumulator) = w.weight
 sum_colorings(w1::CorrAccumulator, w2::CorrAccumulator) = CorrAccumulator(w1.weight + w2.weight, w1.var + w2.var)
 scale_coloring(w::CorrAccumulator, s) = CorrAccumulator(w.weight * s, w.var * s^2)
 
-function extend_coloring(w::CorrAccumulator, d::CorrDegStats, out_edge::Bool)
+@inline function extend_coloring(w::CorrAccumulator, d::CorrDegStats, out_edge::Bool)
     w_std = sqrt(w.var)
     w_2nd = w.var + w.weight^2
     if out_edge

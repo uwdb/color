@@ -16,23 +16,26 @@ function _hash_coloring(g::DataGraph, params::ColorSummaryParams, color_hash::Di
     for (node, color) in color_hash
         push!(color_to_nodes[color], node)
     end
-
     split_color = 1
     next_color = existing_colors + 1
     colors_this_round = existing_colors
     while next_color < new_colors + existing_colors
         color_to_nodes[next_color] = []
         nodes_to_remove = copy(color_to_nodes[split_color])
+        color_to_nodes[split_color] = []
         for node in nodes_to_remove
             if rand() < .5
-                filter!(e->e≠node, color_to_nodes[split_color])
                 push!(color_to_nodes[next_color], node)
+            else
+                push!(color_to_nodes[split_color], node)
             end
         end
-        split_color += 1
+
         if split_color == colors_this_round
             colors_this_round = next_color
             split_color = 1
+        else
+            split_color += 1
         end
         next_color += 1
     end
@@ -70,7 +73,6 @@ function _degree_coloring(g::DataGraph, params::ColorSummaryParams, color_hash::
 
     next_color = existing_colors + 1
     while next_color < new_colors + existing_colors
-        color_to_nodes[next_color] = []
         split_color = 1
         split_mean_deg = -1
         max_deg_total_dev = -1
@@ -83,10 +85,13 @@ function _degree_coloring(g::DataGraph, params::ColorSummaryParams, color_hash::
             end
         end
         nodes_to_remove = copy(color_to_nodes[split_color])
+        color_to_nodes[next_color] = []
+        color_to_nodes[split_color] = []
         for node in nodes_to_remove
             if degree(g.graph, node) <= split_mean_deg
-                filter!(e->e≠node, color_to_nodes[split_color])
                 push!(color_to_nodes[next_color], node)
+            else
+                push!(color_to_nodes[split_color], node)
             end
         end
         if length(color_to_nodes[next_color]) > 0
@@ -447,7 +452,6 @@ function _neighbor_labels_coloring(g::DataGraph, params::ColorSummaryParams,
     end
 
     while next_color < new_colors + existing_colors
-        color_to_nodes[next_color] = []
         split_color = 1
         split_label = 1
         split_mean_deg = -1
@@ -465,11 +469,14 @@ function _neighbor_labels_coloring(g::DataGraph, params::ColorSummaryParams,
             end
         end
         nodes_to_remove = copy(color_to_nodes[split_color])
+        color_to_nodes[next_color] = []
+        color_to_nodes[split_color] = []
         for node in nodes_to_remove
             node_degree = node_label_counts[node][split_label]
             if node_degree <= split_mean_deg
-                filter!(e->e≠node, color_to_nodes[split_color])
                 push!(color_to_nodes[next_color], node)
+            else
+                push!(color_to_nodes[split_color], node)
             end
         end
         color_max_dev_label_mean[split_color] = calc_max_dev_label_mean(split_color)
