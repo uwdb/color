@@ -68,7 +68,9 @@ function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node
     for node_label in node_labels
         summary.color_label_cardinality[color][node_label] = get(summary.color_label_cardinality[color], node_label, 0) + 1
     end
-    summary.color_label_cardinality[color][-1] = get(summary.color_label_cardinality[color], -1, 0) + 1
+    if !(-1 in node_labels)
+        summary.color_label_cardinality[color][-1] = get(summary.color_label_cardinality[color], -1, 0) + 1
+    end
     summary.total_nodes += 1
 
 

@@ -254,6 +254,7 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
                 end
             end
             probability_no_edge *= 1.0 - summary.total_added_edges/summary.total_nodes^2
+            # probability_no_edge *= ((summary.total_nodes^2-1)/(summary.total_nodes^2))^summary.total_added_edges
             partial_weights[i] = scale_coloring(partial_weights[i], (1.0 - probability_no_edge))
         end
     end

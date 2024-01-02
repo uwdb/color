@@ -3,12 +3,14 @@ using Graphs
 using Random
 include("../Experiments.jl")
 
-datasets::Vector{DATASET} = [aids, human, ]
+datasets::Vector{DATASET} = [aids, human, wordnet]
 # datasets::Vector{DATASET} = [aids, human, wordnet, dblp]
 # datasets::Vector{DATASET} = [aids, human, yeast, wordnet, youtube, dblp, patents]
 # datasets::Vector{DATASET} = [aids, human, lubm80, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
 max_cycles = 6
-proportions_updated = [0, 0.2, 0.4, 0.6, 0.8]
+# proportions_updated = [0, 0.2, 0.4, 0.6, 0.8]
+proportions_updated = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9]
+
 # To test deletion, we will add a random node / edge and then delete them...
 # proportion_not_updated = 0.5
 
@@ -153,8 +155,8 @@ println("started graphing")
 # graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=estimate_error, grouping=proportion_not_updated, filename="overall-accuracy-and-updates")
 # compare how cycle stat accuracies are affected by summary updates
 # graph_grouped_box_plot(experiment_params_list, x_type=proportion_deleted, y_type=estimate_error, x_label="proportion added then deleted", y_label="accuracy", grouping=cycle_size, filename="deletion-experiment")
-graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=build_time, ylims=[0, 30], x_label="Proportion Updated", y_label="Build Time (S)", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-build")
-graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=estimate_error, ylims=[10e-15, 10e15], x_label="Proportion Updated", y_label="Estimate Error", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-error")
-graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=runtime, ylims=[0, 0.6], x_label="Proportion Updated", y_label="Runtime (S)", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-runtime")
-graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=memory_footprint, ylims=[0, 20], x_label="Proportion Updated", y_label="Memory Footprint (B)", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-memory")
+graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=build_time, ylims=[0, 30], x_label="Proportion Updated", y_label="Build Time (S)", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-build-color")
+graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=estimate_error, ylims=[10e-15, 10e15], x_label="Proportion Updated", y_label="Estimate Error", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-error-color")
+graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=runtime, ylims=[0, 0.6], x_label="Proportion Updated", y_label="Runtime (S)", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-runtime-color")
+graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=memory_footprint, ylims=[0, 20], x_label="Proportion Updated", y_label="Memory Footprint (B)", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-memory-color")
 # graph_multi_group_bar_graph(experiment_params_list, x_type=proportion_updated, y_type=[build_time, update_time, total_time], x_label="Proportion Updated", y_label="Time (s)", y_lims=[0, 5], filename="ve-update-totaltime-aids")
