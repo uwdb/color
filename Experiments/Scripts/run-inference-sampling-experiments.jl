@@ -2,7 +2,7 @@ using Plots.PlotMeasures
 include("../Experiments.jl")
 
 # datasets::Vector{DATASET} = [aids, human, lubm80, yago, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
-datasets = [youtube]
+datasets = [yeast]
 max_paths = [10, 100, 500, 2000, 10000]
 experiment_params_list = ExperimentParams[]
 for dataset in datasets

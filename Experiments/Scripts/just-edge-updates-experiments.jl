@@ -3,11 +3,10 @@ using Graphs
 using Random
 include("../Experiments.jl")
 
-datasets::Vector{DATASET} = [aids, human, wordnet]
+datasets::Vector{DATASET} = [yeast, dblp]
 # datasets::Vector{DATASET} = [aids, human, yeast, wordnet, youtube, dblp, patents]
 # datasets::Vector{DATASET} = [aids, human, lubm80, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
-max_cycles = 6
-proportions_updated = [0, 0.2, 0.4, 0.6, 0.8, .9, 1.0]
+proportions_updated = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9]
 # To test deletion, we will add a random node / edge and then delete them...
 # proportion_not_updated = 0.5
 

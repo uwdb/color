@@ -3,7 +3,9 @@ using Graphs
 using Random
 include("../Experiments.jl")
 
-datasets::Vector{DATASET} = [aids, human, wordnet]
+datasets::Vector{DATASET} = [yeast, dblp]
+
+# datasets::Vector{DATASET} = [aids, human, lubm80, yeast, dblp, youtube, eu2005, patents]
 # datasets::Vector{DATASET} = [aids, human, wordnet, dblp]
 # datasets::Vector{DATASET} = [aids, human, yeast, wordnet, youtube, dblp, patents]
 # datasets::Vector{DATASET} = [aids, human, lubm80, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
@@ -64,7 +66,9 @@ for experiment_params in experiment_params_list
             # now explicitly add the edge to the graph
             mapped_start = vertex_mapping[current_vertices[1]]
             mapped_end = vertex_mapping[current_vertices[2]]
-            add_labeled_edge!(cloned_data, (mapped_start, mapped_end), only(data.edge_labels[current_vertices]))
+            for label in data.edge_labels[current_vertices]
+                add_labeled_edge!(cloned_data, (mapped_start, mapped_end), label)
+            end
         else
             # save the edge (and its vertices) to be processed later
             push!(edges_for_later, edge)
@@ -76,26 +80,25 @@ for experiment_params in experiment_params_list
     timing_vec = Float64[]
     results = @timed generate_color_summary((experiment_params.summary_params.proportion_updated > 0) ? cloned_data : data, summary_params; verbose=1, timing_vec=timing_vec)
     current_summary = results.value
-    summary_updating_time = @elapsed begin
-        if (experiment_params.summary_params.proportion_updated > 0)
-            for edge in edges_for_later
-                # first add the summary nodes to the graph if need
-                current_vertices = (src(edge), dst(edge))
-                for current_vertex in current_vertices
-                    # update the mapping if the nodes haven't already been added
-                    if !(current_vertex in added_nodes)
-                        vertex_in_clone += 1
-                        vertex_mapping[current_vertex] = vertex_in_clone
-                        # now add a summary node_label
-                        add_summary_node!(current_summary, data.vertex_labels[current_vertex], vertex_in_clone)
-                    end
-                    push!(added_nodes, current_vertex)
+    summary_updating_time = 0
+    if (experiment_params.summary_params.proportion_updated > 0)
+        for edge in edges_for_later
+            # first add the summary nodes to the graph if need
+            current_vertices = (src(edge), dst(edge))
+            for current_vertex in current_vertices
+                # update the mapping if the nodes haven't already been added
+                if !(current_vertex in added_nodes)
+                    vertex_in_clone += 1
+                    vertex_mapping[current_vertex] = vertex_in_clone
+                    # now add a summary node_label
+                    summary_updating_time += @elapsed add_summary_node!(current_summary, data.vertex_labels[current_vertex], vertex_in_clone)
                 end
-                # now add the summary edge to the graph
-                mapped_start = vertex_mapping[current_vertices[1]]
-                mapped_end = vertex_mapping[current_vertices[2]]
-                add_summary_edge!(current_summary, mapped_start, mapped_end, data.edge_labels[current_vertices])
+                push!(added_nodes, current_vertex)
             end
+            # now add the summary edge to the graph
+            mapped_start = vertex_mapping[current_vertices[1]]
+            mapped_end = vertex_mapping[current_vertices[2]]
+            summary_updating_time += @elapsed add_summary_edge!(current_summary, mapped_start, mapped_end, data.edge_labels[current_vertices])
         end
     end
     
