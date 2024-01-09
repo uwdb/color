@@ -273,9 +273,10 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
         for edge in edge_set
             summary_info = CyclePathAndColors(edge[5], (edge[3], edge[4]))
             updated_paths[edge] = 1.0
-            stored_paths[summary_info] = 1.0
-            stored_cycles[summary_info] = (edge[1], edge[2], color_hash[edge[1]], color_hash[edge[2]], [false]) in detailed_edges[edge[1]] ?
-                                        1.0 : 0.0
+            stored_paths[summary_info] = get(stored_paths, summary_info, 0) + 1.0
+            edge_dir = edge[5][1]
+            is_closed = (edge[1], edge[2], color_hash[edge[1]], color_hash[edge[2]], [!edge_dir]) in detailed_edges[edge[1]]
+            stored_cycles[summary_info] = get(stored_cycles, summary_info, 0) + (is_closed ? 1.0 : 0.0)
         end
     end
 

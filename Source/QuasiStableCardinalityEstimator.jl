@@ -149,6 +149,7 @@ function get_all_simple_path_bools(start::Int, finish::Int, max_length::Int,
         end
         push!(path_bools, bools)
     end
+
     includes_1_length_path = start in outneighbors(query_graph, finish)
     if includes_1_length_path
         push!(path_bools, Bool[false])
@@ -202,9 +203,9 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
         edge_label::Int = only(query.edge_labels[(edge[1],edge[2])])
         all_path_bools::Vector{BoolPath} = []
         if only_shortest_path_cycle
-            all_path_bools = [convert_path_graph_to_bools(get_matching_graph(edge[2], edge[1], query))]
+            all_path_bools = [convert_path_graph_to_bools(get_matching_graph(edge[1], edge[2], query))]
         else
-            all_path_bools = get_all_simple_path_bools(edge[2], edge[1], summary.max_cycle_size, query.graph, visited_query_edges)
+            all_path_bools = get_all_simple_path_bools(edge[1], edge[2], summary.max_cycle_size, query.graph, visited_query_edges)
         end
 
         default_colors::StartEndColorPair = (-1, -1)
@@ -225,6 +226,10 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
             end
             default_no_edge_probability *= probability_no_edge
             default_no_edge_probabilities[path_bools] = probability_no_edge
+            if length(path_bools) == 1
+                println("Path Bools: ", path_bools, "DefaultProb: ", haskey(summary.cycle_probabilities, default_cycle_description), " CycleSize: ", haskey(summary.cycle_length_probabilities, path_length),  " Prob Edge: ", probability_no_edge)
+            end
+
         end
 
         edge_deg::Dict{Int, Dict{Int, DS}} = Dict()
@@ -371,9 +376,11 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
         else
             edge_label =  only(query.edge_labels[(new_node,old_node)])
         end
+
         new_label = only(query.vertex_labels[new_node])
         new_data_labels = get_data_label(query, new_node)
         num_current_paths = size(partial_paths)[2]
+        num_current_paths * num_colors > 10^9 && return get_default_count(DS) # If the requested memory is too large, return the default.
         new_partial_paths = zeros(Color, length(current_query_nodes),  num_current_paths * num_colors)
         new_partial_weights = fill(W(0), num_current_paths * num_colors)
         # Update the partial paths using the parent-child combo that comes next from the query.
