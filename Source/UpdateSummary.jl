@@ -21,23 +21,24 @@ function get_largest_color(summary)
     return current_color
 end
 
-function get_update_only_color!(summary)
-    # check if we need to add stats for the new color
-    if !summary.added_color
-        summary.added_color = true
-        new_color = summary.num_colors + 1
-        # we need to add a new color
-        summary.color_label_cardinality[new_color] = Dict()
-        num_nodes = 10000 # not sure what to put here
-        accepted_error = 0.00001
-        cuckoo_params = constrain(SmallCuckoo, fpr=accepted_error, capacity=num_nodes)
-        summary.color_filters[new_color] = SmallCuckoo{cuckoo_params.F}(cuckoo_params.nfingerprints)
-        summary.num_colors += 1
-        return new_color
-    else
-        return summary.num_colors
-    end
-end 
+# intended to be a new color for all incoming nodes to belong to
+# function get_update_only_color!(summary)
+#     # check if we need to add stats for the new color
+#     if !summary.added_color
+#         summary.added_color = true
+#         new_color = summary.num_colors + 1
+#         # we need to add a new color
+#         summary.color_label_cardinality[new_color] = Dict()
+#         num_nodes = 10000 # not sure what to put here
+#         accepted_error = 0.00001
+#         cuckoo_params = constrain(SmallCuckoo, fpr=accepted_error, capacity=num_nodes)
+#         summary.color_filters[new_color] = SmallCuckoo{cuckoo_params.F}(cuckoo_params.nfingerprints)
+#         summary.num_colors += 1
+#         return new_color
+#     else
+#         return summary.num_colors
+#     end
+# end 
 
 function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node)
     data_label = node - 1

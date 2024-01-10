@@ -19,7 +19,6 @@ mutable struct ColorSummary{DS}
     total_nodes::Int
     num_colors::Int
     total_added_edges::Int
-    added_color::Bool
 end
 
 
@@ -175,14 +174,9 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     edge_stats_time = time() - edge_stats_time
     push!(timing_vec, edge_stats_time)
 
-    # println("color cardinality: ", color_label_cardinality)
-    # println("edge deg: ", edge_deg)
-    # println("number of nodes: ", nv(g.graph))
-    # println("number of edges: ", ne(g.graph))
-
     return ColorSummary{DS}(color_label_cardinality, edge_deg, color_filters,
                 cycle_probabilities, cycle_length_probabilities, params.max_cycle_size,
-                 ne(g.graph), nv(g.graph), num_colors, 0, false)
+                 ne(g.graph), nv(g.graph), num_colors, 0)
 end
 
 function color_hash_to_groups(color_hash, num_colors)
