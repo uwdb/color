@@ -3,7 +3,10 @@ using Graphs
 using Random
 include("../Experiments.jl")
 
-# Updates a differing proportion of the graph and evaluates relative error
+# The goal of this file is to determine the performance of the node and edge update logic.
+# We create a summary using only some of the edges (and their involved nodes) in the graph and then update the summary
+# with the remaining edges (and any unadded nodes), repeating for different proportions of the graph to update with.
+# Then, we can check metrics like relative error and see how it performs with more updates.
 
 datasets::Vector{DATASET} = [aids]
 proportions_updated = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9]
@@ -145,7 +148,4 @@ end
 println("started estimating")
 run_estimation_experiments(experiment_params_list)
 println("started graphing")
-# graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=build_time, ylims=[0, 30], x_label="Proportion Updated", y_label="Build Time (S)", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-build-color")
 graph_box_plot(experiment_params_list, x_type=proportion_updated, y_type=estimate_error, ylims=[10e-15, 10e15], x_label="Proportion Updated (AIDS)", y_label="Relative Error 10^", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-error-color")
-# graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=runtime, ylims=[0, 0.6], x_label="Proportion Updated", y_label="Runtime (S)", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-runtime-color")
-# graph_grouped_bar_plot(experiment_params_list, x_type=dataset, y_type=memory_footprint, ylims=[0, 20], x_label="Proportion Updated", y_label="Memory Footprint (B)", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-memory-color")

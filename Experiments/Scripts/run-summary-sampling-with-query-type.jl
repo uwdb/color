@@ -4,7 +4,7 @@ include("../Experiments.jl")
 current_dataset = yeast
 max_paths = 300
 
-experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, partitioner=QuasiStable, summary_max_paths=current_paths) for current_paths in 10:30:max_paths]
+experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, summary_max_paths=current_paths) for current_paths in 10:30:max_paths]
 println("started building")
 build_experiments(experiment_params_list)
 println("started estimating")

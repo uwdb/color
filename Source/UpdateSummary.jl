@@ -1,15 +1,11 @@
 
 # chooses a color for a new node to be added to
 function choose_color(summary)
-    # current implementation: find the biggest color
-    # other future options:
-    # - make a brand new color just for added nodes?
     return get_largest_color(summary)
     # return get_update_only_color!(summary)
 end
 
 function get_largest_color(summary)
-    # current implementation: find the biggest color
     max_color_cardinality = 0
     current_color = collect(keys(summary.color_label_cardinality))[1] # initialize with the first color
     for color in keys(summary.color_label_cardinality)
@@ -73,10 +69,6 @@ function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node
         summary.color_label_cardinality[color][-1] = get(summary.color_label_cardinality[color], -1, 0) + 1
     end
     summary.total_nodes += 1
-
-
-    # for cycle stats, since the number of edges/cycles are the same,
-    # cycle likelihood for an arbitrary edge doesn't change
 end
 
 # assume that you delete all attached edges before removing a summary node
@@ -85,7 +77,7 @@ function delete_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, n
     color = get_node_summary_color(summary, node)
 
     # by definition in data graph
-    data_label = node
+    data_label = node - 1
 
     # remove from the cuckoo filter
     pop!(summary.color_filters[color], data_label)

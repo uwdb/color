@@ -12,7 +12,7 @@ num_vertex_labels = 50
 max_labels_per_v = 5
 num_trials = 20
 
-# using a dummy graph to get rid of @elapsed startup issues
+# using a dummy graph to get rid of @elapsed startup
 println("doing dummy run")
 dummy_graph = SimpleDiGraph(100, 100)
 dummy_data = DataGraph(dummy_graph)

@@ -1,12 +1,12 @@
 using Plots.PlotMeasures
 include("../Experiments.jl")
 
-current_dataset = aids
+current_dataset = yeast
 max_paths = 9999999
 
-
-# partial summation experiments
-# for each width, graph the inference time for partial aggregation (no sampling), no partial aggregation (no sampling), partial aggregation with inference sampling
+# The goal of this file is to demonstrate the significance of the partial sum optimization.
+# We use the same datasets and summaries but we try estimating without partial sums, with partial
+# sums, and with partial sums and sampling, then record how the inference time changes.
 
 experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, use_partial_sums=true, inference_max_paths=max_paths),
                                                     ExperimentParams(dataset=current_dataset, use_partial_sums=false, inference_max_paths=max_paths),
@@ -80,5 +80,3 @@ xlabel!(gbplot, "Query Path Width")
 ylabel!(gbplot, "Inference Latency 10^ (s)")
 plotname = "partial-agg-exp.png"
 savefig(gbplot, "Experiments/Results/Figures/" * plotname)
-
-# graph_grouped_box_plot(experiment_params_list, x_type=query_type, y_type=estimate_error, grouping=summary_paths, filename="summarysamplesquerytypesyeast")

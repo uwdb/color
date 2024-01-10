@@ -4,12 +4,9 @@ using Random
 include("../Experiments.jl")
 
 datasets::Vector{DATASET} = [aids]
-# datasets::Vector{DATASET} = [aids, human, yeast, wordnet, youtube, dblp, patents]
-# datasets::Vector{DATASET} = [aids, human, lubm80, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
 max_cycles = 6
 proportions_deleted = [0, 0.2, 0.4, 0.6, 0.8, 1.0]
-# To test deletion, we will add a random node / edge and then delete them...
-# proportion_not_updated = 0.5
+# To test deletion, we will add a random node / edge and then delete them
 
 experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, max_cycle_size=current_cycle, proportion_deleted=current_proportion) 
                                                     for current_dataset in datasets for current_cycle in 2:max_cycles for current_proportion in proportions_deleted]
@@ -134,11 +131,7 @@ println("started building")
 println("started estimating")
 run_estimation_experiments(experiment_params_list)
 println("started graphing")
-# compare how overall accuracy is affected by summary updates
-# graph_grouped_box_plot(experiment_params_list, x_type=dataset, y_type=estimate_error, grouping=proportion_not_updated, filename="overall-accuracy-and-updates")
-# compare how cycle stat accuracies are affected by summary updates
-# graph_grouped_box_plot(experiment_params_list, x_type=proportion_deleted, y_type=estimate_error, x_label="proportion added then deleted", y_label="accuracy", grouping=cycle_size, filename="deletion-experiment")
 graph_grouped_bar_plot(experiment_params_list, x_type=proportion_deleted, y_type=build_time, x_label="Proportion Deleted Then Updated", y_label="Build Time", grouping=dataset, filename="delete-build-aids")
 graph_grouped_box_plot(experiment_params_list, x_type=proportion_deleted, y_type=estimate_error, x_label="Proportion Deleted Then Updated", y_label="Estimate Error", grouping=dataset, filename="delete-error-aids")
-graph_grouped_bar_plot(experiment_params_list, x_type=proportion_deleted, y_type=runtime, y_lims=[0, 0.02], x_label="Proportion Deleted Then Updated", y_label="Runtime", grouping=dataset, filename="delete-runtime-aids")
-graph_grouped_bar_plot(experiment_params_list, x_type=proportion_deleted, y_type=memory_footprint, y_lims=[0, 6], x_label="Proportion Deleted Then Updated", y_label="Memory Footprint", grouping=dataset, filename="delete-memory-aids")
+graph_grouped_bar_plot(experiment_params_list, x_type=proportion_deleted, y_type=runtime, ylims=[0, 0.02], x_label="Proportion Deleted Then Updated", y_label="Runtime", grouping=dataset, filename="delete-runtime-aids")
+graph_grouped_bar_plot(experiment_params_list, x_type=proportion_deleted, y_type=memory_footprint, ylims=[0, 6], x_label="Proportion Deleted Then Updated", y_label="Memory Footprint", grouping=dataset, filename="delete-memory-aids")
