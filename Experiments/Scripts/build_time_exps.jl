@@ -13,5 +13,5 @@ end
 
 graph_grouped_bar_plot(build_params; grouping=build_phase,
                                           y_type=build_time,
-                                          y_lims=[0, 360],
+                                          ylims=[0, 360],
                                           filename="build_time")

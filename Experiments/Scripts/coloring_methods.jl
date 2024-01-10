@@ -18,7 +18,7 @@ for dataset in datasets
     end
 end
 
-#build_experiments(experiment_params)
+build_experiments(experiment_params)
 
 run_estimation_experiments(experiment_params)
 

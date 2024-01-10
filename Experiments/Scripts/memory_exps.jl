@@ -16,5 +16,5 @@ build_experiments(build_params)
 
 graph_grouped_bar_plot(build_params; grouping=number_of_colors,
                                           y_type=memory_footprint,
-                                          y_lims=[0, 16],
+                                          ylims=[0, 16],
                                           filename="memory_size_vs_colors_fp32_int16_2")

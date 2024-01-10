@@ -2,9 +2,7 @@
 using Profile
 include("../Experiments.jl")
 
-#datasets = [human, aids, lubm80, yeast, hprd, dblp, youtube, eu2005, patents, wordnet]
 datasets = [human, aids, lubm80, yeast, dblp, youtube, eu2005, patents]
-#datasets = [human, aids, lubm80]
 
 experiment_params = Vector{ExperimentParams}()
 for dataset in datasets
@@ -43,7 +41,7 @@ for dataset in datasets
                                                 description = "IndEst")) =#
 end
 
-#build_experiments(experiment_params)
+build_experiments(experiment_params)
 
 run_estimation_experiments(experiment_params; timeout=1.0)
 

@@ -1,8 +1,7 @@
 using Plots.PlotMeasures
 include("../Experiments.jl")
 
-# datasets::Vector{DATASET} = [aids, human, lubm80, yago, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
-datasets = [youtube]
+datasets = [yeast]
 max_paths = [10, 100, 500, 2000, 10000]
 experiment_params_list = ExperimentParams[]
 for dataset in datasets
@@ -13,9 +12,9 @@ for dataset in datasets
 end
 
 println("started building")
-#build_experiments(experiment_params_list)
+build_experiments(experiment_params_list)
 println("started estimating")
-#run_estimation_experiments(experiment_params_list)
+run_estimation_experiments(experiment_params_list)
 println("started graphing")
 graph_grouped_box_plot(experiment_params_list,
                         x_type=inference_paths,

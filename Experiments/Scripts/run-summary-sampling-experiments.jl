@@ -2,17 +2,15 @@ using Plots.PlotMeasures
 include("../Experiments.jl")
 
 
-# datasets::Vector{DATASET} = [aids, human, lubm80, yago, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
 datasets::Vector{DATASET} = [yeast]
-# max_paths = [32, 64, 128, 256, 512, 1024, 2048, 20000, 100000]
 max_paths = [64, 256, 1024, 4096, 8192, 8192*4, 8192*4*4]
 
 experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, summary_max_paths=current_paths) for current_dataset in datasets for current_paths in max_paths]
 
 println("started building")
-#build_experiments(experiment_params_list)
+build_experiments(experiment_params_list)
 println("started estimating")
-#run_estimation_experiments(experiment_params_list)
+run_estimation_experiments(experiment_params_list)
 println("started graphing")
 
 graph_grouped_bar_plot(experiment_params_list,
