@@ -1,14 +1,13 @@
 using Plots.PlotMeasures
 include("../Experiments.jl")
 
-# datasets::Vector{DATASET} = [aids, human, lubm80, yago, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
-datasets = [youtube]
+datasets = [yeast]
 max_cycles = 6
 experiment_params_list = ExperimentParams[ExperimentParams(dataset=current_dataset, max_cycle_size=current_size) for current_dataset in datasets for current_size in 1:max_cycles]
 
-# println("started building")
+println("started building")
 build_experiments(experiment_params_list)
-# println("started estimating")
+println("started estimating")
 run_estimation_experiments(experiment_params_list)
 println("started graphing")
 

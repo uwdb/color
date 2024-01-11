@@ -1,11 +1,15 @@
 using Plots.PlotMeasures
 include("../Experiments.jl")
 
-# datasets::Vector{DATASET} = [aids, human, lubm80, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
+# The goal of this file was to compare the current cycle statistic calculation code with
+# a deprecated version. Currently, a join table is used, but previously we tried
+# generating all possible paths/cycles and searching for those in the data graph.
+# We compare build times to find which performs better.
+
 datasets::Vector{DATASET} = [aids]
 max_cycles = 6
 
-experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, partitioner=QuasiStable, max_cycle_size=current_size) for current_dataset in datasets for current_size in 2:max_cycles]
+experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset,  max_cycle_size=current_size) for current_dataset in datasets for current_size in 2:max_cycles]
 println("started building")
 for experiment_params in experiment_params_list
     build_times = [("Dataset", "Partitioner", "NumColors", "BuildTime", "MemoryFootprint")]

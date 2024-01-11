@@ -1,6 +1,84 @@
-@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_updated proportion_deleted deg_stat_type description query_size
+@enum GROUP dataset technique cycle_size summary_paths inference_paths query_type sampling_type cycle_stats number_of_colors build_phase proportion_updated proportion_deleted deg_stat_type description query_size path_width
 
-@enum VALUE estimate_error runtime build_time memory_footprint
+@enum VALUE estimate_error runtime build_time memory_footprint update_time total_time
+
+function graph_box_plot(experiment_params_list::Vector{ExperimentParams};
+                                x_type::GROUP=dataset,
+                                y_type::VALUE=estimate_error,
+                                grouping::GROUP=technique,
+                                x_order = nothing,
+                                legend_pos = :outertopleft,
+                                x_label=nothing,
+                                y_label=nothing,
+                                filename=nothing,
+                                ylims=[0, 10^2.5],
+                                y_ticks=[10^-10, 10^-5, 10^-2, 1, 10^2, 10^5, 10^10],
+                                dimensions = (1000, 800))
+    # for now let's just use the dataset as the x-values and the cycle size as the groups
+    x_values = []
+    y_values = []
+    for experiment_params in experiment_params_list
+        # load the results
+        results_filename = params_to_results_filename(experiment_params)
+        results_path = "Experiments/Results/Estimation_" * results_filename
+        # println("results path: ", results_path)
+        results_df = CSV.read(results_path, DataFrame; normalizenames=true)
+
+        # keep track of the data points
+        for i in 1:nrow(results_df)
+            current_x = nothing
+            if x_type == query_type
+                current_x = results_df[i, :QueryType]
+            elseif x_type == path_width
+                current_x = results_df[i, :PathWidth]
+            else
+                current_x = get_value_from_param(experiment_params, x_type)
+            end
+            # current_x = x_type == query_type ? results_df[i, :QueryType] : get_value_from_param(experiment_params, x_type)
+            current_y = 0
+            if y_type == estimate_error
+                current_y = results_df[i, :Estimate] / results_df[i, :TrueCard]
+            else # y_type == runtime
+                current_y = results_df[i, :EstimationTime]
+            end
+            # push the errors and their groupings into the correct vector
+            push!(x_values, current_x)
+            push!(y_values, current_y)
+        end
+    end
+
+    if isnothing(x_order)
+        x_order = sort(unique(x_values))
+    end
+    x_ticks = ([x for x in 1:length(x_order)], x_order)
+    x_order_hash = [hash(x) for x in x_order]
+    x_values = [only(indexin(hash(x), x_order_hash)) for x in x_values]
+    results_filename = params_to_results_filename(experiment_params_list[1])
+    println("starting graphs")
+
+    # This seems to be necessary for using Plots.jl outside of the ipynb framework.
+    # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
+    ENV["GKSwstype"]="100"
+    gbplot = boxplot(x_values,
+                            [log10(y)  for y in y_values],
+                            x_ticks = x_ticks,
+                            xlims = [0, length(x_order) + .5],
+                            ylims =  (log10(ylims[1]),log10(ylims[2])),
+                            y_ticks = [log10(y) for y in y_ticks],
+                            legend = false,
+                            size = dimensions,
+                            bottom_margin = 20px,
+                            top_margin = 20px,
+                            left_margin = 10mm,
+                            titlefont = (12, :black),
+                            tickfont = (12, :black),
+                            guidefont = (15, :black),
+                            whisker_range=2)
+    x_label !== nothing && xlabel!(gbplot, x_label)
+    y_label !== nothing && ylabel!(gbplot, y_label)
+    plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
+    savefig(gbplot, "Experiments/Results/Figures/" * plotname)
+end
 
 function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams};
                                         x_type::GROUP=dataset,

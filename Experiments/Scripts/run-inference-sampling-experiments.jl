@@ -13,7 +13,7 @@ for dataset in datasets
 end
 
 println("started building")
-#build_experiments(experiment_params_list)
+build_experiments(experiment_params_list)
 println("started estimating")
 run_estimation_experiments(experiment_params_list)
 println("started graphing")

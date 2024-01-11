@@ -1,14 +1,11 @@
 
 # chooses a color for a new node to be added to
 function choose_color(summary)
-    # current implementation: find the biggest color
-    # other future options:
-    # - make a brand new color just for added nodes?
     return get_largest_color(summary)
+    # return get_update_only_color!(summary)
 end
 
 function get_largest_color(summary)
-    # current implementation: find the biggest color
     max_color_cardinality = 0
     current_color = collect(keys(summary.color_label_cardinality))[1] # initialize with the first color
     for color in keys(summary.color_label_cardinality)
@@ -19,6 +16,25 @@ function get_largest_color(summary)
     end
     return current_color
 end
+
+# intended to be a new color for all incoming nodes to belong to
+# function get_update_only_color!(summary)
+#     # check if we need to add stats for the new color
+#     if !summary.added_color
+#         summary.added_color = true
+#         new_color = summary.num_colors + 1
+#         # we need to add a new color
+#         summary.color_label_cardinality[new_color] = Dict()
+#         num_nodes = 10000 # not sure what to put here
+#         accepted_error = 0.00001
+#         cuckoo_params = constrain(SmallCuckoo, fpr=accepted_error, capacity=num_nodes)
+#         summary.color_filters[new_color] = SmallCuckoo{cuckoo_params.F}(cuckoo_params.nfingerprints)
+#         summary.num_colors += 1
+#         return new_color
+#     else
+#         return summary.num_colors
+#     end
+# end 
 
 function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node)
     data_label = node - 1
@@ -49,12 +65,10 @@ function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node
     for node_label in node_labels
         summary.color_label_cardinality[color][node_label] = get(summary.color_label_cardinality[color], node_label, 0) + 1
     end
-    summary.color_label_cardinality[color][node_label] = get(summary.color_label_cardinality[color], -1, 0) + 1
+    if !(-1 in node_labels)
+        summary.color_label_cardinality[color][-1] = get(summary.color_label_cardinality[color], -1, 0) + 1
+    end
     summary.total_nodes += 1
-
-
-    # for cycle stats, since the number of edges/cycles are the same,
-    # cycle likelihood for an arbitrary edge doesn't change
 end
 
 # assume that you delete all attached edges before removing a summary node
@@ -63,7 +77,7 @@ function delete_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, n
     color = get_node_summary_color(summary, node)
 
     # by definition in data graph
-    data_label = node
+    data_label = node - 1
 
     # remove from the cuckoo filter
     pop!(summary.color_filters[color], data_label)
