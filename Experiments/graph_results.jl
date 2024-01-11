@@ -173,6 +173,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
     end
     results_filename = params_to_results_filename(experiment_params_list[1])
     estimator_types, comparison_results = comparison_dataset()
+    estimator_dataset_missing = Set()
     for (query_key, query_card_and_size) in true_card
         data = query_key[1]
         query_path = query_key[2]
@@ -185,6 +186,9 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
                 result = comparison_results[comp_key]
                 estimate = result.Estimate
                 runtime = result.Runtime
+            else
+                push!(estimator_dataset_missing, (estimator, data))
+                continue
             end
 
             current_x = if x_type == dataset
@@ -210,7 +214,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
     x_ticks = ([x for x in 1:length(x_order)], x_order)
     x_order_hash = [hash(x) for x in x_order]
     x_values = [only(indexin(hash(x), x_order_hash)) for x in x_values]
-    sorted_vals = sort(zip(x_values, y_values, estimators), by=(x)->x[1])
+    sorted_vals = sort(collect(zip(x_values, y_values, estimators)), by=(x)->x[1])
     x_values = [x[1] for x in sorted_vals]
     y_values = [x[2] for x in sorted_vals]
     estimators = [x[3] for x in sorted_vals]
@@ -235,7 +239,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
                         legendfont = (11, :black),
                         tickfont = (12, :black),
                         guidefont = (15, :black),
-                        whisker_range=2)
+                        whisker_range=1.5)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     y_type == estimate_error && hline!([0], label="exact", linestyle=:solid, lw=2)

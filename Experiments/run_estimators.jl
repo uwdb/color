@@ -2,7 +2,6 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
     for experiment_params in experiment_params_list
         dataset = experiment_params.dataset
         replications = experiment_params.n_replications
-        println(replications)
         all_queries = load_querysets([dataset]; require_true_cardinality = true)
         summary_file_location = "Experiments/SerializedSummaries/" * params_to_summary_filename(experiment_params)
         !isfile(summary_file_location) && error("The summary has not been built yet! \n Attempted File Location: $(summary_file_location)")

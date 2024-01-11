@@ -3,7 +3,7 @@ include("../Experiments.jl")
 
 # datasets::Vector{DATASET} = [aids, human, lubm80, yago, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
 datasets = [youtube]
-max_paths = [10, 100, 500, 2000, 10000]
+max_paths = [50, 125, 250, 500, 1000]
 experiment_params_list = ExperimentParams[]
 for dataset in datasets
     for current_paths in max_paths
@@ -15,7 +15,7 @@ end
 println("started building")
 #build_experiments(experiment_params_list)
 println("started estimating")
-#run_estimation_experiments(experiment_params_list)
+run_estimation_experiments(experiment_params_list)
 println("started graphing")
 graph_grouped_box_plot(experiment_params_list,
                         x_type=inference_paths,

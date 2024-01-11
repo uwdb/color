@@ -7,9 +7,9 @@ max_cycles = 6
 experiment_params_list = ExperimentParams[ExperimentParams(dataset=current_dataset, max_cycle_size=current_size) for current_dataset in datasets for current_size in 1:max_cycles]
 
 # println("started building")
-#build_experiments(experiment_params_list)
+build_experiments(experiment_params_list)
 # println("started estimating")
-#run_estimation_experiments(experiment_params_list)
+run_estimation_experiments(experiment_params_list)
 println("started graphing")
 
 graph_grouped_box_plot(experiment_params_list;

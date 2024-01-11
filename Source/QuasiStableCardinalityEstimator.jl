@@ -37,7 +37,7 @@
     return partial_paths, partial_weights
 end
 
-@enum SAMPLING_STRATEGY uniform weighted redistributive online
+@enum SAMPLING_STRATEGY uniform weighted redistributive
 
 function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, num_samples::Int, sampling_strategy::SAMPLING_STRATEGY) where W
     # if we want to sample more paths than there are existing nonzero paths,
