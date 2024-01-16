@@ -333,6 +333,8 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
     end
     new_node = old_node
     while length(node_order) > 0
+        num_current_paths = size(partial_paths)[2]
+        num_current_paths * num_colors > 10^8 && return get_default_count(DS) # If the requested memory is too large, return the default.
         time() - start_time > timeout && return get_default_count(DS)
         if verbose
             println("Current Query Nodes: ", current_query_nodes)
@@ -380,7 +382,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
         new_label = only(query.vertex_labels[new_node])
         new_data_labels = get_data_label(query, new_node)
         num_current_paths = size(partial_paths)[2]
-        num_current_paths * num_colors > 10^9 && return get_default_count(DS) # If the requested memory is too large, return the default.
+        num_current_paths * num_colors > 10^8 && return get_default_count(DS) # If the requested memory is too large, return the default.
         new_partial_paths = zeros(Color, length(current_query_nodes),  num_current_paths * num_colors)
         new_partial_weights = fill(W(0), num_current_paths * num_colors)
         # Update the partial paths using the parent-child combo that comes next from the query.
@@ -396,6 +398,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
             # Account for colors with no outgoing children.
             if haskey(edge_deg, old_color)
                 for new_color in keys(edge_deg[old_color])
+                    time() - start_time > timeout && return get_default_count(DS)
                     # revamp the logic to use a set of labels rather than just one
                     # check if the data label(s) are in the color
                     data_label_in_color = false
