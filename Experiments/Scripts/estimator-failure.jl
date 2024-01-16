@@ -3,6 +3,7 @@ include("../Experiments.jl")
 #datasets = [human, aids]
 datasets = [human, aids, lubm80, yeast, dblp, youtube, eu2005, patents]
 #datasets = [human, aids, yeast, dblp, youtube, eu2005, patents]
+datasets = [yeast]
 queries = load_querysets(datasets)
 num_queries = Dict(string(dataset)=>length(queries[dataset]) for dataset in datasets)
 

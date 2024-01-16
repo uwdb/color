@@ -246,7 +246,7 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
     # detailed_edges::Set{Tuple{Int, Int, Int, Int, Vector{Bool}}} = Set()
 
     # map start_node => vector of edges with that start node
-    detailed_edges::Dict{Int, Set{Tuple{Int, Int, Int, Int, Vector{Bool}}}} = Dict(i => Set() for i in vertices(g.graph))
+    detailed_edges::Dict{Int, Vector{Tuple{Int, Int, Int, Int, Vector{Bool}}}} = Dict(i => [] for i in vertices(g.graph))
     for edge in edges(g.graph)
         # detailed edge = [n1, n2, c1, c2, [d]]
         detailed_edge = (src(edge), dst(edge), color_hash[src(edge)], color_hash[dst(edge)], [true])
@@ -297,11 +297,12 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
         end
         for condensed_path in keys(updated_paths)
             # first join/aggregate everything
-            for edge in detailed_edges[condensed_path[2]]
+            sampled_edges = sample(detailed_edges[condensed_path[2]], 5)
+            for edge in sampled_edges
                 # [n1, n2, c1, c2, [d]]
                 joined_path = (condensed_path[1], edge[2], condensed_path[3], edge[4], cat(condensed_path[5], edge[5], dims=1))
                 # this aggregation should improve runtime...
-                new_paths[joined_path] = get(new_paths, joined_path, updated_paths[condensed_path]-1) + 1
+                new_paths[joined_path] = get(new_paths, joined_path, 0) + updated_paths[condensed_path]*length(detailed_edges[condensed_path[2]])/length(sampled_edges)
             end
         end
         # go through all of the extended paths and track which ones close in a cycle

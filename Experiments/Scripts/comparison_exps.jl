@@ -4,7 +4,7 @@ include("../Experiments.jl")
 
 datasets = [human, aids, lubm80, yeast, dblp, youtube, eu2005, patents]
 #datasets = [human, aids, yeast, dblp, youtube, eu2005, patents]
-datasets = [human, youtube]
+datasets = [eu2005, patents]
 
 mix_scheme = [(QuasiStable, 32), (NeighborNodeLabels, 16), (NodeLabels, 16)]
 
@@ -13,6 +13,7 @@ for dataset in datasets
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=mix_scheme,
+                                                summary_max_paths = 50000,
                                                 description = "AvgMix64"))
 #=
     push!(experiment_params, ExperimentParams(deg_stats_type=MinDegStats,
@@ -62,7 +63,7 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 dimensions = (1550, 650),
                                                 legend_pos=:topleft,
                                                 y_label="Inference Latency 10^ (s)",
-                                                filename="overall_runtime1")
+                                                filename="overall_runtime2")
 
 graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 ylims=[10^-21, 10^21],
@@ -75,7 +76,7 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 dimensions = (1550, 650),
                                                 legend_pos=:bottomleft,
                                                 y_label="Relative Error 10^",
-                                                filename="overall_error1")
+                                                filename="overall_error2")
 
 graph_grouped_bar_plot(experiment_params;
                         grouping=description,
