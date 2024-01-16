@@ -494,6 +494,82 @@ function _neighbor_labels_coloring(g::DataGraph, params::ColorSummaryParams,
 end
 
 
+function _vertex_labels_coloring(g::DataGraph, params::ColorSummaryParams,
+                                        color_hash::Dict{NodeId, Color}, new_colors::Int)
+    existing_colors = maximum(values(color_hash))
+    color_to_nodes = Dict{Color, Vector{NodeId}}(i => NodeId[] for i in 1:existing_colors)
+    for (node, color) in color_hash
+        push!(color_to_nodes[color], node)
+    end
+    next_color = existing_colors + 1
+
+    function calc_most_avg_label_split(c)
+        split_label = -1
+        split_equity = 1.0
+        num_nodes = length(color_to_nodes[c])
+        label_counts = counter(Int)
+        for node in color_to_nodes[c]
+            for label in g.vertex_labels[node]
+                inc!(label_counts, label)
+            end
+        end
+        for (label, count) in label_counts
+            label_prop = count / num_nodes
+            if abs(label_prop - .5) < split_equity
+                split_label = label
+                split_equity = abs(label_prop - .5)
+            end
+        end
+        return split_equity, split_label
+    end
+
+    color_most_avg_label_equity = Dict{Color, Tuple{Float64, Int}}()
+    for c in 1:existing_colors
+        color_most_avg_label_equity[c] = calc_most_avg_label_split(c)
+    end
+
+    while next_color < new_colors + existing_colors
+        split_color = 1
+        split_label = 1
+        weighted_split_equity = Inf
+        for c in 1 : next_color - 1
+            if haskey(color_most_avg_label_equity, c)
+                equity, label = color_most_avg_label_equity[c]
+                weighted_equity = (.5 - equity) * length(color_to_nodes[c])
+                if weighted_equity < weighted_split_equity
+                    split_color = c
+                    split_label = label
+                    weighted_split_equity = weighted_equity
+                end
+            end
+        end
+        nodes_to_remove = copy(color_to_nodes[split_color])
+        color_to_nodes[next_color] = []
+        color_to_nodes[split_color] = []
+        for node in nodes_to_remove
+            has_label = split_label in g.vertex_labels[node]
+            if has_label
+                push!(color_to_nodes[next_color], node)
+            else
+                push!(color_to_nodes[split_color], node)
+            end
+        end
+        color_most_avg_label_equity[split_color] = calc_most_avg_label_split(split_color)
+        color_most_avg_label_equity[next_color] = calc_most_avg_label_split(next_color)
+        next_color += 1
+    end
+
+    color_hash = Dict()
+    for (color, nodes) in color_to_nodes
+        for node in nodes
+            color_hash[node] = color
+        end
+    end
+    return color_hash
+end
+
+
+
 function color_graph(g::DataGraph, params::ColorSummaryParams)
     if nv(g.graph) == 0
         return Dict()
@@ -508,6 +584,8 @@ function color_graph(g::DataGraph, params::ColorSummaryParams)
                 _degree_coloring(g, params, color_hash, num_colors)
         elseif partitioner == NeighborNodeLabels
                 _neighbor_labels_coloring(g, params, color_hash, num_colors)
+        elseif partitioner == NodeLabels
+                _vertex_labels_coloring(g, params, color_hash, num_colors)
 #        elseif partitioner == SimpleLabel
 #                _simple_label_coloring(g, params, color_hash, num_colors)
 #        elseif partitioner == InOut

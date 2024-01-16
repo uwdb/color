@@ -19,7 +19,7 @@ end
 color_path_to_default(path::CyclePathAndColors) = CyclePathAndColors(path.path, (-1, -1))
 
 
-@enum PARTITIONER QuasiStable Hash Degree NeighborNodeLabels
+@enum PARTITIONER QuasiStable Hash Degree NeighborNodeLabels NodeLabels
 
 function partitioner_to_string(x::PARTITIONER)
     return if x == QuasiStable
@@ -30,6 +30,8 @@ function partitioner_to_string(x::PARTITIONER)
         "D"
     elseif x == NeighborNodeLabels
         "NNL"
+    elseif x == NodeLabels
+        "NL"
     end
 end
 

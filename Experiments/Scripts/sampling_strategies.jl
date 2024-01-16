@@ -3,17 +3,17 @@ using Profile
 include("../Experiments.jl")
 
 datasets = [human, aids, yeast, hprd, dblp, wordnet]
-
+datasets = [youtube]
 experiment_params = Vector{ExperimentParams}()
 build_params = Vector{ExperimentParams}()
 for dataset in datasets
     push!(build_params, ExperimentParams(dataset=dataset))
     for sampling_strategy in instances(SAMPLING_STRATEGY)
-        push!(experiment_params, ExperimentParams(dataset=dataset, sampling_strategy=sampling_strategy, inference_max_paths=128))
+        push!(experiment_params, ExperimentParams(dataset=dataset, sampling_strategy=sampling_strategy, inference_max_paths=500))
     end
 end
 
-build_experiments(build_params)
+#build_experiments(build_params)
 
 run_estimation_experiments(experiment_params)
 
