@@ -275,7 +275,7 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
     end
 
     # for each cycle size...
-    for current_cycle_size in 3: cycle_size
+    for current_cycle_size in 2: cycle_size
         # new_paths stores the current detailed paths and their count
         new_paths::Dict{Tuple{Int, Int, Int, Int, Vector{Bool}}, Float64} = Dict()
         joined_path::Tuple{Int, Int, Int, Int, Vector{Bool}} = (0,0,0,0,[])
@@ -321,8 +321,8 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
     MinPathWeight = 25
     default_cycle_weights = Dict()
     default_cycle_counts = Dict()
-    cycle_length_weights = Dict(i => 0.0 for i in 2:cycle_size)
-    cycle_length_counts = Dict(i => 0.0 for i in 2:cycle_size)
+    cycle_length_weights = Dict(i => 0.0 for i in 1:cycle_size)
+    cycle_length_counts = Dict(i => 0.0 for i in 1:cycle_size)
     for path in keys(stored_paths)
         # CyclePathAndColors => count
         if stored_paths[path] >= MinPathWeight
@@ -332,7 +332,7 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
         default_cycle_weights[default_path] = get(default_cycle_weights, default_path, 0) + get(stored_cycles, path, 0)
         default_cycle_counts[default_path] = get(default_cycle_counts, default_path, 0) + stored_paths[path]
 
-        path_length = length(path.path) + 1
+        path_length = length(path.path)
         cycle_length_weights[path_length] = get(cycle_length_weights, path_length, 0) + get(stored_cycles, path, 0)
         cycle_length_counts[path_length] = get(cycle_length_counts, path_length, 0) + stored_paths[path]
     end
@@ -342,7 +342,7 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
         end
         cycle_likelihoods[default_path] = default_cycle_weights[default_path] / default_cycle_counts[default_path]
     end
-    cycle_length_likelihoods = Dict(i => cycle_length_counts[i] == 0 ? 0 : cycle_length_weights[i] / cycle_length_counts[i] for i in 2:cycle_size)
+    cycle_length_likelihoods = Dict(i => cycle_length_counts[i] == 0 ? 0 : cycle_length_weights[i] / cycle_length_counts[i] for i in 1:cycle_size)
     return cycle_likelihoods, cycle_length_likelihoods
 end
 
