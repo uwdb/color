@@ -2,7 +2,7 @@ using Plots.PlotMeasures
 include("../Experiments.jl")
 
 current_dataset = youtube
-max_paths = 9999999
+max_paths = -1
 
 # The goal of this file is to demonstrate the significance of the partial sum optimization.
 # We use the same datasets and summaries but we try estimating without partial sums, with partial

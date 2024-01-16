@@ -16,7 +16,7 @@ struct ExperimentParams
     n_replications::Int
 
     function ExperimentParams(;dataset::DATASET, max_cycle_size=6,
-        only_shortest_path_cycle=false, summary_max_paths=1000,
+        only_shortest_path_cycle=false, summary_max_paths=50000,
         partitioning_scheme::Vector{Tuple{PARTITIONER, Int}} = [(QuasiStable, 64)], weighting=true,
         inference_max_paths=500, use_partial_sums=true,
         sampling_strategy=redistributive, proportion_updated=0.0, proportion_deleted=0.0,
