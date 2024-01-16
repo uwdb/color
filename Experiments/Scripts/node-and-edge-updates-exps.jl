@@ -8,7 +8,7 @@ include("../Experiments.jl")
 # with the remaining edges (and any unadded nodes), repeating for different proportions of the graph to update with.
 # Then, we can check metrics like relative error and see how it performs with more updates.
 
-datasets::Vector{DATASET} = [youtube]
+datasets::Vector{DATASET} = [aids]
 proportions_updated = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9]
 
 experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, proportion_updated=current_proportion)
@@ -80,7 +80,7 @@ for experiment_params in experiment_params_list
     vertex_update_time = 0
     edge_update_time = 0
     num_edges = length(edges_for_later)
-    num_vertices = length(vertices_for_later)
+    num_vertices = nv(data.graph) - length(added_nodes)
     println("Updating graph as necessary")
     if (experiment_params.summary_params.proportion_updated > 0)
         for edge in edges_for_later
