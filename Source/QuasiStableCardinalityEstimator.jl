@@ -224,13 +224,15 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
             else
                 probability_no_edge *= (1.0 - get_independent_cycle_likelihood(summary))^path_count
             end
+
             default_no_edge_probability *= probability_no_edge
             default_no_edge_probabilities[path_bools] = probability_no_edge
-            if length(path_bools) == 1
-                println("Path Bools: ", path_bools, "DefaultProb: ", haskey(summary.cycle_probabilities, default_cycle_description), " CycleSize: ", haskey(summary.cycle_length_probabilities, path_length),  " Prob Edge: ", probability_no_edge)
+            if probability_no_edge == 1.0
+                println(path_length)
+                println(" Prob No Edge: ", default_no_edge_probability, "Has Default Prob: ", haskey(summary.cycle_probabilities, default_cycle_description), " Default Prob: ",  get(summary.cycle_probabilities, default_cycle_description, 0), " Length Prob: ", summary.cycle_length_probabilities[path_length])
             end
-
         end
+
 
         edge_deg::Dict{Int, Dict{Int, DS}} = Dict()
         if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], child_label)
@@ -380,7 +382,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
         new_label = only(query.vertex_labels[new_node])
         new_data_labels = get_data_label(query, new_node)
         num_current_paths = size(partial_paths)[2]
-        num_current_paths * num_colors > 10^9 && return get_default_count(DS) # If the requested memory is too large, return the default.
+        num_current_paths * num_colors > 10^8 && return get_default_count(DS) # If the requested memory is too large, return a timeout.
         new_partial_paths = zeros(Color, length(current_query_nodes),  num_current_paths * num_colors)
         new_partial_weights = fill(W(0), num_current_paths * num_colors)
         # Update the partial paths using the parent-child combo that comes next from the query.
