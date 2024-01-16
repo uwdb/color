@@ -245,6 +245,7 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
     # start with a forward edge.
     # detailed_edges::Set{Tuple{Int, Int, Int, Int, Vector{Bool}}} = Set()
 
+    println("Initializing Detailed Edges Dict: ", time())
     # map start_node => vector of edges with that start node
     detailed_edges::Dict{Int, Vector{Tuple{Int, Int, Int, Int, Vector{Bool}}}} = Dict(i => [] for i in vertices(g.graph))
     for edge in edges(g.graph)
@@ -260,11 +261,16 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
     stored_paths::Dict{CyclePathAndColors, Float32} = Dict() # this stores summary info representing the path lengths that actually closed
     # summary info = [c1, c2, [d]]
 
+    println("Initializing Cycle Path Calculation: ", time())
     # initialize with size two data
     # start up the "current joins" vector
     updated_paths::Dict{Tuple{Int, Int, Int, Int, Vector{Bool}}, Float64} = Dict() # stores our progress as we repeatedly join
-    for edge_set in values(detailed_edges)
-        for edge in edge_set
+    vertex_sample = collect(keys(detailed_edges))
+    if length(vertex_sample) > max_partial_paths
+        vertex_sample = sample(collect(keys(detailed_edges)), max_partial_paths; replace=false)
+    end
+    for vertex in vertex_sample
+        for edge in detailed_edges[vertex]
             summary_info = CyclePathAndColors(edge[5], (edge[3], edge[4]))
             updated_paths[edge] = 1.0
             stored_paths[summary_info] = get(stored_paths, summary_info, 0) + 1.0
@@ -274,8 +280,10 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
         end
     end
 
+    println("Performing Cycle Path Calculation: ", time())
     # for each cycle size...
     for current_cycle_size in 2: cycle_size
+        println("Performing Cycle Size (", current_cycle_size, ") Calculation: ", time())
         # new_paths stores the current detailed paths and their count
         new_paths::Dict{Tuple{Int, Int, Int, Int, Vector{Bool}}, Float64} = Dict()
         joined_path::Tuple{Int, Int, Int, Int, Vector{Bool}} = (0,0,0,0,[])
@@ -295,9 +303,12 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
             end
             updated_paths = new_dict
         end
+        random_numbers = rand(UInt32, 5)
         for condensed_path in keys(updated_paths)
             # first join/aggregate everything
-            sampled_edges = sample(detailed_edges[condensed_path[2]], 5)
+            num_neighbors = length(detailed_edges[condensed_path[2]])
+            sampled_edges = detailed_edges[condensed_path[2]][(random_numbers .% num_neighbors) .+ 1]
+#            sampled_edges = detailed_edges[condensed_path[2]]
             for edge in sampled_edges
                 # [n1, n2, c1, c2, [d]]
                 joined_path = (condensed_path[1], edge[2], condensed_path[3], edge[4], cat(condensed_path[5], edge[5], dims=1))
