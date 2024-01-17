@@ -1,7 +1,7 @@
 using Plots.PlotMeasures
 include("../Experiments.jl")
 
-current_dataset = yeast
+current_dataset = youtube
 max_paths = -1
 
 # The goal of this file is to demonstrate the significance of the partial sum optimization.
@@ -11,10 +11,10 @@ max_paths = -1
 experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, use_partial_sums=true, inference_max_paths=max_paths),
                                                     ExperimentParams(dataset=current_dataset, use_partial_sums=false, inference_max_paths=max_paths),
                                                     ExperimentParams(dataset=current_dataset, use_partial_sums=true)]
-println("started building")
-build_experiments(experiment_params_list)
-println("started estimating")
-run_estimation_experiments(experiment_params_list, timeout=TIMEOUT_SEC)
+# println("started building")
+# build_experiments(experiment_params_list)
+# println("started estimating")
+# run_estimation_experiments(experiment_params_list, timeout=TIMEOUT_SEC)
 println("started graphing")
 
 x_values = []
@@ -28,21 +28,20 @@ for experiment_params in experiment_params_list
     # keep track of the data points
     for i in 1:nrow(results_df)
         failure = results_df[i, :Failure]
-        if failure
-            continue
-        end
-        current_x = results_df[i, :PathWidth]
-        current_group = "No Partial Agg"
-        if experiment_params.use_partial_sums
-            current_group = "Partial Agg"
-            if experiment_params.inference_max_paths != max_paths
-                current_group *= " w/ Sampling"
+        if !failure
+            current_x = results_df[i, :PathWidth]
+            current_group = "No Partial Agg"
+            if experiment_params.use_partial_sums
+                current_group = "Partial Agg"
+                if experiment_params.inference_max_paths != max_paths
+                    current_group *= " + Sampling"
+                end
             end
+            current_y = results_df[i, :EstimationTime]
+            push!(x_values, current_x)
+            push!(y_values, current_y)
+            push!(groups, current_group)
         end
-        current_y = results_df[i, :EstimationTime]
-        push!(x_values, current_x)
-        push!(y_values, current_y)
-        push!(groups, current_group)
     end
 end
 x_order = sort(unique(x_values))
@@ -50,14 +49,13 @@ x_ticks = ([x for x in 1:length(x_order)], x_order)
 x_order_hash = [hash(x) for x in x_order]
 x_values = [only(indexin(hash(x), x_order_hash)) for x in x_values]
 results_filename = params_to_results_filename(experiment_params_list[1])
-println("starting graphs")
 
 # This seems to be necessary for using Plots.jl outside of the ipynb framework.
 # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
 ENV["GKSwstype"]="100"
-ylims=[0, 10^2.5]
-y_ticks=[10^-10, 10^-5, 10^-2, 1, 10^2, 10^5, 10^10]
-dimensions = (1000, 800)
+ylims=[10^-3, 10^4]
+y_ticks=[10^-2, 10^-1, 1, 10, 10^2, 10^2, 10^3]
+dimensions = (600, 400)
 gbplot = groupedboxplot(x_values,
                         [log10(y) for y in y_values],
                         group = groups,
@@ -65,7 +63,7 @@ gbplot = groupedboxplot(x_values,
                         xlims = [0, length(x_order) + .5],
                         ylims =  (log10(ylims[1]),log10(ylims[2])),
                         y_ticks = [log10(y) for y in y_ticks],
-                        legend = :outerright,
+                        legend = :topleft,
                         size = dimensions,
                         bottom_margin = 20px,
                         top_margin = 20px,
@@ -77,6 +75,6 @@ gbplot = groupedboxplot(x_values,
                         guidefont = (15, :black),
                         whisker_range=2)
 xlabel!(gbplot, "Query Path Width")
-ylabel!(gbplot, "Inference Latency 10^ (s)")
+ylabel!(gbplot, "Inference Latency (log\$_{10}\$s)")
 plotname = "partial-agg-exp.png"
 savefig(gbplot, "Experiments/Results/Figures/" * plotname)

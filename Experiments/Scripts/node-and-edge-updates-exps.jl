@@ -16,10 +16,13 @@ experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=cur
 println("started building")
 shuffled_edges = Dict()
 for experiment_params in experiment_params_list
-    build_times = [("Dataset", "Partitioner", "NumColors", "BuildPhase", "BuildTime", "MemoryFootprint", "UpdateTime")]
+    build_times = [("Dataset", "Partitioner", "NumColors", "BuildPhase", "BuildTime", "MemoryFootprint", "VertexUpdateTime", "EdgeUpdateTime", "NumVertices", "NumEdges")]
     dataset = experiment_params.dataset
     summary_params = experiment_params.summary_params
+    println("Current proportion: ", summary_params.proportion_updated)
+
     data = load_dataset(dataset)
+    println("Finished loading dataset")
     cloned_data = DataGraph(0)
     edges_for_later = []
     added_nodes = Set()
@@ -42,7 +45,7 @@ for experiment_params in experiment_params_list
     cloned_data = DataGraph(length(nodes_to_add))
     vertex_mapping = Dict()
     vertices_for_later = []
-
+    println("Creating initial graph")
     # vertices start at 1, data labels start at 0...
     vertex_in_clone = 0
     for edge in shuffled_edges[dataset]
@@ -74,7 +77,11 @@ for experiment_params in experiment_params_list
     timing_vec = Float64[]
     results = @timed generate_color_summary((experiment_params.summary_params.proportion_updated > 0) ? cloned_data : data, summary_params; verbose=1, timing_vec=timing_vec)
     current_summary = results.value
-    summary_updating_time = 0
+    vertex_update_time = 0
+    edge_update_time = 0
+    num_edges = length(edges_for_later)
+    num_vertices = nv(data.graph) - length(added_nodes)
+    println("Updating graph as necessary")
     if (experiment_params.summary_params.proportion_updated > 0)
         for edge in edges_for_later
             # first add the summary nodes to the graph if need
@@ -85,17 +92,18 @@ for experiment_params in experiment_params_list
                     vertex_in_clone += 1
                     vertex_mapping[current_vertex] = vertex_in_clone
                     # now add a summary node_label
-                    summary_updating_time += @elapsed add_summary_node!(current_summary, data.vertex_labels[current_vertex], vertex_in_clone)
+                    vertex_update_time += @elapsed add_summary_node!(current_summary, data.vertex_labels[current_vertex], vertex_in_clone)
                 end
                 push!(added_nodes, current_vertex)
             end
             # now add the summary edge to the graph
             mapped_start = vertex_mapping[current_vertices[1]]
             mapped_end = vertex_mapping[current_vertices[2]]
-            summary_updating_time += @elapsed add_summary_edge!(current_summary, mapped_start, mapped_end, data.edge_labels[current_vertices])
+            edge_update_time += @elapsed add_summary_edge!(current_summary, mapped_start, mapped_end, data.edge_labels[current_vertices])
         end
     end
-
+    
+    println("Serializing")
     summary_size = Base.summarysize(current_summary)
     serialize(summary_file_location, current_summary)
     push!(build_times, (string(dataset),
@@ -104,42 +112,60 @@ for experiment_params in experiment_params_list
         "FullTime",
         string(results.time),
         string(summary_size),
-        string(summary_updating_time)))
+        string(vertex_update_time),
+        string(edge_update_time),
+        string(num_vertices),
+        string(num_edges)))
     push!(build_times, (string(dataset),
         string(summary_params.partitioning_scheme),
         string(summary_params.num_colors),
         "Coloring",
         string(timing_vec[1]),
         string(summary_size),
-        string(summary_updating_time)))
+        string(vertex_update_time),
+        string(edge_update_time),
+        string(num_vertices),
+        string(num_edges)))
     push!(build_times, (string(dataset),
         string(summary_params.partitioning_scheme),
         string(summary_params.num_colors),
         "CycleCounting",
         string(timing_vec[2]),
         string(summary_size),
-        string(summary_updating_time)))
+        string(vertex_update_time),
+        string(edge_update_time),
+        string(num_vertices),
+        string(num_edges)))
     push!(build_times, (string(dataset),
         string(summary_params.partitioning_scheme),
         string(summary_params.num_colors),
         "BloomFilter",
         string(timing_vec[3]),
         string(summary_size),
-        string(summary_updating_time)))
+        string(vertex_update_time),
+        string(edge_update_time),
+        string(num_vertices),
+        string(num_edges)))
     push!(build_times, (string(dataset),
         string(summary_params.partitioning_scheme),
         string(summary_params.num_colors),
         "CardinalityCounting",
         string(timing_vec[4]),
         string(summary_size),
-        string(summary_updating_time)))
+        string(vertex_update_time),
+        string(edge_update_time),
+        string(num_vertices),
+        string(num_edges)))
     push!(build_times, (string(dataset),
         string(summary_params.partitioning_scheme),
         string(summary_params.num_colors),
         "EdgeStats",
         string(timing_vec[5]),
         string(summary_size),
-        string(summary_updating_time)))
+        string(vertex_update_time),
+        string(edge_update_time),
+        string(num_vertices),
+        string(num_edges)))
     results_filename = params_to_results_filename(experiment_params)
     result_file_location = "Experiments/Results/Build_" * results_filename
     writedlm(result_file_location, build_times, ",")
@@ -148,4 +174,4 @@ end
 println("started estimating")
 run_estimation_experiments(experiment_params_list)
 println("started graphing")
-graph_box_plot(experiment_params_list, x_type=proportion_updated, y_type=estimate_error, ylims=[10e-15, 10e15], x_label="Proportion Updated (AIDS)", y_label="Relative Error 10^", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-error-color")
+graph_box_plot(experiment_params_list, dimensions=(600,400), x_type=proportion_updated, y_type=estimate_error, ylims=[10e-10, 10e20], y_ticks=[10^-5, 1, 10^5, 10^10, 10^15], x_label="Proportion Updated (AIDS)", y_label="Relative Error (log\$_{10}\$)", grouping=proportion_updated, legend_pos=:outerright, filename="ve-update-error-aids")
