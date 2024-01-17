@@ -198,9 +198,9 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
     for edge in remaining_edges
         push!(visited_query_edges, edge)
         parent_node_idx::Int = only(indexin(edge[1], current_query_nodes))
-        new_node_idx::Int = only(indexin(edge[2], current_query_nodes))
-        child_label::Int = only(query.vertex_labels[edge[2]])
+        child_node_idx::Int = only(indexin(edge[2], current_query_nodes))
         edge_label::Int = only(query.edge_labels[(edge[1],edge[2])])
+        child_label::Int = only(query.vertex_labels[edge[2]])
         all_path_bools::Vector{BoolPath} = []
         if only_shortest_path_cycle
             all_path_bools = [convert_path_graph_to_bools(get_matching_graph(edge[1], edge[2], query))]
@@ -227,10 +227,6 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
 
             default_no_edge_probability *= probability_no_edge
             default_no_edge_probabilities[path_bools] = probability_no_edge
-            if probability_no_edge == 1.0
-                println(path_length)
-                println(" Prob No Edge: ", default_no_edge_probability, "Has Default Prob: ", haskey(summary.cycle_probabilities, default_cycle_description), " Default Prob: ",  get(summary.cycle_probabilities, default_cycle_description, 0), " Length Prob: ", summary.cycle_length_probabilities[path_length])
-            end
         end
 
 
@@ -238,16 +234,16 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
         if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], child_label)
             edge_deg = summary.edge_deg[edge_label][child_label]
         end
-
         for i  in 1:size(partial_paths)[2]
             parent_color::Color = partial_paths[parent_node_idx, i]
-            child_color::Color =  partial_paths[new_node_idx, i]
-            current_colors::StartEndColorPair = (child_color, parent_color)
+            child_color::Color =  partial_paths[child_node_idx, i]
+            current_colors::StartEndColorPair = (parent_color, child_color)
+
             # We don't have to check data label because these nodes are already in the
             # partial path, so we have already ensured that the colors are appropriate
             probability_no_edge::Float64 = 1.0
             if (haskey(edge_deg, parent_color) && haskey(edge_deg[parent_color], child_color))
-                if usingStoredStats
+                if usingStoredStats && length(path_counts) > 0
                     for (path_bools, path_count) in path_counts
                         current_cycle_description = CyclePathAndColors(path_bools, current_colors)
                         if haskey(summary.cycle_probabilities, current_cycle_description)
