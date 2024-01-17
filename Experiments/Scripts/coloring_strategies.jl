@@ -3,54 +3,60 @@ using Profile
 include("../Experiments.jl")
 
 datasets = [human, eu2005, dblp, youtube]
-datasets = [human, hprd]
+#datasets = [human, hprd]
 
 experiment_params = Vector{ExperimentParams}()
 for dataset in datasets
-    push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
-                                                dataset=dataset,
-                                                partitioning_scheme=[(QuasiStable, 16), (NeighborNodeLabels, 8), (NodeLabels, 8)],
-                                                description = "AvgMix32"))
 
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
-                                                partitioning_scheme=[(QuasiStable, 32), (NeighborNodeLabels, 16), (NodeLabels, 16)],
-                                                description = "AvgMix64"))
-#=
+                                                partitioning_scheme=[(Degree, 4), (QuasiStable, 4), (NeighborNodeLabels, 4), (NodeLabels, 4)],
+                                                description = "Mix16"))
+
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
-                                                partitioning_scheme=[(QuasiStable, 64), (NeighborNodeLabels, 32), (NodeLabels, 32)],
-                                                description = "AvgMix128"))
+                                                partitioning_scheme=[(Degree, 8), (QuasiStable, 8), (NeighborNodeLabels, 8), (NodeLabels, 8)],
+                                                description = "Mix32"))
+
+    push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
+                                                dataset=dataset,
+                                                partitioning_scheme=[(Degree, 16), (QuasiStable, 16), (NeighborNodeLabels, 16), (NodeLabels, 16)],
+                                                description = "Mix64"))
+
+    push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
+                                                dataset=dataset,
+                                                partitioning_scheme=[(Degree, 32), (QuasiStable, 32), (NeighborNodeLabels, 32), (NodeLabels, 32)],
+                                                description = "Mix128"))
 
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=[(NodeLabels, 64)],
-                                                description = "AvgN64"))
+                                                description = "N64"))
 
    push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=[(NeighborNodeLabels, 64)],
-                                                description = "AvgNNL64"))
+                                                description = "NNL64"))
 
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=[(Degree, 64)],
-                                                description = "AvgD64"))
+                                                description = "D64"))
 
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=[(QuasiStable, 64)],
-                                                description = "AvgQ64"))
+                                                description = "Q64"))
 
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=[(Hash, 64)],
-                                                description = "AvgH64")) =#
+                                                description = "H64"))
 end
 
-build_experiments(experiment_params)
+#build_experiments(experiment_params)
 
-run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
+#run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
 
 x_order = [string(data) for data in datasets]
 legend_order = [params.description for params in experiment_params][1:Int(length(experiment_params)/length(datasets))]

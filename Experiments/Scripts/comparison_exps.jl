@@ -4,29 +4,30 @@ include("../Experiments.jl")
 
 datasets = [human, aids, lubm80, yeast, dblp, youtube, eu2005, patents]
 #datasets = [human, aids, yeast, dblp, youtube, eu2005, patents]
-datasets = [eu2005, patents]
+#datasets = [human, aids]
+datasets = [yeast]
 
-mix_scheme = [(QuasiStable, 32), (NeighborNodeLabels, 16), (NodeLabels, 16)]
+mix_scheme = [(Degree, 8), (QuasiStable, 8), (NeighborNodeLabels, 8), (NodeLabels, 8)]
 
 experiment_params = Vector{ExperimentParams}()
 for dataset in datasets
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=mix_scheme,
-                                                summary_max_paths = 50000,
-                                                description = "AvgMix64"))
+                                                description = "AvgMix32"))
+
 #=
     push!(experiment_params, ExperimentParams(deg_stats_type=MinDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=mix_scheme,
                                                 max_cycle_size = -1,
-                                                description = "MinMix64"))
+                                                description = "MinMix32"))
 
     push!(experiment_params, ExperimentParams(deg_stats_type=MaxDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=mix_scheme,
                                                 max_cycle_size = -1,
-                                                description = "MaxMix64"))
+                                                description = "MaxMix32"))
 
     push!(experiment_params, ExperimentParams(deg_stats_type=MaxDegStats,
                                                 dataset=dataset,
@@ -35,16 +36,15 @@ for dataset in datasets
                                                 inference_max_paths = 10^30,
                                                 summary_max_paths=1000,
                                                 use_partial_sums =false,
-                                                description = "BSK++")) =#
-
+                                                description = "BSK++"))
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=[(QuasiStable, 1)],
                                                 max_cycle_size = -1,
-                                                description = "TradEst"))
+                                                description = "TradEst")) =#
 end
 
-build_experiments(experiment_params)
+#build_experiments(experiment_params)
 
 run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
 comparison_methods =  ["alley", "wj", "impr", "jsub", "cs", "cset", "sumrdf"]
@@ -63,7 +63,7 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 dimensions = (1550, 650),
                                                 legend_pos=:topleft,
                                                 y_label="Inference Latency 10^ (s)",
-                                                filename="overall_runtime2")
+                                                filename="overall_runtime")
 
 graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 ylims=[10^-21, 10^21],
@@ -76,7 +76,7 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 dimensions = (1550, 650),
                                                 legend_pos=:bottomleft,
                                                 y_label="Relative Error 10^",
-                                                filename="overall_error2")
+                                                filename="overall_error")
 
 graph_grouped_bar_plot(experiment_params;
                         grouping=description,
@@ -88,16 +88,16 @@ graph_grouped_bar_plot(experiment_params;
                         legend_pos=:topright,
                         dimensions = (1000, 550),
                         y_label="Memory (MBs)",
-                        filename="overall_memory1")
+                        filename="overall_memory")
 
 graph_grouped_bar_plot(experiment_params;
                         grouping=description,
                         y_type=build_time,
                         x_order = x_order,
                         legend_order = legend_order,
-                        legend_pos=:topright,
-                        ylims=[0, 3500],
-                        y_ticks = [500, 1000, 1500, 2000, 2500, 3000],
+                        legend_pos=:topleft,
+                        ylims=[0, 800],
+                        y_ticks = [100, 200, 300, 400, 500, 600, 700, 800],
                         dimensions = (1000, 550),
                         y_label="Build Time (s)",
-                        filename="overall_build_time1")
+                        filename="overall_build_time")

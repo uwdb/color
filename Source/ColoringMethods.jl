@@ -5,6 +5,8 @@ function _quasi_stable_coloring(g::DataGraph, params::ColorSummaryParams, color_
     for (node, color) in color_hash
         push!(color_vec[color], node)
     end
+    non_empty_vecs = [length(node_set) > 0 for node_set in color_vec]
+    color_vec = color_vec[non_empty_vecs]
     C = QSC.q_color(g.graph, n_colors=existing_colors + new_colors, weighting=params.weighting, warm_start=color_vec)
     color_hash::Dict{Int, Int} = QSC.node_map(C)
     return color_hash
