@@ -331,6 +331,8 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
     end
     new_node = old_node
     while length(node_order) > 0
+        num_current_paths = size(partial_paths)[2]
+        num_current_paths * num_colors > 10^8 && return get_default_count(DS) # If the requested memory is too large, return a timeout
         time() - start_time > timeout && return get_default_count(DS)
         if verbose
             println("Current Query Nodes: ", current_query_nodes)
@@ -394,6 +396,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
             # Account for colors with no outgoing children.
             if haskey(edge_deg, old_color)
                 for new_color in keys(edge_deg[old_color])
+                    time() - start_time > timeout && return get_default_count(DS)
                     # revamp the logic to use a set of labels rather than just one
                     # check if the data label(s) are in the color
                     data_label_in_color = false

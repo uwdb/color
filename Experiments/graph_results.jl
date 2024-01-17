@@ -76,6 +76,7 @@ function graph_box_plot(experiment_params_list::Vector{ExperimentParams};
                             whisker_range=2)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
+    y_type == estimate_error && hline!([0], label="exact", linestyle=:solid, lw=2)
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
     savefig(gbplot, "Experiments/Results/Figures/" * plotname)
 end
