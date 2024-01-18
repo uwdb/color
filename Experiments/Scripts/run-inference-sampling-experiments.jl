@@ -25,7 +25,7 @@ graph_grouped_box_plot(experiment_params_list,
                         dimensions = (600, 400),
                         legend_pos = :topleft,
                         x_label="Maximum Inference Paths",
-                        y_label="Estimate Error 10^",
+                        y_label="Relative Error log\$_{10}\$",
                         grouping=description,
                         filename="inference-paths-error")
 
@@ -37,6 +37,6 @@ graph_grouped_box_plot(experiment_params_list,
                         dimensions = (600, 400),
                         legend_pos = :topleft,
                         x_label="Maximum Inference Paths",
-                        y_label="Runtime 10^ (s)",
+                        y_label="Inference Latency log\$_{10}\$ (s)",
                         grouping=description,
                         filename="inference-paths-runtime")

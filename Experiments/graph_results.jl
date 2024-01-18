@@ -118,9 +118,9 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
                 current_y = results_df[i, :EstimationTime]
             end
             # push the errors and their groupings into the correct vector
-            push!(x_values, string(current_x))
+            push!(x_values, current_x)
             push!(y_values, current_y)
-            push!(groups, current_group)
+            push!(groups, string(current_group))
         end
     end
 
@@ -128,7 +128,7 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
         x_order = sort(unique(x_values))
     end
     if isnothing(legend_order)
-        legend_order = Vector{String}(collect(reverse(sort(unique(groups)))))
+        legend_order = Vector(collect(reverse(sort(unique(groups)))))
     end
     x_ticks = ([x for x in 1:length(x_order)], x_order)
     x_order_hash = [hash(x) for x in x_order]
@@ -163,10 +163,12 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
                             legendfont = (11, :black),
                             tickfont = (12, :black),
                             guidefont = (15, :black),
-                            outliers=false,
+                            outliers=true,
                             whisker_range=2)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
+    y_type == estimate_error && hline!([0], label="exact", linestyle=:solid, lw=2, alpha=.4, color="red")
+
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
     savefig(gbplot, "Experiments/Results/Figures/" * plotname)
 end
@@ -311,7 +313,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
     x_values = [x[1] for x in sorted_vals]
 
     if isnothing(legend_order)
-        legend_order = Vector{String}(collect(reverse(sort(unique(groups)))))
+        legend_order = Vector(collect(reverse(sort(unique(estimators))))) # used to be groups, vector of string
     end
     groups = [x[3] for x in sorted_vals]
     group_order_hash = [hash(x) for x in legend_order]
@@ -341,7 +343,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
                         tickfont = (12, :black),
                         guidefont = (15, :black),
                         whisker_range=2,
-                        outliers = false)
+                        outliers = true)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     y_type == estimate_error && hline!([0], label="exact", linestyle=:solid, lw=2, alpha=.4, color="red")
@@ -461,7 +463,7 @@ end
 # default to grouping by dataset
 function get_value_from_param(experiment_param::ExperimentParams, value_type::GROUP)
     if value_type == dataset
-        return experiment_param.dataset
+        return convert_dataset_to_string(experiment_param.dataset)
     elseif value_type == cycle_size
         return experiment_param.summary_params.max_cycle_size
     elseif value_type == summary_paths
@@ -485,5 +487,33 @@ function get_value_from_param(experiment_param::ExperimentParams, value_type::GR
     else
         # default to grouping by technique
         return experiment_param.summary_params.partitioning_scheme
+    end
+end
+
+function convert_dataset_to_string(data::DATASET)
+    if data == aids
+        return "aids"
+    elseif data == human
+        return "human"
+    elseif data == lubm80
+        return "lubm80"
+    elseif data == yago
+        return "yago"
+    elseif data == yeast
+        return "yeast"
+    elseif data == hprd
+        return "hprd"
+    elseif data == wordnet
+        return "wordnet"
+    elseif data == dblp
+        return "dblp"
+    elseif data == youtube
+        return "youtube"
+    elseif data == eu2005
+        return "eu2005"
+    elseif data == patents
+        return "patents"
+    else
+        return "unknown"
     end
 end

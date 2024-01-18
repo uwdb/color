@@ -54,9 +54,9 @@ for dataset in datasets
                                                 description = "H64"))
 end
 
-#build_experiments(experiment_params)
+build_experiments(experiment_params)
 
-#run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
+run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
 
 x_order = [string(data) for data in datasets]
 legend_order = [params.description for params in experiment_params][1:Int(length(experiment_params)/length(datasets))]
@@ -69,9 +69,9 @@ graph_grouped_box_plot(experiment_params;
                         x_order = x_order,
                         legend_order=legend_order,
                         grouping=description,
-                        dimensions = (700, 450),
+                        dimensions = (600, 400),
                         legend_pos=:top,
-                        y_label="Inference Latency 10^ (s)",
+                        y_label="Inference Latency log\$_{10}\$ (s)",
                         filename="colorings_runtime")
 
 graph_grouped_box_plot(experiment_params;
@@ -82,9 +82,9 @@ graph_grouped_box_plot(experiment_params;
                         x_order = x_order,
                         legend_order=legend_order,
                         grouping=description,
-                        dimensions = (700, 450),
+                        dimensions = (600, 400),
                         legend_pos=:topleft,
-                        y_label="Relative Error 10^",
+                        y_label="Relative Error log\$_{10}\$",
                         filename="colorings_error")
 
 

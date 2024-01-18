@@ -1,7 +1,7 @@
 using Plots.PlotMeasures
 include("../Experiments.jl")
 
-datasets = [yeast]
+datasets = [youtube]
 max_cycles = 6
 experiment_params_list = ExperimentParams[ExperimentParams(dataset=current_dataset, max_cycle_size=current_size) for current_dataset in datasets for current_size in 1:max_cycles]
 
@@ -19,8 +19,8 @@ graph_grouped_box_plot(experiment_params_list;
                         y_type=estimate_error,
                         dimensions = (600, 400),
                         legend_pos = nothing,
-                        y_label="Relative Error 10^ ",
-                        x_label="Max Cycle Size",
+                        y_label="Relative Error log\$_{10}\$",
+                        x_label="Maximum Cycle Size",
                         filename="cycles-size-error")
 
 graph_grouped_box_plot(experiment_params_list;
@@ -31,8 +31,8 @@ graph_grouped_box_plot(experiment_params_list;
                         y_type=runtime,
                         dimensions = (600, 400),
                         legend_pos = nothing,
-                        y_label="Inference Latency 10^ (s)",
-                        x_label="Max Cycle Size",
+                        y_label="Inference Latency log\$_{10}\$ (s)",
+                        x_label="Maximum Cycle Size",
                         filename="cycles-size-runtime")
 
 graph_grouped_bar_plot(experiment_params_list,
@@ -42,7 +42,7 @@ graph_grouped_bar_plot(experiment_params_list,
                         y_ticks =[3, 6, 9, 12, 15],
                         dimensions = (600, 400),
                         y_label="Statistics Size (MB)",
-                        x_label="Max Cycle Size",
+                        x_label="Maximum Cycle Size",
                         grouping=dataset,
                         legend_pos = nothing,
                         filename="cycles-size-memory")
@@ -54,7 +54,7 @@ graph_grouped_bar_plot(experiment_params_list,
                         y_ticks = [1, 2, 3, 4],
                         dimensions = (600, 400),
                         y_label="Build Time (s)",
-                        x_label="Max Cycle Size",
+                        x_label="Maximum Cycle Size",
                         grouping=dataset,
                         legend_pos = nothing,
                         filename="cycles-size-build-time")
