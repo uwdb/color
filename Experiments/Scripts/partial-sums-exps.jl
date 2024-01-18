@@ -8,13 +8,13 @@ max_paths = -1
 # We use the same datasets and summaries but we try estimating without partial sums, with partial
 # sums, and with partial sums and sampling, then record how the inference time changes.
 
-experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, use_partial_sums=true, inference_max_paths=max_paths),
-                                                    ExperimentParams(dataset=current_dataset, use_partial_sums=false, inference_max_paths=max_paths),
-                                                    ExperimentParams(dataset=current_dataset, use_partial_sums=true)]
-# println("started building")
-# build_experiments(experiment_params_list)
-# println("started estimating")
-# run_estimation_experiments(experiment_params_list, timeout=TIMEOUT_SEC)
+experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, use_partial_sums=true, inference_max_paths=max_paths, summary_max_paths=1000),
+                                                    ExperimentParams(dataset=current_dataset, use_partial_sums=false, inference_max_paths=max_paths, summary_max_paths=1000),
+                                                    ExperimentParams(dataset=current_dataset, use_partial_sums=true, summary_max_paths=1000)]
+println("started building")
+build_experiments(experiment_params_list)
+println("started estimating")
+run_estimation_experiments(experiment_params_list, timeout=TIMEOUT_SEC)
 println("started graphing")
 
 x_values = []
@@ -75,6 +75,6 @@ gbplot = groupedboxplot(x_values,
                         guidefont = (15, :black),
                         whisker_range=2)
 xlabel!(gbplot, "Query Path Width")
-ylabel!(gbplot, "Inference Latency (log\$_{10}\$s)")
+ylabel!(gbplot, "Inference Latency log\$_{10}\$ (s)")
 plotname = "partial-agg-exp.png"
 savefig(gbplot, "Experiments/Results/Figures/" * plotname)

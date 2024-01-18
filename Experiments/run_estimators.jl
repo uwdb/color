@@ -10,7 +10,7 @@ function run_estimation_experiments(experiment_params_list::Vector{ExperimentPar
         @sync @distributed for i in shuffle(collect(eachindex(experiment_results)))
             query::QueryGraph = all_queries[dataset][i].query
             query_path = all_queries[dataset][i].query_path
-            println(query_path)
+            # println(query_path)
             exact_size = all_queries[dataset][i].exact_size
             estimate_results = [(@timed get_cardinality_bounds(query,
                                     summary;

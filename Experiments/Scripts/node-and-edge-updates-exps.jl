@@ -8,7 +8,7 @@ include("../Experiments.jl")
 # with the remaining edges (and any unadded nodes), repeating for different proportions of the graph to update with.
 # Then, we can check metrics like relative error and see how it performs with more updates.
 
-datasets::Vector{DATASET} = [aids]
+datasets::Vector{DATASET} = [youtube]
 proportions_updated = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9]
 
 experiment_params_list::Vector{ExperimentParams} = [ExperimentParams(dataset=current_dataset, proportion_updated=current_proportion)
