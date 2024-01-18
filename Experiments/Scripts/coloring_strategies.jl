@@ -54,9 +54,9 @@ for dataset in datasets
                                                 description = "H64"))
 end
 
-# build_experiments(experiment_params)
+build_experiments(experiment_params)
 
-# run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
+run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
 
 x_order = [string(data) for data in datasets]
 legend_order = [params.description for params in experiment_params][1:Int(length(experiment_params)/length(datasets))]

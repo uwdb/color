@@ -12,10 +12,10 @@ for dataset in datasets
     end
 end
 
-# println("started building")
-# build_experiments(experiment_params_list)
-# println("started estimating")
-# run_estimation_experiments(experiment_params_list)
+println("started building")
+build_experiments(experiment_params_list)
+println("started estimating")
+run_estimation_experiments(experiment_params_list)
 println("started graphing")
 graph_grouped_box_plot(experiment_params_list,
                         x_type=inference_paths,

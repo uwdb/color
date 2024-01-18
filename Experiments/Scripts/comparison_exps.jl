@@ -44,13 +44,14 @@ for dataset in datasets
                                                 description = "TradEst"))
 end
 
-# println("Building...")
+println("Building...")
 
-# build_experiments(experiment_params)
+build_experiments(experiment_params)
 
-# println("Estimating...")
+println("Estimating...")
 
-# run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
+run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
+
 comparison_methods =  ["alley", "wj", "impr", "jsub", "cs", "cset", "sumrdf"]
 x_order = [string(data) for data in datasets]
 legend_order = [params.description for params in experiment_params][1:Int(length(experiment_params)/ length(datasets))]
@@ -94,6 +95,7 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 grouping=description,
                                                 dimensions = (1450, 550),
                                                 legend_pos=:topright,
+                                                legend_order = legend_order,
                                                 y_label="Inference Latency log\$_{10}\$ (s)",
                                                 x_label = "Query Size",
                                                 filename="query_size_runtime")
@@ -107,6 +109,7 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 grouping=description,
                                                 dimensions = (1450, 550),
                                                 legend_pos=:bottomleft,
+                                                legend_order = legend_order,
                                                 y_label="Relative Error log\$_{10}\$",
                                                 x_label = "Query Size",
                                                 filename="query_size_error")
