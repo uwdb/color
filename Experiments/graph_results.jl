@@ -490,8 +490,6 @@ function get_value_from_param(experiment_param::ExperimentParams, value_type::GR
     end
 end
 
-# @enum DATASET  aids human lubm80 yago yeast hprd wordnet dblp youtube eu2005 patents
-
 function convert_dataset_to_string(data::DATASET)
     if data == aids
         return "aids"
