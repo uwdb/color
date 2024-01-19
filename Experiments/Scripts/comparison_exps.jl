@@ -46,13 +46,13 @@ end
 
 println("Building...")
 
-build_experiments(experiment_params)
+#build_experiments(experiment_params)
 
 println("Estimating...")
 
-run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
+#run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
 
-comparison_methods =  ["alley", "wj", "impr", "jsub", "cs", "cset", "sumrdf"]
+comparison_methods =  ["alley", "alleyTPI", "wj", "impr", "jsub", "cs", "cset", "sumrdf"]
 x_order = [string(data) for data in datasets]
 legend_order = [params.description for params in experiment_params][1:Int(length(experiment_params)/ length(datasets))]
 legend_order = vcat(legend_order, comparison_methods)
@@ -113,3 +113,35 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 y_label="Relative Error log\$_{10}\$",
                                                 x_label = "Query Size",
                                                 filename="query_size_error")
+
+
+
+comparison_methods =  ["alleyTPI", "sumrdf"]
+x_order = [string(data) for data in datasets]
+legend_order = [params.description for params in experiment_params][1:Int(length(experiment_params)/ length(datasets))]
+legend_order = vcat(legend_order, comparison_methods)
+println("Graphing figure 4")
+
+graph_grouped_bar_plot(experiment_params;
+                        grouping=description,
+                        y_type=memory_footprint,
+                        x_order = x_order,
+                        legend_order = legend_order,
+                        ylims=[0, 100],
+                        y_ticks = [20, 40, 60, 80, 100],
+                        legend_pos=:topright,
+                        dimensions = (1000, 550),
+                        y_label="Memory (MBs)",
+                        filename="overall_memory")
+
+graph_grouped_bar_plot(experiment_params;
+                        grouping=description,
+                        y_type=build_time,
+                        x_order = x_order,
+                        legend_order = legend_order,
+                        legend_pos=:topleft,
+                        ylims=[0, 800],
+                        y_ticks = [100, 200, 300, 400, 500, 600, 700, 800],
+                        dimensions = (1000, 550),
+                        y_label="Build Time (s)",
+                        filename="overall_build_time")

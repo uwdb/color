@@ -197,6 +197,7 @@ function comparison_dataset()
                                                             QueryType=comparison_results[i,:QueryType])
     end
     estimators = unique(comparison_results[:, :Estimator])
+    println(estimators)
     return estimators, results_dict
 end
 
@@ -275,14 +276,13 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
         size = query_card_and_size[2]
         for estimator in estimator_types
             comp_key = (data, estimator, query_path)
-            (estimate, runtime) = 1, 10 # TODO: We shouldn't use an arbitrary number for runtime here
+            (estimate, runtime) = 1, 60 # TODO: We shouldn't use an arbitrary number for runtime here
             if haskey(comparison_results, comp_key)
                 result = comparison_results[comp_key]
                 estimate = result.Estimate
                 runtime = result.Runtime
             else
                 push!(estimator_dataset_missing, (estimator, data))
-                continue
             end
 
             current_x = if x_type == dataset
@@ -368,6 +368,21 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
     x_values = []
     y_values = Float64[]
     groups = []
+    if y_type == memory_footprint
+        append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "patents", "yeast", "youtube"])
+        append!(y_values, [1.6, 0.1, 19.5, 2, 5.8, 28, .2, 7.8])
+        append!(groups, ["sumrdf" for _ in 1:8])
+        append!(x_values, ["aids", "human", "lubm80"])
+        append!(y_values, [88, 648, 483])
+        append!(groups, ["alleyTPI" for _ in 1:3])
+    elseif y_type == build_time
+        append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "patents", "yeast", "youtube"])
+        append!(y_values, [.3, 4.5, 9.9, .5, 4.2, 8.5, .1, 2.1])
+        append!(groups, ["sumrdf" for _ in eachindex(y_values)])
+        append!(x_values, ["aids", "human", "lubm80"])
+        append!(y_values, [49, 614, 313])
+        append!(groups, ["alleyTPI" for _ in 1:3])
+    end
     for experiment_params in experiment_params_list
         # load the results
         results_filename = params_to_results_filename(experiment_params)
