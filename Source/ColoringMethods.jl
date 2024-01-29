@@ -1,3 +1,12 @@
+"""
+Uses the Quasi-Stable coloring algorithm to (further) color a graph, partitioning nodes
+based on their connections to nodes of other colors. Returns a mapping of nodes to their colors.
+# Arguments
+- g::Datagraph - the data graph to color.
+- params::ColorSummaryParams - parameters used for the Quasi-Stable coloring.
+- color_hash::Dict{NodeId, Color} - pre-existing colors for the data graph, if any.
+- new_colors::Int - the maximum number of new colors to add via Quasi-Stable coloring.
+"""
 function _quasi_stable_coloring(g::DataGraph, params::ColorSummaryParams, color_hash::Dict{NodeId, Color}, new_colors::Int)
     QSC = QuasiStableColors
     existing_colors = maximum(values(color_hash))
@@ -12,6 +21,14 @@ function _quasi_stable_coloring(g::DataGraph, params::ColorSummaryParams, color_
     return color_hash
 end
 
+"""
+Hash partitions data nodes by assigning colors at random. Returns a mapping of nodes to their colors.
+# Arguments
+- g::Datagraph - the data graph to color.
+- params::ColorSummaryParams - parameters used for the hash coloring.
+- color_hash::Dict{NodeId, Color} - pre-existing colors for the data graph, if any.
+- new_colors::Int - the maximum number of new colors to add via hash coloring.
+"""
 function _hash_coloring(g::DataGraph, params::ColorSummaryParams, color_hash::Dict{NodeId, Color}, new_colors::Int)
     existing_colors = maximum(values(color_hash))
     color_to_nodes = Dict{Color, Vector{NodeId}}(i => NodeId[] for i in 1:existing_colors)
@@ -50,6 +67,14 @@ function _hash_coloring(g::DataGraph, params::ColorSummaryParams, color_hash::Di
     return color_hash
 end
 
+"""
+Partitions nodes based on their degrees. Returns a mapping of nodes to their colors.
+# Arguments
+- g::Datagraph - the data graph to color.
+- params::ColorSummaryParams - parameters used for the degree coloring.
+- color_hash::Dict{NodeId, Color} - pre-existing colors for the data graph, if any.
+- new_colors::Int - the maximum number of new colors to add via degree coloring.
+"""
 function _degree_coloring(g::DataGraph, params::ColorSummaryParams, color_hash::Dict{NodeId, Color}, new_colors::Int)
     existing_colors = maximum(values(color_hash))
     color_to_nodes = Dict{Color, Vector{NodeId}}(i => NodeId[] for i in 1:existing_colors)
@@ -113,7 +138,13 @@ function _degree_coloring(g::DataGraph, params::ColorSummaryParams, color_hash::
     return color_hash
 end
 
-# Group by labels, then combine groups of labels as needed
+"""
+Partitions nodes by grouping by label then combining groups until reaching the
+limit for the number of new colors to add. Returns a mapping of nodes to their colors.
+# Arguments
+- g::Datagraph - the data graph to color.
+- num_colors::Int - the maximum number of new colors to add.
+"""
 function _simple_label_coloring(g::DataGraph, num_colors::Int)
     # returns a color hash mapping a node to its color
     color_hash = Dict()
@@ -170,9 +201,14 @@ function _simple_label_coloring(g::DataGraph, num_colors::Int)
     return color_hash
 end
 
-
-# another function: find the top n - 1 vertices with the most neighbors
-# each of their neighbors are in that color, the rest are in a different color
+"""
+Partitions nodes by assigning the top vertices with the most neighbors their own colors,
+assigning their neighbors the corresponding colors, and putting any remaining nodes
+in a separate color. Returns a mapping of nodes to their colors.
+# Arguments
+- g::Datagraph - the data graph to color.
+- num_colors::Int - the maximum number of new colors to add.
+"""
 function _label_most_neighbors_coloring(g::DataGraph, num_colors::Int)
     # map each node to how many vertices they are connected to
     vertex_mapping::Dict{Int, Int} = Dict()
@@ -206,8 +242,13 @@ function _label_most_neighbors_coloring(g::DataGraph, num_colors::Int)
     return color_hash
 end
 
-
-# another function: color by label, sort labels by their avg number of edges, hash partition based on # edges
+"""
+Partitions nodes by assigning arbitrary colors to specific node labels, then further partitioning
+based on the number of connected edges. Returns a mapping of nodes to their colors.
+# Arguments
+- g::Datagraph - the data graph to color.
+- num_colors::Int - the maximum number of colors to add.
+"""
 function _label_edges_coloring(g::DataGraph, num_colors::Int)
     # returns a color hash mapping a node to its color
     color_hash = Dict()
@@ -254,7 +295,14 @@ function _label_edges_coloring(g::DataGraph, num_colors::Int)
     return color_hash
 end
 
-
+"""
+Partitions nodes by sorting nodes by label, sorting again by the average
+indegree/outdegree ratio, then partitioning based on the sorted groups.
+Returns a mapping of nodes to their colors.
+# Arguments
+- g::Datagraph - the data graph to color.
+- num_colors::Int - the maximum number of colors to add.
+"""
 # another function: color by label, sort labels by avg in/out ratio, hash partition based on # colors
 function _label_edge_ratio_coloring(g::DataGraph, num_colors::Int)
     # returns a color hash mapping a node to its color
@@ -306,6 +354,13 @@ function _label_edge_ratio_coloring(g::DataGraph, num_colors::Int)
     return color_hash
 end
 
+"""
+Partitions nodes by sorting based on indegree/outdegree ratio then assigning
+colors to groups with similar ratios. Returns a mapping of nodes to their colors.
+# Arguments
+- g::Datagraph - the data graph to color.
+- num_colors::Int - the maximum number of colors to add.
+"""
 # edge ratio without grouping by labels beforehand
 function _edge_ratio_color(g::DataGraph, num_colors::Int)
     # returns a color hash mapping a node to its color
@@ -330,6 +385,15 @@ function _edge_ratio_color(g::DataGraph, num_colors::Int)
     return color_hash
 end
 
+"""
+Recursively partitions nodes based on which label is most evenly split between those
+in the group that do (not) have the label. Returns a list of node groupings.
+# Arguments
+- g::Datagraph - the data graph to color
+- group::Vector{NodeId} - the current group of nodes to num_process
+- depth::Int - current depth of recursive processing
+- max_depth::Int - maximum depth of recursive processing.
+"""
 function _recursive_label_split(g::DataGraph, group::Vector{NodeId}, depth::Int, max_depth::Int)
     if depth == max_depth
         return [group]
@@ -364,10 +428,16 @@ function _recursive_label_split(g::DataGraph, group::Vector{NodeId}, depth::Int,
     return [_recursive_label_split(g, left_group, depth + 1, max_depth)..., _recursive_label_split(g, right_group, depth + 1, max_depth)...]
 end
 
-# This function takes in a coloring and attempts to refine each color into sub colors.
-# It does this by recursively choosing a single label which most evenly breaks the color
-# into two sub-colors with up to `label_refining_rounds` depth.
-function _refine_by_vertex_labels(g::DataGraph, params::ColorSummaryParams,
+"""
+Takes in a coloring and attempts to refine each color into sub colors.
+Does this by recursively choosing a single label which most evenly breaks the color
+into two sub-colors.
+# Arguments
+- g::DataGraph - the data graph to color.
+- color_hash::Dict{NodeId, Color} - the existing coloring to refine.
+- label_refining_rounds::Int - the number of times to recursively refine the color.
+"""
+function _refine_by_vertex_labels(g::DataGraph,
                                     color_hash::Dict{NodeId, Color}, label_refining_rounds::Int)
     refined_color_hash::Dict{NodeId, Color} = Dict()
     color_to_vertices::Dict{Color, Vector{NodeId}} = Dict()
@@ -396,11 +466,15 @@ function _refine_by_vertex_labels(g::DataGraph, params::ColorSummaryParams,
     return refined_color_hash
 end
 
-
-# This function takes in a coloring and attempts to refine it to add `new_colors` number of colors.
-# It does this by choosing a single label which has the greatest stddev w.r.t.
-# the edge count of vertices and splitting the nodes based on their edge count for that label
-# with up to `label_refining_rounds` depth.
+"""
+Takes in a coloring and attempts to refine it to add `new_colors` number of colors. 
+Does this by choosing a single label which has the greatest stddev w.r.t.
+the edge count of vertices and splitting the nodes based on their edge count for that label.
+# Arguments
+- g::DataGraph - the data graph to color.
+- color_hash::Dict{NodeId, Color} - the existing coloring to refine.
+- new_colors::Int - the number of new colors to add via splitting by edge count.
+"""
 function _neighbor_labels_coloring(g::DataGraph, params::ColorSummaryParams,
                                         color_hash::Dict{NodeId, Color}, new_colors::Int)
     existing_colors = maximum(values(color_hash))
@@ -495,8 +569,16 @@ function _neighbor_labels_coloring(g::DataGraph, params::ColorSummaryParams,
     return color_hash
 end
 
-
-function _vertex_labels_coloring(g::DataGraph, params::ColorSummaryParams,
+"""
+Takes in a coloring and attempts to refine it to add `new_colors` number of colors. 
+Does this by choosing finding the label with the most even distribution of nodes that do (not)
+have it then splitting based on this label.
+# Arguments
+- g::DataGraph - the data graph to color.
+- color_hash::Dict{NodeId, Color} - the existing coloring to refine.
+- new_colors::Int - the number of new colors to add via splitting by edge count.
+"""
+function _vertex_labels_coloring(g::DataGraph,
                                         color_hash::Dict{NodeId, Color}, new_colors::Int)
     existing_colors = maximum(values(color_hash))
     color_to_nodes = Dict{Color, Vector{NodeId}}(i => NodeId[] for i in 1:existing_colors)
@@ -570,8 +652,16 @@ function _vertex_labels_coloring(g::DataGraph, params::ColorSummaryParams,
     return color_hash
 end
 
+"""
+Colors a data graph then continues refining the colors as described by the given parameters. Returns a mapping of nodes to their assigned color.
+# Arguments
+- g::DataGraph - the data graph to color.
+- params::ColorSummaryParams - parameters describing how to color the graph.
+# Example
+    color_graph(g, new ColorSummaryParams(partioning_scheme=[(QuasiStable, 8), (Hash, 8)]))
+The above method call will first do a 8-color Quasi-Stable coloring of a DataGraph g, then refine with 8 more colors via a hash partitioning.
 
-
+"""
 function color_graph(g::DataGraph, params::ColorSummaryParams)
     if nv(g.graph) == 0
         return Dict()
@@ -587,7 +677,7 @@ function color_graph(g::DataGraph, params::ColorSummaryParams)
         elseif partitioner == NeighborNodeLabels
                 _neighbor_labels_coloring(g, params, color_hash, num_colors)
         elseif partitioner == NodeLabels
-                _vertex_labels_coloring(g, params, color_hash, num_colors)
+                _vertex_labels_coloring(g, color_hash, num_colors)
 #        elseif partitioner == SimpleLabel
 #                _simple_label_coloring(g, params, color_hash, num_colors)
 #        elseif partitioner == InOut
