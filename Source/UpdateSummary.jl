@@ -1,11 +1,25 @@
+# This file contains a prototype implementation of updates to the lifted color summary of a Data Graph.
 
 # chooses a color for a new node to be added to
-function choose_color(summary)
+
+"""
+Chooses a color from the lifted summary of the Data Graph.
+Currently picks the color with the most nodes, but in future direction
+different colors could be selected for node updates.
+# Arguments
+- summary::ColorSummary - the lifted summary describing the Data Graph.
+"""
+function choose_color(summary::ColorSummary)
     return get_largest_color(summary)
     # return get_update_only_color!(summary)
 end
 
-function get_largest_color(summary)
+"""
+Returns the color with the most nodes in the lifted Data Graph summary.
+# Arguments
+- summary::ColorSummary - the lifted summary describing the Data Graph.
+"""
+function get_largest_color(summary::ColorSummary)
     max_color_cardinality = 0
     current_color = collect(keys(summary.color_label_cardinality))[1] # initialize with the first color
     for color in keys(summary.color_label_cardinality)
@@ -17,25 +31,13 @@ function get_largest_color(summary)
     return current_color
 end
 
-# intended to be a new color for all incoming nodes to belong to
-# function get_update_only_color!(summary)
-#     # check if we need to add stats for the new color
-#     if !summary.added_color
-#         summary.added_color = true
-#         new_color = summary.num_colors + 1
-#         # we need to add a new color
-#         summary.color_label_cardinality[new_color] = Dict()
-#         num_nodes = 10000 # not sure what to put here
-#         accepted_error = 0.00001
-#         cuckoo_params = constrain(SmallCuckoo, fpr=accepted_error, capacity=num_nodes)
-#         summary.color_filters[new_color] = SmallCuckoo{cuckoo_params.F}(cuckoo_params.nfingerprints)
-#         summary.num_colors += 1
-#         return new_color
-#     else
-#         return summary.num_colors
-#     end
-# end 
-
+"""
+"Adds" a node to the Data Graph by updating the summary statistics corresponding to the labels and colors of the added node.
+# Arguments
+- summary::ColorSummary{AvgDegStats} - the lifted summary describing the Data Graph.
+- node_labels - the labels belonging to the node to add.
+- node - the vertex ID of the node to add.
+"""
 function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node)
     data_label = node - 1
 
@@ -71,40 +73,14 @@ function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node
     summary.total_nodes += 1
 end
 
-# assume that you delete all attached edges before removing a summary node
-# assume that the node to delete actually exists
-function delete_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node)
-    color = get_node_summary_color(summary, node)
-
-    # by definition in data graph
-    data_label = node - 1
-
-    # remove from the cuckoo filter
-    pop!(summary.color_filters[color], data_label)
-    if (data_label in summary.color_filters[color])
-        print("deletion from filter didn't work")
-    end
-
-    # adjust avg edge degrees
-    for edge_label in keys(summary.edge_deg)
-        for node_label in node_labels
-            for other_color in keys(summary.edge_deg[edge_label][node_label])
-                current_cardinality = get(summary.color_label_cardinality[color], node_label, 0)
-                current_deg = get(summary.edge_deg[edge_label][node_label][other_color], color, AvgDegStats(0, 0))
-                scale_factor = current_cardinality <= 1 ? 0 : (current_cardinality / (current_cardinality - 1))
-                summary.edge_deg[edge_label][node_label][other_color][color] = AvgDegStats(current_deg.avg_in*scale_factor, current_deg.avg_out*scale_factor)
-            end
-        end
-    end
-
-    # subtract from the cardinality counts
-    for node_label in node_labels
-        summary.color_label_cardinality[color][node_label] -= 1
-    end
-end
-
 # assumes that all nodes are currently in the color summary - the node is guaranteed to be in at least one bloom filter
-function get_node_summary_color(summary, node)
+"""
+Finds and returns the color of the node in the lifted graph summary.
+# Arguments
+- summary::ColorSummary - the lifted color summary describing the Data Graph.
+- node - the vertex ID of the node.
+"""
+function get_node_summary_color(summary::ColorSummary, node)
     possible_colors = []
     for color in keys(summary.color_filters)
         filter = summary.color_filters[color]
@@ -113,19 +89,20 @@ function get_node_summary_color(summary, node)
             push!(possible_colors, color)
         end
     end
+    # Since Cuckoo filters are used, there is a chance that there will be false positive results.
+    # In that case, randomly select one of the colors that indicates it contains this node.
     return length(possible_colors) == 0 ? rand(keys(summary.color_filters)) : rand(possible_colors)
 end
 
-function add_summary_edge!(summary, start_node, end_node, edge_labels)
-    update_edge_degrees!(summary, start_node, end_node, edge_labels, remove=false)
-end
-
-function remove_summary_edge!(summary, start_node, end_node, edge_labels)
-    update_edge_degrees!(summary, start_node, end_node, edge_labels, remove=true)
-end
-
-function update_edge_degrees!(summary::ColorSummary{AvgDegStats}, start_node, end_node, edge_labels::Vector; remove=false)
-    # need to eventually make sure that the edge label is a set that includes -1 for the label...
+"""
+"Adds" an edge to the Data Graph by updating the summary statistics corresponding to the edge labels and colors of the edge nodes.
+# Arguments
+- summary::ColorSummary{AvgDegStats} - the lifted Color Summary describing the Data Graph.
+- start_node - the start node of the edge to add.
+- end_node - the destination node of the edge to add.
+- edge_labels::Vector - the labels belonging to the edge to add.
+"""
+function add_summary_edge!(summary::ColorSummary{AvgDegStats}, start_node, end_node, edge_labels::Vector)
     if !(-1 in edge_labels)
         push!(edge_labels, -1)
     end
@@ -140,9 +117,6 @@ function update_edge_degrees!(summary::ColorSummary{AvgDegStats}, start_node, en
         for vertex_label in keys(summary.color_label_cardinality[end_color])
             # this is the probability that the vertex label will be included
             probability_end_vertex_label = summary.color_label_cardinality[end_color][vertex_label] / summary.color_label_cardinality[end_color][-1]
-            if remove
-                probability_end_vertex_label *= -1
-            end
             # the avg is based on the # of vertices in c1
             if !haskey(summary.edge_deg, edge_label)
                 summary.edge_deg[edge_label] = Dict()
@@ -162,9 +136,6 @@ function update_edge_degrees!(summary::ColorSummary{AvgDegStats}, start_node, en
         end
         for vertex_label in keys(summary.color_label_cardinality[start_color])
             probability_start_vertex_label = summary.color_label_cardinality[start_color][vertex_label] / summary.color_label_cardinality[start_color][-1]
-            if remove
-                probability_start_vertex_label *= -1
-            end
             # now adjust the averages of the appropriate in/out degreestats...
             original_avg_in = 0
             if haskey(summary.edge_deg, edge_label) && haskey(summary.edge_deg[edge_label], vertex_label) &&
