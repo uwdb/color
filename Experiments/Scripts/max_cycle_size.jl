@@ -1,6 +1,8 @@
 using Plots.PlotMeasures
 include("../Experiments.jl")
 
+# The goal of this file is to evaluate summaries using different maximum stored cycle size statistics, on the same dataset.
+
 datasets = [youtube]
 max_cycles = 6
 experiment_params_list = ExperimentParams[ExperimentParams(dataset=current_dataset, max_cycle_size=current_size) for current_dataset in datasets for current_size in 1:max_cycles]
@@ -21,7 +23,7 @@ graph_grouped_box_plot(experiment_params_list;
                         legend_pos = nothing,
                         y_label="Relative Error log\$_{10}\$",
                         x_label="Maximum Cycle Size",
-                        filename="cycles-size-error")
+                        filename="fig_11") # cycles size error
 
 graph_grouped_box_plot(experiment_params_list;
                         x_type=cycle_size,

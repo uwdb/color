@@ -2,6 +2,8 @@
 using Profile
 include("../Experiments.jl")
 
+# The goal of this file is to evaluate inference results if using the shortest path cycle or not, across different datasets.
+
 datasets = [aids, yeast, hprd, dblp, youtube, wordnet]
 
 experiment_params = Vector{ExperimentParams}()

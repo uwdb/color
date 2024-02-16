@@ -1,6 +1,8 @@
 using Plots.PlotMeasures
 include("../Experiments.jl")
 
+# The goal of this file is to evaluate the effect of using different values of maximum partial paths (varying the amount of sampling) during summary-building time, 
+# across different datasets.
 
 datasets::Vector{DATASET} = [yeast]
 max_paths = [64, 256, 1024, 4096, 8192, 8192*4, 8192*4*4]

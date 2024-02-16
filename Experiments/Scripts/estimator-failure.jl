@@ -1,5 +1,7 @@
 include("../Experiments.jl")
 
+# The goal of this file is to record failure rates for different estimation methods across different datasets.
+
 #datasets = [human, aids]
 datasets = [human, aids, lubm80, yeast, dblp, youtube, eu2005, patents]
 #datasets = [human, aids, yeast, dblp, youtube, eu2005, patents]

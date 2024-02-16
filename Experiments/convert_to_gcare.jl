@@ -1,10 +1,11 @@
 include("../Experiments.jl")
+# TODO for running on alley: lubm80, yeast, dblp, eu2005, patents, youtube
 const graph_id = 1; # consider replacing with the hash of the file
 
 # take in a "subgraph matching" file, convert it to a data graph, then convert the data graph into a "gcare" file
-function convert_dataset(path)
+function convert_dataset(path, filename, destination)
     data_graph = load_dataset(path, subgraph_matching_data=true)
-    graph_file = open("Experiments/ConvertedGraphs/file.txt", "w")
+    graph_file = open(destination * filename * ".txt", "w")
     println(graph_file, "t # $graph_id")
     for node in 1:nv(data_graph.graph)
         current_node = node - 1
@@ -24,4 +25,19 @@ function convert_dataset(path)
     close(graph_file)
 end
 
-convert_dataset("/homes/gws/dmbs/Cardinality-with-Colors/dataset/hprd/hprd.graph")
+# Convert graphs into gcare format
+
+# datasets = ["yeast", "dblp", "eu2005", "patents", "youtube"]
+# for dataset in datasets
+#     # convert data graphs
+#     convert_dataset("/homes/gws/dmbs/Cardinality-with-Colors/dataset/" * dataset * "/" * dataset * ".graph", dataset,"Experiments/ConvertedGraphs/")
+
+#     # convert query graphs
+#     query_directory = "queryset/" * dataset
+#     query_paths = readdir(query_directory, join=true)
+#     println("Processing queries for ", dataset)
+#     for query in query_paths
+#         filename = split(basename(query), ".")[1]
+#         convert_dataset(query, filename, "Experiments/ConvertedGraphs/queryset/" * dataset * "/")
+#     end
+# end

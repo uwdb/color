@@ -2,6 +2,8 @@
 using Profile
 include("../Experiments.jl")
 
+# The goal of this file is to create graphs comparing the build time for different datasets.
+
 datasets = [aids, yeast, hprd, dblp, youtube, wordnet]
 #datasets = [wordnet]
 experiment_params = Vector{ExperimentParams}()

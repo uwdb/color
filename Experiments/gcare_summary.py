@@ -6,7 +6,7 @@ import re
 import pathlib
 
 # Assuming you are in the directory where the files are located
-directory = '/local1/kayali/gcare/data/result/accuracy/202310311141'  # Change this to your specific directory
+directory = '.'  # Change this to your specific directory
 
 # Prepare an empty list to store the records
 records = []

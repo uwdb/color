@@ -3,7 +3,7 @@ using Graphs
 using Random
 include("../Experiments.jl")
 
-# Investigate how build time is affected by size of graph
+# The goal of this file is to investigate how build time is affected by size of graph
 
 graph_sizes = [200000, 400000, 600000, 800000, 1000000]
 build_time_sums::Vector{Float16} = [0,0,0,0,0]
@@ -56,5 +56,5 @@ p = bar(graph_sizes,
 xlabel!("Graph Size (V+E)")
 ylabel!("Build Time (s)")
 # title!("Graph Size vs Average Build Time")
-savefig(p, "Experiments/Results/Figures/build-time")
+savefig(p, "Experiments/Results/Figures/fig_8")
 

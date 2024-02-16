@@ -2,6 +2,8 @@
 using Profile
 include("../Experiments.jl")
 
+# The goal of this file is to evaluate the effect of using sampling strategies, across different datasets.
+
 datasets = [human, aids, yeast, hprd, dblp, wordnet]
 datasets = [youtube]
 experiment_params = Vector{ExperimentParams}()
