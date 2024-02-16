@@ -1,7 +1,5 @@
 # This file contains a prototype implementation of updates to the lifted color summary of a Data Graph.
 
-# chooses a color for a new node to be added to
-
 """
 Chooses a color from the lifted summary of the Data Graph.
 Currently picks the color with the most nodes, but in future direction
