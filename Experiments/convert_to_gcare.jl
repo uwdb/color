@@ -1,4 +1,4 @@
-include("../Experiments.jl")
+include("Experiments.jl")
 # TODO for running on alley: lubm80, yeast, dblp, eu2005, patents, youtube
 const graph_id = 1; # consider replacing with the hash of the file
 
