@@ -1,3 +1,10 @@
+"""
+Using the given data graph file, creates and returns a DataGraph.
+# Arguments
+- path - the String path to the location of the graph file.
+- subgraph_matching_data - true if this data originates from "In-Memory Subgraph Matching: an In-depth Study",
+                           false if it comes from "G-Care" instead.
+"""
 function load_dataset(path; subgraph_matching_data=false)
     n = 0
     edges::Array{Tuple{Tuple{NodeId, NodeId}, Int}} = []
@@ -41,7 +48,13 @@ function load_dataset(path; subgraph_matching_data=false)
     return g
 end
 
-
+"""
+Using the given query graph file, creates and returns a QueryGraph.
+# Arguments
+- path - the String path to the location of the graph file.
+- subgraph_matching_data - true if this data originates from "In-Memory Subgraph Matching: an In-depth Study",
+                           false if it comes from "G-Care" instead.
+"""
 function load_query(path; subgraph_matching_data=false)
     n = 0
     edges::Array{Tuple{Tuple{NodeId, NodeId}, Int}} = []
@@ -86,6 +99,11 @@ function load_query(path; subgraph_matching_data=false)
     return g
 end
 
+"""
+Using the given cardinality file, returns the stored cardinality results.
+# Arguments
+- path - the string path to the cardinality file.
+"""
 function load_true_cardinality(path)
     true_cardinality = 0
     for line in eachline(path)

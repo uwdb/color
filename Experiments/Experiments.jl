@@ -16,7 +16,7 @@ using Distributed
 @everywhere using WeakRefStrings
 
 
-@everywhere include("../Source/CardinalityWithColors.jl")
+@everywhere include("../src/CardinalityWithColors.jl")
 @everywhere include("utils.jl")
 @everywhere include("load_datasets.jl")
 include("load_querysets.jl")

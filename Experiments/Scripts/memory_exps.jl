@@ -2,6 +2,8 @@
 using Profile
 include("../Experiments.jl")
 
+# The goal of this file is to evaluate the memory footprint for using the same technique on different datasets.
+
 #datasets = [aids, yeast, hprd, dblp, youtube, wordnet]
 datasets = [wordnet]
 num_colors = [4, 8, 16, 32, 64, 128, 256]

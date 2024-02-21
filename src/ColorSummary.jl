@@ -1,10 +1,12 @@
 using Graphs
 using Probably
 
-# The ColorSummary struct holds statistical information associated with the colored graph.
-# It keeps detailed information about the number of edges between colors of a particular color and which land in
-# a particular color. Note that `-1` is used to represent a "wildcard" label. These do not appear in the data graph,
-# but they do occur in the query graph.
+"""
+The ColorSummary struct holds statistical information associated with the colored graph.
+It keeps detailed information about the number of edges between colors of a particular color and which land in
+a particular color. Note that `-1` is used to represent a "wildcard" label. These do not appear in the data graph,
+but they do occur in the query graph.
+"""
 mutable struct ColorSummary{DS}
     # for outdegrees, c2 is the color of the outneighbor
     # for indegrees, c2 is the color of the inneighbor
@@ -21,8 +23,15 @@ mutable struct ColorSummary{DS}
     total_added_edges::Int
 end
 
-
-function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, timing_vec::Vector{Float64} = Float64[], use_cycle_join_table=true)
+"""
+Generates a color summary for the given DataGraph using specific parameters about the coloring method.
+# Arguments
+- g::DataGraph - the DataGraph to color
+- params::ColorSummaryParams - parameters describing how to color the graph, including sampling and coloring techniques
+- verbose - enables printed messages for debugging
+- timing_vec::Vector{Float64} - a Vector used to store statistics about the time spent building the summary
+"""
+function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSummaryParams(); verbose=0, timing_vec::Vector{Float64} = Float64[])
     DS = params.deg_stats_type
     if (verbose > 0)
         println("Started coloring")
@@ -45,14 +54,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     cycle_counting_time = time()
     cycle_probabilities::Dict{CyclePathAndColors, Float64} = Dict()
     cycle_length_probabilities::Dict{Int, Float64} = Dict()
-    if use_cycle_join_table
-        cycle_probabilities, cycle_length_probabilities = join_table_cycle_likelihoods(g, color_hash, params.max_cycle_size, params.max_partial_paths)
-    else
-        cycle_probabilities, cycle_length_probabilities = get_color_cycle_likelihoods(params.max_cycle_size,
-                                                                                            g,
-                                                                                            color_hash,
-                                                                                            params.max_partial_paths)
-    end
+    cycle_probabilities, cycle_length_probabilities = join_table_cycle_likelihoods(g, color_hash, params.max_cycle_size, params.max_partial_paths)
     cycle_counting_time = time() - cycle_counting_time
     push!(timing_vec, cycle_counting_time)
 
@@ -179,45 +181,16 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
                  ne(g.graph), nv(g.graph), num_colors, 0)
 end
 
-function color_hash_to_groups(color_hash, num_colors)
-    # the color hash maps from a node to its assigned color
-    node_groups::Vector{Vector{Int}} = [[] for color in 1:num_colors]
-    for node in keys(color_hash)
-        push!(node_groups[color_hash[node]], node)
-    end
-    return node_groups
-end
-
-
-function get_color_summary_size(summary)
-    numEntries = 0
-    for e in keys(summary.edge_avg_out_deg)
-        for v in keys(summary.edge_avg_out_deg[e])
-            for c1 in keys(summary.edge_avg_out_deg[e][v])
-                for c2 in keys(summary.edge_avg_out_deg[e][v][c1])
-                    numEntries += 1
-                end
-            end
-        end
-    end
-    for e in keys(summary.edge_avg_in_deg)
-        for v in keys(summary.edge_avg_in_deg[e])
-            for c1 in keys(summary.edge_avg_in_deg[e][v])
-                for c2 in keys(summary.edge_avg_in_deg[e][v][c1])
-                    numEntries += 1
-                end
-            end
-        end
-    end
-    numEntries = numEntries*3 # To account for min, avg, and max stats
-    numEntries += length(summary.cycle_probabilities)
-    return
-end
-
-# when we generate the color summary, we need to have a method  to calculate the odds of a cycle
-
-# approximates the probability of the cycle existing by using the degree into the landing node
-# and the total number of nodes in the landing node
+"""
+Approximates the probability of the cycle existing by using the degree into the landing node
+and the total number of nodes in the landing node.
+# Arguments
+- edge_label - the label of the edge closing the cycle
+- child_label - the label of the ending vertex of the closing edge
+- parent_color - the color of the starting vertex of the closing edge
+- child_color - the color of the ending vertex of the closing edge
+- summary::ColorSummary - the graph summary used to calculate this likelihood
+"""
 @inline function get_independent_cycle_likelihood(edge_label, child_label, parent_color, child_color, summary::ColorSummary)
     if (summary.color_label_cardinality[child_color][child_label] == 0)
         println("issue with independent cycle likelihood")
@@ -225,11 +198,28 @@ end
     return get_out_deg_estimate(summary.edge_deg[edge_label][child_label][parent_color][child_color])/summary.color_label_cardinality[child_color][child_label]
 end
 
-# When colors are unavailable, we use a coarser probability
+"""
+Approximates the probability of the cycle existing by treating each edge in the graph as an
+independent event and considering the closure of the cycle as one such event.
+When colors are unavailable, this coarser probability is used.
+# Arguments
+- summary::ColorSummary - the graph summary used to calculate this likelihood
+"""
 @inline function get_independent_cycle_likelihood(summary::ColorSummary)
     return min(1.0, 5.0 * summary.total_edges / summary.total_nodes ^ 2)
 end
 
+
+"""
+Uses a colored graph to calculate the odds of cycles closing between nodes of specific colors.
+Returns a cycle_likelihoods Dict mapping a cycle description (path directionality/length and colors) to its likelihood of existing,
+and a more general cycle_length_likelihoods Dict mapping a cycle size to its likelihood of existing.
+# Arguments
+- g::DataGraph - the data graph used to generate statistics
+- color_hash - a mapping of each node to its assigned color
+- cycle_size::Int - the maximum cycle size to calculate and store statistics for
+- max_partial_paths - the maximum number of partial paths to use during statistics calculating, enabling sampling
+"""
 function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int, max_partial_paths)
     cycle_length_likelihoods::Dict{Int, Float64} = Dict()
     cycle_likelihoods::Dict{CyclePathAndColors, Float64} = Dict()
@@ -356,136 +346,4 @@ function join_table_cycle_likelihoods(g::DataGraph, color_hash, cycle_size::Int,
     end
     cycle_length_likelihoods = Dict(i => cycle_length_counts[i] == 0 ? 0 : cycle_length_weights[i] / cycle_length_counts[i] for i in 1:cycle_size)
     return cycle_likelihoods, cycle_length_likelihoods
-end
-
-# this is the one where we also have the directionality of the path
-# returns a mapping from start/end-colors => cycle-likelihood
-function get_color_cycle_likelihoods(max_size::Int, data::DataGraph, color_hash, max_partial_paths, min_partial_paths=50)
-    # we map the path that needs to be closed to its likelihood
-    # of actually closing use type-aliases (path = Vector{Bool})
-    cycle_length_likelihoods::Dict{Int, Float64} = Dict()
-    cycle_likelihoods::Dict{CyclePathAndColors, Float64} = Dict()
-    if (max_size < 2)
-        return cycle_likelihoods
-    end
-    default_color_pair::StartEndColorPair = (-1, -1)
-    for i in 2:max_size
-        i_path_weight, i_cycle_weight = (0.0,0.0)
-        paths = generate_graphs(i - 1, 0, (Vector{DiGraph})([DiGraph(i)]), false)
-        for path in paths
-            total_path_weight, total_cycle_weight = (0.0,0.0)
-            bool_graph = convert_path_graph_to_bools(path.graph)
-            default_cycle_description = CyclePathAndColors(bool_graph, default_color_pair)
-            likelihoods = approximate_color_cycle_likelihood(path, data, color_hash, max_partial_paths) # output a dictionary of start-end color pairs -> likelihood
-            for color_pair in keys(likelihoods)
-                if likelihoods[color_pair][1] == 0 || likelihoods[color_pair][2] == 0
-                    continue
-                end
-                # if the number of paths is less than the minimum, we want to remove it from the likelihoods so it uses default instead
-                if likelihoods[color_pair][1] >= min_partial_paths
-                    current_cycle_description = CyclePathAndColors(bool_graph, color_pair)
-                    # likelihoods[c1, c2] = [num_paths, num_cycles]
-                    cycle_likelihoods[current_cycle_description] = (likelihoods[color_pair][1] == 0) ?
-                                                                0 : (likelihoods[color_pair][2]) / likelihoods[color_pair][1]
-                end
-                total_path_weight += likelihoods[color_pair][1]
-                total_cycle_weight += likelihoods[color_pair][2]
-                i_path_weight += likelihoods[color_pair][1]
-                i_cycle_weight += likelihoods[color_pair][2]
-            end
-            if total_path_weight > min_partial_paths/2
-               cycle_likelihoods[default_cycle_description] = (total_path_weight == 0) ? 0 : total_cycle_weight/total_path_weight
-            end
-        end
-        cycle_length_likelihoods[i] = (i_path_weight == 0) ? 0 : i_cycle_weight/i_path_weight
-    end
-    return cycle_likelihoods, cycle_length_likelihoods
-end
-
-# takes a path and converts it into a list of bools, each bool representing
-# whether or not the next edge is going forwards
-# ex: a => b => c <= d would become {true, true, false}
-function convert_path_graph_to_bools(graph::DiGraph)
-    # we say true = edge is going forwards
-    bool_representation::Vector{Bool} = []
-    for vertex in 1:(nv(graph)-1)
-        push!(bool_representation, vertex in inneighbors(graph, vertex + 1))
-    end
-    return bool_representation
-end
-
-
-# returns a mapping of start/end-colors => path-count/cycle-count
-function approximate_color_cycle_likelihood(path::QueryGraph, data::DataGraph, color_hash, max_partial_paths)
-    nodes_to_keep = [1, nv(path.graph)]
-    # add parameter for query nodes that shouldn't be aggregated out (the starting/ending nodes)
-    # will now output a vector of tuples where first thing is a path (should only have start/end nodes after aggregations), second is the weight of the path
-    # iterate through list to figure out cycle closure likelihoods
-    partial_paths = get_subgraph_counts(path, data, max_partial_paths=max_partial_paths, nodes_to_keep=nodes_to_keep)
-    color_matches::Dict{StartEndColorPair, Vector{Float64}} = Dict() # color_matches[c1,c2] = [num_paths, num_cycles]
-    for path_and_weight in partial_paths
-        # there should be only two nodes left in the path that aren't aggregated out
-        # the returned subgraphs are actual paths, not color matches
-        path = path_and_weight[1]
-        path_weight = path_and_weight[2]
-        # check the colors
-        current_start_node = path[1]
-        current_end_node = path[2]
-        current_colors::StartEndColorPair = (color_hash[current_start_node], color_hash[current_end_node])
-        if !(haskey(color_matches, current_colors))
-            color_matches[current_colors] = [0, 0]
-        end
-        # if there is a closing edge, then count the entire weight of the path for the cycles as well
-        # The path has a predefined directionality so we want to only find the likelihood that the last
-        # node in the path wraps around to the beginning node
-        cycle_weight = (in(current_end_node, inneighbors(data.graph, current_start_node))) ? path_weight : 0
-        color_matches[current_colors][1] = color_matches[current_colors][1] + path_weight
-        color_matches[current_colors][2] = color_matches[current_colors][2] + cycle_weight
-    end
-
-    # return mapping of color pairs -> path/cycle likelihood
-    return color_matches
-end
-
-# For a given number of edges, generates all possible directed graphs
-# with the given number of edges
-function generate_graphs(desiredEdges::Int, finishedEdges::Int, graphs::Vector{DiGraph}, isCyclic::Bool)
-    if (finishedEdges >= desiredEdges)
-        # now we are guaranteed to have all graphs have the correct number of edges
-        # and close the loop, so we can return this final result...
-        if (isCyclic)
-            graphs = filter!(g->ne(g)!=1, graphs)
-        end
-        query_graphs::Vector{QueryGraph} = []
-        for g in graphs
-            current_query = QueryGraph(g)
-            for edge in edges(g)
-                update_edge_labels!(current_query, (src(edge), dst(edge)), [-1])
-            end
-            push!(query_graphs, current_query)
-        end
-        return query_graphs
-    end
-    startNode = finishedEdges + 1 # the next edge starts at the end of the finished edge
-    nextNode::Int = startNode + 1
-    if desiredEdges == (finishedEdges + 1)
-        # if the graph is cyclic, the last edge should go back to the starting node
-        # if the graph isn't cyclic, the last edge should go to the last node remaining
-        nextNode = isCyclic ? 1 : nextNode
-    end
-    newGraphs::Vector{DiGraph} = []
-    # for each graph, add one edge going to the next node
-    # or one edge coming from the next node
-    for graph in graphs
-        graphWithForwardEdge = copy(graph)
-        add_edge!(graphWithForwardEdge, startNode, nextNode)
-        push!(newGraphs, graphWithForwardEdge)
-        # if we're on the last edge of a cycle, don't do this since it results in duplicate graphs
-        if (!(isCyclic && desiredEdges == finishedEdges + 1))
-            graphWithBackEdge = copy(graph)
-            add_edge!(graphWithBackEdge, nextNode, startNode)
-            push!(newGraphs, graphWithBackEdge)
-        end
-    end
-    return generate_graphs(desiredEdges, finishedEdges + 1, newGraphs, isCyclic)
 end

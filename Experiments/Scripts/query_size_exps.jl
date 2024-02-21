@@ -2,6 +2,8 @@
 using Profile
 include("../Experiments.jl")
 
+# The goal of this file is to evaluate the effectiveness of the estimation on different query sizes, pooling queries from the given datasets.
+
 datasets = [human, aids, lubm80, yeast, dblp, youtube, eu2005, patents]
 
 experiment_params = Vector{ExperimentParams}()
@@ -39,9 +41,9 @@ for dataset in datasets
                                                 description = "IndEst"))
 end
 
-#build_experiments(experiment_params)
+build_experiments(experiment_params)
 
-#run_estimation_experiments(experiment_params)
+run_estimation_experiments(experiment_params)
 
 graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 ylims=[10^-5, 10^4],

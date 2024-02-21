@@ -24,7 +24,7 @@ function generate_num_colors_graph(dataset::DATASET)
     p99_runtimes = []
 
     for colors in num_colors
-        experiment_params = ExperimentParams(dataset=dataset; num_colors=colors)
+        experiment_params = ExperimentParams(dataset=dataset; partitioning_scheme=[(QuasiStable, colors)])
         build_experiments([experiment_params])
         println("Num Colors: ", colors)
         run_estimation_experiments([experiment_params])
@@ -50,13 +50,13 @@ function generate_num_colors_graph(dataset::DATASET)
     # This seems to be necessary for using Plots.jl outside of the ipynb framework.
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
     ENV["GKSwstype"]="100"
-    fig = plot(p50_runtimes, p50_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
+    fig = Plot(p50_runtimes, p50_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
                 xlabel="P50 Runtime (sec)", ylabel="P50 Q-Error", title="Num Colors "*string(dataset))
     savefig(fig, "Experiments/Results/Figures/NumColors_Accuracy_vs_Runtime_P50_" * string(dataset) * ".png")
-    fig = plot(p95_runtimes, p95_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
+    fig = Plot(p95_runtimes, p95_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
                 xlabel="P95 Runtime (sec)", ylabel="P95 Q-Error", title="Num Colors "*string(dataset))
     savefig(fig, "Experiments/Results/Figures/NumColors_Accuracy_vs_Runtime_P95_" * string(dataset) * ".png")
-    fig = plot(p99_runtimes, p99_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
+    fig = Plot(p99_runtimes, p99_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
                 xlabel="P99 Runtime (sec)", ylabel="P99 Q-Error", title="Num Colors "*string(dataset))
     savefig(fig, "Experiments/Results/Figures/NumColors_Accuracy_vs_Runtime_P99_" * string(dataset) * ".png")
 end
@@ -69,12 +69,12 @@ function generate_partial_paths_graph(dataset::DATASET; num_colors = 64)
     p95_runtimes = []
     p99_q_errors = []
     p99_runtimes = []
-    build_params = ExperimentParams(dataset=dataset, num_colors=num_colors)
+    build_params = ExperimentParams(dataset=dataset, partitioning_scheme=[(QuasiStable, num_colors)])
     build_experiments([build_params])
 
     for pp in partial_paths
         println("Partial Paths: ", pp)
-        inference_params = ExperimentParams(dataset=dataset, num_colors=num_colors, inference_max_paths=pp)
+        inference_params = ExperimentParams(dataset=dataset, partitioning_scheme=[(QuasiStable, num_colors)], inference_max_paths=pp)
         run_estimation_experiments([inference_params])
         results_filename = params_to_results_filename(inference_params)
         results_path = "Experiments/Results/Estimation_" * results_filename
@@ -101,13 +101,13 @@ function generate_partial_paths_graph(dataset::DATASET; num_colors = 64)
     println(p95_runtimes)
     println(p95_q_errors)
 
-    fig = plot(p50_runtimes, p50_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
+    fig = Plot(p50_runtimes, p50_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
     xlabel="P50 Runtime (sec)", ylabel="P50 Q-Error", title="Partial Paths "*string(dataset))
     savefig(fig, "Experiments/Results/Figures/PP_Accuracy_vs_Runtime_P50_" * string(dataset) * ".png")
-    fig = plot(p95_runtimes, p95_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
+    fig = Plot(p95_runtimes, p95_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
         xlabel="P95 Runtime (sec)", ylabel="P95 Q-Error", title="Partial Paths "*string(dataset))
     savefig(fig, "Experiments/Results/Figures/PP_Accuracy_vs_Runtime_P95_" * string(dataset) * ".png")
-    fig = plot(p99_runtimes, p99_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
+    fig = Plot(p99_runtimes, p99_q_errors, seriestype=:scatter, yscale=:log10, xscale=:log10,
         xlabel="P99 Runtime (sec)", ylabel="P99 Q-Error", title="Partial Paths "*string(dataset))
     savefig(fig, "Experiments/Results/Figures/PP_Accuracy_vs_Runtime_P99_" * string(dataset) * ".png")
 end

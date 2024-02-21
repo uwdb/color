@@ -2,6 +2,8 @@
 using Profile
 include("../Experiments.jl")
 
+# The goal of this file is to evaluate summaries using different partioning schemes across different datasets.
+
 datasets = [human, eu2005, dblp, youtube]
 #datasets = [human, hprd]
 
@@ -85,7 +87,7 @@ graph_grouped_box_plot(experiment_params;
                         dimensions = (600, 400),
                         legend_pos=:topleft,
                         y_label="Relative Error log\$_{10}\$",
-                        filename="colorings_error")
+                        filename="fig_7") # colorings error
 
 
 graph_grouped_bar_plot(experiment_params;

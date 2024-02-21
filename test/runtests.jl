@@ -3,7 +3,7 @@ using Distributions
 using DataStructures: counter, Dict, Set, Vector, inc!
 using Test
 using Graphs
-include("../Source/CardinalityWithColors.jl")
+include("../src/CardinalityWithColors.jl")
 
 
 # run subtests

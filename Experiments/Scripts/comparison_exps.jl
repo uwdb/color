@@ -2,6 +2,8 @@
 using Profile
 include("../Experiments.jl")
 
+# The goal of this file is to evaluate different estimation methods across different datasets.
+
 datasets = [human, aids, lubm80, yeast, dblp, youtube, eu2005, patents]
 #datasets = [human, aids, yeast, dblp, youtube, eu2005, patents]
 #datasets = [human, aids]
@@ -70,7 +72,7 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 dimensions = (1550, 650),
                                                 legend_pos=:topleft,
                                                 y_label="Inference Latency log\$_{10}\$ (s)",
-                                                filename="overall_runtime")
+                                                filename="fig_3") # overall runtime
 
 graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 ylims=[10^-21, 10^21],
@@ -83,7 +85,7 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 dimensions = (1550, 650),
                                                 legend_pos=:bottomleft,
                                                 y_label="Relative Error log\$_{10}\$",
-                                                filename="overall_error")
+                                                filename="fig_2") # overall error
 
 println("Graphing figure 4")
 
@@ -98,7 +100,7 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 legend_order = legend_order,
                                                 y_label="Inference Latency log\$_{10}\$ (s)",
                                                 x_label = "Query Size",
-                                                filename="query_size_runtime")
+                                                filename="fig_4") # query size runtime
 
 
 graph_grouped_boxplot_with_comparison_methods(experiment_params;
@@ -120,7 +122,7 @@ comparison_methods =  ["alleyTPI", "sumrdf"]
 x_order = [string(data) for data in datasets]
 legend_order = [params.description for params in experiment_params][1:Int(length(experiment_params)/ length(datasets))]
 legend_order = vcat(legend_order, comparison_methods)
-println("Graphing figure 4")
+println("Graphing figures 5 and 6")
 
 graph_grouped_bar_plot(experiment_params;
                         grouping=description,
@@ -132,7 +134,7 @@ graph_grouped_bar_plot(experiment_params;
                         legend_pos=:topright,
                         dimensions = (1000, 550),
                         y_label="Memory (MBs)",
-                        filename="overall_memory")
+                        filename="fig_5") # overall memory
 
 graph_grouped_bar_plot(experiment_params;
                         grouping=description,
@@ -144,4 +146,4 @@ graph_grouped_bar_plot(experiment_params;
                         y_ticks = [100, 200, 300, 400, 500, 600, 700, 800],
                         dimensions = (1000, 550),
                         y_label="Build Time (s)",
-                        filename="overall_build_time")
+                        filename="fig_6") # overall build time

@@ -2,6 +2,8 @@
 using Profile
 include("../Experiments.jl")
 
+# The goal of this file is to compare the runtime and accuracy for summaries using different partioning schemes on the same dataset.
+
 datasets = [aids]
 partitioning_schemes = [
                         [(Degree, 64)],

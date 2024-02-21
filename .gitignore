@@ -12,5 +12,6 @@
 /TrueCardinalities
 /Experiments/Results/*
 /Experiments/SerializedSummaries/*
+/Experiments/ConvertedGraphs/*
 /.vscode
 

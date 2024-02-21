@@ -1,9 +1,16 @@
 # This file contains a prototype implementation of Quasi-Stable Cardinality Estimation.
 
-# The following two functions sum over all paths which have the same color assigned to a particular node in the query graph.
-# Equivalently, they perform a groupby on all other nodes of the query graph. The goal of this is to prevent
-# an exponential growth in the number of paths through the lifted color graph. However, we can only remove query nodes whose
-# edges have already been processed.
+"""
+Sums over all paths which have the same color assigned to a particular node in the query graph.
+Equivalently, performs a groupby on all other nodes of the query graph. The goal of this is to prevent
+an exponential growth in the number of paths through the lifted color graph. However, we can only remove query nodes whose
+edges have already been processed. Returns an updated partial_paths and partial_weights.
+# Arguments
+- partial_paths::Matrix{Color} - the matrix of partial paths describing the current traversal over the lifted color graph.
+- partial_weights::Vector{W} - the list of weights for each partial path.
+- current_query_nodes - the list of query nodes, describing the order we process the query graph.
+- node_to_remove - the specific node to sum over from the query.
+"""
 @inline function sum_over_node(partial_paths::Matrix{Color}, partial_weights::Vector{W}, current_query_nodes, node_to_remove) where W
     nodeIdx = 1
     for node in current_query_nodes
@@ -28,7 +35,7 @@
 
     path_idx = 1
     for path in keys(new_partial_paths)
-        for i in 1:length(path)
+        for i in eachindex(path)
             partial_paths[i, path_idx] = path[i]
         end
         partial_weights[path_idx] = new_partial_paths[path]
@@ -39,6 +46,16 @@ end
 
 @enum SAMPLING_STRATEGY uniform weighted redistributive
 
+"""
+Samples the partial paths, returning a condensed list of partial paths. The partial weights are redistributed according
+to the magnitude of the original weight of the output paths.
+# Arguments
+- partial_paths::Matrix{Color} - the matrix of partial paths describing the current traversal over the lifted color graph.
+- partial_weights::Vector{W} - the list of weights for each partial path.
+- num_samples::Int - the number of paths to sample, determining the size of the output.
+- sampling_strategy::SAMPLING_STRATEGY - how to select samples from the partial paths. Will only check if this is set to "uniform" to sample uniformly. 
+                                         Otherwise, just selects samples by prioritizing those with higher weights.
+"""
 function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, num_samples::Int, sampling_strategy::SAMPLING_STRATEGY) where W
     # if we want to sample more paths than there are existing nonzero paths,
     # then just return the original partial paths
@@ -96,6 +113,17 @@ function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, 
     return sampled_partial_paths, sampled_partial_weights
 end
 
+"""
+Creates a vector of paths from the start to destination node using a recursive depth-first search.
+# Arguments
+- visited::Set{Int} - a set of all the nodes that have already been processed during the path search.
+- cur::Int - the starting node of the path.
+- finish::Int - the destination node of the path.
+- max_length::Int - the maximum length of paths to include in the search result.
+- graph::SimpleGraph - the undirected version of the graph, to make path searches simpler.
+- current_path::Vector{Int} - the current path we are traversing.
+- simple_paths::Vector{Vector{Int}} - the list of resulting paths from the search.
+"""
 function get_simple_paths_dfs!(visited::Set{Int}, cur::Int, finish::Int, max_length::Int,
                                 graph::SimpleGraph, current_path::Vector{Int},
                                 simple_paths::Vector{Vector{Int}})
@@ -120,7 +148,16 @@ function get_simple_paths_dfs!(visited::Set{Int}, cur::Int, finish::Int, max_len
     delete!(visited, cur)
 end
 
-# gets all directed, simple paths from the start to finish node
+"""
+Finds all the unique paths from the start to the end node in the given Query Graph.
+Returns a list of paths, where each path is a Bool Vector representing the direction of the edge (true = forward, false = backward).
+# Arguments
+- start::Int - the starting node of the path in the Query Graph.
+- finish::Int - the destination node of the path in the Query Graph.
+- max_length::Int - the maximum length of the paths to return.
+- query_graph::DiGraph - the Query Graph that the path belongs to.
+- visited_edges::Vector{Tuple{Int,Int}} - a list of edges that have already been processed.
+"""
 function get_all_simple_path_bools(start::Int, finish::Int, max_length::Int,
                                     query_graph::DiGraph, visited_edges::Vector{Tuple{Int,Int}})
     # convert the graph to be undirected and only include the edges that have already been processed
@@ -157,7 +194,15 @@ function get_all_simple_path_bools(start::Int, finish::Int, max_length::Int,
     return path_bools
 end
 
-# gets the directed path from the start to finish node
+"""
+Finds only the shortest path from the start to destination node in the Query Graph using
+the A* search algorithm.
+Returns a DiGraph representing the shortest path.
+# Arguments
+- start::Int - the starting node of the path in the Query Graph.
+- finish::Int - the destination node of the path in the Query Graph.
+- query::QueryGraph - the Query Graph to search for the shortest path.
+"""
 function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
     # convert the graph to be undirected
     graph_copy = Graph(copy(query.graph))
@@ -181,6 +226,19 @@ function get_matching_graph(start::Int, finish::Int, query::QueryGraph)
     return new_graph
 end
 
+"""
+For all partial paths, scales down their corresponding weights according the likelihood of a cycle closing with an edge from the end to the beginning of the path,
+if there are any remaining unprocessed edges. This function is intended for usage once we finish traversing the query's spanning tree.
+# Arguments
+- query::QueryGraph - the Query Graph we are processing.
+- summary::ColorSummary{DS} - the lifted summary of the Data Graph used for estimation.
+- partial_paths::Array{Color} - the list of partial paths describing our current traversal through the Query Graph.
+- partial_weights::Vector{W} - the list of weights corresponding to each partial path.
+- current_query_nodes::Vector{Int} - the list of Query Nodes, describing the order we traverse through the Query Graph.
+- visited_query_edges::Vector{Tuple{Int,Int}} - the list of edges (start, finish) that have already been processed.
+- usingStoredStats::Bool - whether or not to use stored cycle statistics or assume independence during the estimation.
+- only_shortest_path_cycle::Bool - whether to treat the closing edge as closing the shortest path (true) or as closing multiple paths of varying lengths (false)
+"""
 function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, partial_paths::Array{Color}, partial_weights::Vector{W},
                                 current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int,Int}}, usingStoredStats::Bool,
                                 only_shortest_path_cycle::Bool) where DS where W
@@ -263,6 +321,16 @@ function handle_extra_edges!(query::QueryGraph, summary::ColorSummary{DS}, parti
     end
 end
 
+"""
+Sums over all nodes that have already been processed when searching the Query Graph. Returns a condensed list of partial paths and their
+corresponding weights.
+# Arguments
+- query::QueryGraph - the Query Graph that is currently being processed.
+- partial_paths::Matrix{Color} - the matrix of partial paths describing the current traversal over the lifted color graph.
+- partial_weights::Vector{W} - the list of weights for each partial path.
+- current_query_nodes - the list of query nodes, describing the order we process the query graph.
+- visited_query_edges::Vector{Tuple{Int, Int}} - the list of query edges that have already been processed.
+"""
 function sum_over_finished_query_nodes(query::QueryGraph, partial_paths::Matrix{Color}, partial_weights::Vector{W},
                                             current_query_nodes::Vector{Int}, visited_query_edges::Vector{Tuple{Int, Int}}) where W
     new_partial_paths, new_partial_weights = partial_paths, partial_weights
@@ -286,6 +354,22 @@ function sum_over_finished_query_nodes(query::QueryGraph, partial_paths::Matrix{
     return new_partial_paths, new_partial_weights
 end
 
+"""
+Estimates the cardinality of the Query Graph in the overall Data Graph using a lifted summary.
+Finds all partial paths representing different color assignments for each query node then sums the weights
+of all the partial paths to calculate the overall count. Returns a Float estimate.
+# Arguments
+- query::QueryGraph - the Query Graph to estimate the cardinality in the overall Data Graph.
+- summary::ColorSummary{DS} - the summary storing statistics about the Data Graph after applying a graph coloring.
+- max_partial_paths::Union{Nothing, Int} - the maximum number of partial paths to allow during estimation (enabling sampling).
+- use_partial_sums::Bool - whether or not to sum over nodes during estimation.
+- verbose::Bool - whether or not to output status messages during estimation.
+- usingStoredStats::Bool - whether or not to use summary cycle statistics instead of assuming independence for cycle-closing likelihoods.
+- include_cycles::Bool - whether or not to include cycles in the estimation process.
+- sampling_strategy::SAMPLING_STRATEGY - the strategy to use for sampling partial paths.
+- only_shortest_path_cycle::Bool - whether or not to treat cycle-closing edges as single-path closing events instead of closing multiple paths.
+- timeout::Float64 - the maximum time to spend on estimation before returning a timeout error.
+"""
 function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; max_partial_paths::Union{Nothing, Int} = nothing,
                                 use_partial_sums::Bool = true, verbose::Bool = false, usingStoredStats::Bool = false,
                                 include_cycles::Bool = true, sampling_strategy::SAMPLING_STRATEGY=weighted,

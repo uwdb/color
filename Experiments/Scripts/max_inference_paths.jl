@@ -1,6 +1,9 @@
 using Plots.PlotMeasures
 include("../Experiments.jl")
 
+# The goal of this file is to evaluate the effect of using different values of maximum partial paths (varying the amount of sampling) during estimation, 
+# across different datasets.
+
 # datasets::Vector{DATASET} = [aids, human, lubm80, yago, yeast, hprd, wordnet, dblp, youtube, eu2005, patents]
 datasets = [youtube]
 max_paths = [50, 125, 250, 500, 1000]
@@ -27,7 +30,7 @@ graph_grouped_box_plot(experiment_params_list,
                         x_label="Maximum Inference Paths",
                         y_label="Relative Error log\$_{10}\$",
                         grouping=description,
-                        filename="inference-paths-error")
+                        filename="fig_10") # inference paths error
 
 graph_grouped_box_plot(experiment_params_list,
                         x_type=inference_paths,

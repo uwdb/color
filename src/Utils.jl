@@ -1,3 +1,8 @@
+"""
+Creates a spanning tree and replaces the graph in the given Query.
+# Arguments
+- query::QueryGraph - the graph to find a spanning tree for.
+"""
 function get_spanning_tree(query::QueryGraph)
     # can keep the original QueryGraph object to preserve the labels, we just need
     # to change out query.graph with a spanning tree version.
@@ -17,7 +22,13 @@ function get_spanning_tree(query::QueryGraph)
     query.graph = new_graph
 end
 
-
+"""
+Finds the node order of the given graph that gives the minimum tree width and returns it as a list of nodes (also optionally returns the width).
+# Arguments
+- g::DiGraph - the graph to find a node order for.
+- max_exact_width - the maximum exact width allowed for the node order.
+- return_width - whether or not to also return the tree width of the resulting node order.
+"""
 function get_min_width_node_order(g::DiGraph; max_exact_width = 1, return_width=false)
     if (nv(g) < max_exact_width)
         nodes_processed = 1

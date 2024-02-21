@@ -1,5 +1,15 @@
 # This file contains a prototype implementation of exact sub-graph counting.
 
+"""
+Sums out a specific node from a list of paths, returning the condensed list of paths without the node. 
+Used as an optimization for speed and storage during estimation time.
+# Arguments
+- partial_paths::Vector{Tuple{Vector{NodeId},  Int}} - a list of partial paths to condense, consisting of tuples of nodes in the path and the overall weight.
+- current_query_nodes - the list of query nodes we are currently processing.
+- node_to_remove - the node to sum over (and remove when condensing the paths).
+- timeout - the maximum time to spend on this operation before returning an error.
+- start_time - the time that the operation began.
+"""
 function sum_over_node_exact!(partial_paths::Vector{Tuple{Vector{NodeId},  Int}},
                                  current_query_nodes, node_to_remove,
                                  timeout, start_time)
@@ -32,7 +42,17 @@ function sum_over_node_exact!(partial_paths::Vector{Tuple{Vector{NodeId},  Int}}
     end
 end
 
-
+"""
+Sums over all nodes with no remaining connections in the query graph, condensing the list of paths.
+# Arguments
+- query::QueryGraph - the query graph that the partial paths are traversing.
+- partial_paths::Vector{Tuple{Vector{NodeId}, Int}} - the list of partial paths describing the current estimation through the query graph.
+- current_query_nodes - the list of query nodes, describing the order we are traversing through the query graph.
+- visited_query_edges - the list of edges that have already been processed.
+- timeout - the maximum time to spend on this operation before returning a timeout error.
+- start_time - the time that the operation began.
+- nodes_to_not_sum - specific nodes to avoid summing out, if any. 
+"""
 function sum_over_finished_query_nodes_exact!(query::QueryGraph, partial_paths::Vector{Tuple{Vector{NodeId},  Int}},
                                                  current_query_nodes, visited_query_edges,
                                                  timeout, start_time; nodes_to_not_sum = [])
@@ -55,6 +75,17 @@ function sum_over_finished_query_nodes_exact!(query::QueryGraph, partial_paths::
     end
 end
 
+"""
+Scales down the partial path results based on the remaining edges not included in the tree traversal (i.e. those that close a cycle).
+# Arguments
+- query::QueryGraph - the query graph to process.
+- data::DataGraph - the data graph to find query graph matches in.
+- partial_paths::Vector{Tuple{Vector{NodeId}, Int}} - the current list of paths traversing through the data graph.
+- current_query_nodes - a list of nodes describing the order to process the nodes in the query graph.
+- visited_query_edges - a list of the query edges which have already been processed.
+- timeout - the maximum time to spend on this operation before returning a timeout error.
+- start_time - the time that this function began.
+"""
 function handle_extra_edges_exact!(query::QueryGraph, data::DataGraph,
                                     partial_paths::Vector{Tuple{Vector{NodeId}, Int}},
                                     current_query_nodes, visited_query_edges,
@@ -110,7 +141,13 @@ function handle_extra_edges_exact!(query::QueryGraph, data::DataGraph,
     filter!(x -> x[2] > 0, partial_paths)
 end
 
-
+"""
+Returns a uniformly-sampled subset of the current partial paths then redistributes the weights of the unsampled paths
+based on the magnitude of the remaining paths' weights.
+# Arguments
+- partial_paths - a list of partial paths describing the current traversal for the estimation.
+- num_samples - the number of paths to keep.
+"""
 function sample_paths_exact(partial_paths, num_samples::Int)
     # partial_path[x] = (color path, bounds)
 
@@ -149,8 +186,19 @@ function sample_paths_exact(partial_paths, num_samples::Int)
     return path_samples
 end
 
-# We use the same general structure to calculate the exact size of the query by finding all paths
-# on the original data graph and giving each path a weight of 1.
+"""
+Uses the same general structure as the estimation to calculate the exact size of the query by finding all paths
+on the original data graph and giving each path a weight of 1. Returns a list of partial paths where each path is a match
+of the query graph in the overall data graph.
+# Arguments
+- query::QueryGraph - the query graph to process.
+- data::DataGraph - the data graph to find query graph matches in.
+- use_partial_sums - whether or not to sum over finished nodes to optimize runtime and storage.
+- verbose - whether or not to print status updates during the counting.
+- max_partial_paths - the maximum number of partial paths to use during processing, enabling sampling during counting.
+- timeout - the maximum time to spend on this operation before returning a timeout error.
+- nodes_to_keep - specific nodes to avoid summing out, so the method can return specific paths.
+"""
 function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sums = true, verbose=false,
                                                                 max_partial_paths = nothing,
                                                                 timeout = -1, nodes_to_keep = [])
@@ -367,6 +415,17 @@ function get_subgraph_counts(query::QueryGraph, data::DataGraph; use_partial_sum
     return partial_paths # if we sum over everything, this will be empty
 end
 
+"""
+Calculates the exact size of the number of query graph appearances in the data graph by finding all partial paths of query matches and summing their counts.
+# Arguments
+- query::QueryGraph - the query graph to process.
+- data::DataGraph - the data graph to find query graph matches in.
+- use_partial_sums - whether or not to sum over finished nodes to optimize runtime and storage.
+- verbose - whether or not to print status updates during the counting.
+- max_partial_paths - the maximum number of partial paths to use during processing, enabling sampling during counting.
+- timeout - the maximum time to spend on this operation before returning a timeout error.
+- nodes_to_keep - specific nodes to avoid summing out, so the method can return specific paths.
+"""
 function get_exact_size(query::QueryGraph, data::DataGraph; use_partial_sums = true, verbose=false, max_partial_paths = nothing, timeout = -1, nodes_to_keep = [])
     partial_paths = get_subgraph_counts(query, data; use_partial_sums=use_partial_sums, verbose=verbose, max_partial_paths = max_partial_paths, timeout=timeout, nodes_to_keep = nodes_to_keep)
     if partial_paths  == -1

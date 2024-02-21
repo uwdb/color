@@ -2,6 +2,8 @@
 using Profile
 include("../Experiments.jl")
 
+# The goal of this file is to evaluate the effect of using different numbers of colors during summary-building time, 
+# across different datasets.
 datasets = [yeast]
 partitioning_schemes = [
     [(QuasiStable, 1)],
