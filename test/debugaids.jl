@@ -5,8 +5,8 @@ using DataStructures: counter, Dict, Set, Vector, inc!
 using Test
 using Graphs
 using AutoHashEquals
-include("../Source/datasets.jl")
-include("../Source/QuasiStableCardinalityEstimator.jl")
+include("../src/datasets.jl")
+include("../src/QuasiStableCardinalityEstimator.jl")
 
 first_bool_path::BoolPath = [true, true]
 copy_bool_path::BoolPath = [true, true]

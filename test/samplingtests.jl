@@ -1,4 +1,4 @@
-include("../Source/QuasiStableCardinalityEstimator.jl")
+include("../src/QuasiStableCardinalityEstimator.jl")
 using Distributions
 using DataStructures: counter, Dict, Set, Vector, inc!
 
