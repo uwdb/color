@@ -74,7 +74,7 @@ add_labeled_edge!(d, (1, 2), 2)
 update_node_labels!(d, 2, [3,4])
 ```
 
-Functions to convert graph files formatted like [G-Care](https://github.com/yspark-dblab/gcare) or [In-Memory Subgraph Matching](https://github.com/RapidsAtHKUST/SubgraphMatching) are also included in `Source/Datasets.jl`: 
+Functions to convert graph files formatted like [G-Care](https://github.com/yspark-dblab/gcare) or [In-Memory Subgraph Matching](https://github.com/RapidsAtHKUST/SubgraphMatching) are also included in `src/Datasets.jl`: 
 ```julia
 # convert a .txt file (following G-Care format) into a PropertyGraph
 d1 = load_dataset("data.txt")
@@ -118,7 +118,7 @@ The resulting cardinality will be a singular `Float64` value.
 
 Optional parameters for the calculation can be changed such as the timeout, but more information can be found in the code documentation.
 
-The `load_true_cardinality` function from `Source/Datasets.jl` also obtains the cardinality results from a given cardinality file (where the only element in the file is a singular cardinality value):
+The `load_true_cardinality` function from `src/Datasets.jl` also obtains the cardinality results from a given cardinality file (where the only element in the file is a singular cardinality value):
 ```julia
 exact_cardinality = load_true_cardinality("cardinality.txt")
 ```
