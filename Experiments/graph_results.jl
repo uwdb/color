@@ -93,6 +93,9 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
                                         filename=nothing,
                                         ylims=[0, 10^2.5],
                                         y_ticks=[10^-10, 10^-5, 10^-2, 1, 10^2, 10^5, 10^10],
+                                        include_hline=false,
+                                        legend_columns=2,
+                                        compare_min=false,
                                         dimensions = (1000, 800))
     # for now let's just use the dataset as the x-values and the cycle size as the groups
     x_values = []
@@ -121,9 +124,13 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
             push!(x_values, current_x)
             push!(y_values, current_y)
             push!(groups, string(current_group))
+            if (compare_min)
+                push!(x_values, current_x)
+                push!(y_values, 1 / results_df[i, :TrueCard])
+                push!(groups, "Minimum Estimate")
+            end
         end
     end
-
     if isnothing(x_order)
         x_order = sort(unique(x_values))
     end
@@ -140,7 +147,6 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
     group_order_hash = [hash(x) for x in legend_order]
     groups = [only(indexin(hash(x), group_order_hash)) for x in groups]
     results_filename = params_to_results_filename(experiment_params_list[1])
-    println("starting graphs")
 
     # This seems to be necessary for using Plots.jl outside of the ipynb framework.
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
@@ -158,7 +164,7 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
                             bottom_margin = 20px,
                             top_margin = 20px,
                             left_margin = 10mm,
-                            legend_column = 2,
+                            legend_column = legend_columns,
                             titlefont = (12, :black),
                             legendfont = (11, :black),
                             tickfont = (12, :black),
@@ -167,7 +173,7 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
                             whisker_range=2)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
-    y_type == estimate_error && hline!([0], label="exact", linestyle=:solid, lw=2, alpha=.4, color="red")
+    y_type == estimate_error && include_hline && hline!([0], label="exact", linestyle=:solid, lw=2, alpha=.4, color="red")
 
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"
     savefig(gbplot, "Experiments/Results/Figures/" * plotname)
@@ -232,7 +238,8 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
                                         y_label=nothing,
                                         filename=nothing,
                                         legend_pos = :outertopleft,
-                                        dimensions = (1000, 600))
+                                        dimensions = (1000, 600),
+                                        group_colors = nothing)
     # for now let's just use the dataset as the x-values and the cycle size as the groups
     x_values = []
     y_values = []
@@ -324,7 +331,8 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
     # This seems to be necessary for using Plots.jl outside of the ipynb framework.
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
     ENV["GKSwstype"]="100"
-    gbplot =  groupedboxplot(x_values,
+    gbplot = isnothing(group_colors) ? 
+            groupedboxplot(x_values,
                         [log10(y)  for y in y_values],
                         group = groups,
                         x_ticks = x_ticks,
@@ -343,7 +351,29 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
                         tickfont = (12, :black),
                         guidefont = (15, :black),
                         whisker_range=2,
-                        outliers = true)
+                        outliers = true) :
+            groupedboxplot(x_values,
+                        [log10(y)  for y in y_values],
+                        group = groups,
+                        x_ticks = x_ticks,
+                        xlims = [0.5, length(x_order)+.5],
+                        ylims =  (log10(ylims[1]),log10(ylims[2])),
+                        y_ticks = [log10(y) for y in y_ticks],
+                        legend = legend_pos,
+                        labels = reshape(legend_order, 1, length(legend_order)),
+                        size = dimensions,
+                        bottom_margin = 40px,
+                        top_margin = 20px,
+                        left_margin = 10mm,
+                        legend_column = 2,
+                        titlefont = (12, :black),
+                        legendfont = (11, :black),
+                        tickfont = (12, :black),
+                        guidefont = (15, :black),
+                        whisker_range=2,
+                        outliers = true,
+                        color = group_colors)
+                    
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     y_type == estimate_error && hline!([0], label="exact", linestyle=:solid, lw=2, alpha=.4, color="red")
@@ -363,6 +393,8 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
                                         y_ticks = [1, 10^.5, 10, 10^2, 10^2.5],
                                         dimensions = (800, 300),
                                         legend_pos = :topleft,
+                                        log_scale = false,
+                                        group_colors = nothing,
                                         filename=nothing)
     # for now let's just use the dataset as the x-values and the cycle size as the groups
     x_values = []
@@ -372,16 +404,18 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
         append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "patents", "yeast", "youtube"])
         append!(y_values, [1.6, 0.1, 19.5, 2, 5.8, 28, .2, 7.8])
         append!(groups, ["sumrdf" for _ in 1:8])
-        append!(x_values, ["aids", "human", "lubm80"])
-        append!(y_values, [88, 648, 483])
-        append!(groups, ["alleyTPI" for _ in 1:3])
+        append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "patents", "yeast", "youtube"])
+        append!(y_values, [88, 648, 569, 800, 6600, 6900, 6300, 3200])
+        append!(groups, ["alleyTPI" for _ in 1:8])
     elseif y_type == build_time
         append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "patents", "yeast", "youtube"])
         append!(y_values, [.3, 4.5, 9.9, .5, 4.2, 8.5, .1, 2.1])
         append!(groups, ["sumrdf" for _ in eachindex(y_values)])
-        append!(x_values, ["aids", "human", "lubm80"])
-        append!(y_values, [49, 614, 313])
-        append!(groups, ["alleyTPI" for _ in 1:3])
+        append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "patents", "yeast", "youtube"])
+        # append!(y_values, [49, 614, 313])
+        append!(y_values, [221, 2518, 17452, 1061, 14233, 11738, 35585, 11044])
+
+        append!(groups, ["alleyTPI" for _ in 1:8])
     end
     for experiment_params in experiment_params_list
         # load the results
@@ -451,24 +485,46 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
 
     # This seems to be necessary for using Plots.jl outside of the ipynb framework.
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
+    if (log_scale) 
+        y_values = [log10(y) for y in y_values]
+        # y_ticks = [log(tick) for tick in y_ticks]
+    end
     ENV["GKSwstype"]="100"
-    gbplot = StatsPlots.groupedbar(x_values,
-                            y_values,
-                            group = groups,
-                            x_ticks = x_ticks,
-                            ylims=ylims,
-                            xlims = [0.5, length(x_order)+.5],
-                            y_ticks = y_ticks,
-                            legend = legend_pos,
-                            labels = reshape(legend_order, 1, length(legend_order)),
-                            size = dimensions,
-                            thickness_scaling=1.25,
-                            titlefont = (12, :black),
-                            legendfont = (11, :black),
-                            tickfont = (12, :black),
-                            guidefont = (15, :black),
-                            left_margin = 10mm,
-                            legend_column = 2,)
+    gbplot =  isnothing(group_colors) ? StatsPlots.groupedbar(x_values,
+                                                        y_values,
+                                                        group = groups,
+                                                        x_ticks = x_ticks,
+                                                        ylims=ylims,
+                                                        xlims = [0.5, length(x_order)+.5],
+                                                        y_ticks = y_ticks,
+                                                        legend = legend_pos,
+                                                        labels = reshape(legend_order, 1, length(legend_order)),
+                                                        size = dimensions,
+                                                        thickness_scaling=1.25,
+                                                        titlefont = (12, :black),
+                                                        legendfont = (11, :black),
+                                                        tickfont = (12, :black),
+                                                        guidefont = (15, :black),
+                                                        left_margin = 10mm,
+                                                        legend_column = 2,) : 
+                                StatsPlots.groupedbar(x_values,
+                                                        y_values,
+                                                        group = groups,
+                                                        x_ticks = x_ticks,
+                                                        ylims=ylims,
+                                                        xlims = [0.5, length(x_order)+.5],
+                                                        y_ticks = y_ticks,
+                                                        legend = legend_pos,
+                                                        labels = reshape(legend_order, 1, length(legend_order)),
+                                                        size = dimensions,
+                                                        thickness_scaling=1.25,
+                                                        titlefont = (12, :black),
+                                                        legendfont = (11, :black),
+                                                        tickfont = (12, :black),
+                                                        guidefont = (15, :black),
+                                                        left_margin = 10mm,
+                                                        legend_column = 2,
+                                                        color = group_colors)
     x_label !== nothing && xlabel!(gbplot, x_label)
     y_label !== nothing && ylabel!(gbplot, y_label)
     plotname = (isnothing(filename)) ? results_filename * ".png" : filename * ".png"

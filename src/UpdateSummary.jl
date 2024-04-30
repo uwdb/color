@@ -42,21 +42,26 @@ function add_summary_node!(summary::ColorSummary{AvgDegStats}, node_labels, node
     color = choose_color(summary)
     # add to the bloom filter
     push!(summary.color_filters[color], data_label)
+    if Probably.loadfactor(summary.color_filters[color]) > .95
+        push!(summary.color_full, color)
+    end
     # for edge degrees, it decreases the average.
-    # we want to update all the avg out degrees where this is the landing node (c2 == color && v2 == label),
-    # and update all the avg in degrees where this is the starting node (c2 == color && v2 == label)
+    # we want to update all the avg out/in degrees where this is the starting node (c1 == color && v1 == label),
     for edge_label in keys(summary.edge_deg)
         for node_label in node_labels
             if !haskey(summary.edge_deg[edge_label], node_label)
                 summary.edge_deg[edge_label][node_label] = Dict()
             end
-            for other_color in keys(summary.edge_deg[edge_label][node_label])
-                current_ds = get(summary.edge_deg[edge_label][node_label][other_color], color, AvgDegStats(0, 0))
+            if !haskey(summary.edge_deg[edge_label][node_label], color)
+                summary.edge_deg[edge_label][node_label][color] = Dict()
+            end
+            for other_color in keys(summary.edge_deg[edge_label][node_label][color])
+                current_ds = get(summary.edge_deg[edge_label][node_label][color], other_color, AvgDegStats(0, 0))
                 current_cardinality = get(summary.color_label_cardinality[color], node_label, 0)
                 avg_in = current_ds.avg_in * (current_cardinality / (current_cardinality + 1))
                 avg_out = current_ds.avg_out * (current_cardinality / (current_cardinality + 1))
                 new_ds = AvgDegStats(avg_in, avg_out)
-                summary.edge_deg[edge_label][node_label][other_color][color] = new_ds
+                summary.edge_deg[edge_label][node_label][color][other_color] = new_ds
             end
         end
     end
@@ -79,7 +84,7 @@ Finds and returns the color of the node in the lifted graph summary.
 - node - the vertex ID of the node.
 """
 function get_node_summary_color(summary::ColorSummary, node)
-    possible_colors = []
+    possible_colors = collect(summary.color_full)
     for color in keys(summary.color_filters)
         filter = summary.color_filters[color]
         # in the data graph, the node's data label is just its id - 1
@@ -87,9 +92,27 @@ function get_node_summary_color(summary::ColorSummary, node)
             push!(possible_colors, color)
         end
     end
+
     # Since Cuckoo filters are used, there is a chance that there will be false positive results.
-    # In that case, randomly select one of the colors that indicates it contains this node.
-    return length(possible_colors) == 0 ? rand(keys(summary.color_filters)) : rand(possible_colors)
+    # In that case, we select the largest color.
+    true_color = 0
+    if length(possible_colors) == 0
+        println("HERE")
+        true_color = get_largest_color(summary)
+    elseif length(possible_colors) == 1
+        true_color = possible_colors[1]
+    elseif length(possible_colors) > 1
+        min_size = Inf
+        for color in possible_colors
+            color_size = summary.color_label_cardinality[color][-1]
+            if color_size < min_size
+                true_color = color
+                min_size = color_size
+            end
+        end
+    end
+
+    return true_color
 end
 
 """

@@ -1,6 +1,4 @@
 using Graphs
-using Probably
-
 """
 The ColorSummary struct holds statistical information associated with the colored graph.
 It keeps detailed information about the number of edges between colors of a particular color and which land in
@@ -14,6 +12,7 @@ mutable struct ColorSummary{DS}
     color_label_cardinality::Dict{Color, Dict{Int, Int}} # color_label_cardinality[c][v] = num_vertices
     edge_deg::Dict{Int, Dict{Int, Dict{Color, Dict{Color, DS}}}} # edge_deg[e][v2][c1][c2] = degreestat
     color_filters::Dict{Color, SmallCuckoo} # color_filters[c] = filter
+    color_full::Set{Color} # Denotes if a color's filter is full
     cycle_probabilities::Dict{CyclePathAndColors, Float64} # cycle_probabilities[[c1, c2], path] = likelihood
     cycle_length_probabilities::Dict{Int, Float64} #cycle_probabilities[path_length] = likelihood
     max_cycle_size::Int
@@ -176,7 +175,7 @@ function generate_color_summary(g::DataGraph, params::ColorSummaryParams=ColorSu
     edge_stats_time = time() - edge_stats_time
     push!(timing_vec, edge_stats_time)
 
-    return ColorSummary{DS}(color_label_cardinality, edge_deg, color_filters,
+    return ColorSummary{DS}(color_label_cardinality, edge_deg, color_filters, Set{Color}(),
                 cycle_probabilities, cycle_length_probabilities, params.max_cycle_size,
                  ne(g.graph), nv(g.graph), num_colors, 0)
 end
