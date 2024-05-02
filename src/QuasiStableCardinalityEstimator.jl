@@ -53,7 +53,7 @@ to the magnitude of the original weight of the output paths.
 - partial_paths::Matrix{Color} - the matrix of partial paths describing the current traversal over the lifted color graph.
 - partial_weights::Vector{W} - the list of weights for each partial path.
 - num_samples::Int - the number of paths to sample, determining the size of the output.
-- sampling_strategy::SAMPLING_STRATEGY - how to select samples from the partial paths. Will only check if this is set to "uniform" to sample uniformly. 
+- sampling_strategy::SAMPLING_STRATEGY - how to select samples from the partial paths. Will only check if this is set to "uniform" to sample uniformly.
                                          Otherwise, just selects samples by prioritizing those with higher weights.
 """
 function sample_paths(partial_paths::Matrix{Color}, partial_weights::Vector{W}, num_samples::Int, sampling_strategy::SAMPLING_STRATEGY) where W
@@ -403,7 +403,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
                     data_label_is_in_color = true
                     continue
                 end
-                if data_label in summary.color_filters[color]
+                if data_label in summary.color_filters[color] || color in summary.color_full
                     data_label_is_in_color = true
                 end
             end
@@ -489,7 +489,7 @@ function get_cardinality_bounds(query::QueryGraph, summary::ColorSummary{DS}; ma
                             data_label_in_color = true
                             continue
                         end
-                        if data_label in summary.color_filters[new_color]
+                        if data_label in summary.color_filters[new_color] || new_color in summary.color_full
                             data_label_in_color = true
                         end
                     end

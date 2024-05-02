@@ -1,3 +1,4 @@
+using Probably
 using Probably: BloomFilter, constrain
 using DataStructures: counter, Dict, Set, Vector, inc!, Queue
 using AutoHashEquals
