@@ -87,7 +87,7 @@ graph_grouped_box_plot(experiment_params;
                         dimensions = (600, 400),
                         legend_pos=:topleft,
                         y_label="Relative Error log\$_{10}\$",
-                        filename="fig_7") # colorings error
+                        filename="fig_9") # colorings error
 
 
 graph_grouped_bar_plot(experiment_params;

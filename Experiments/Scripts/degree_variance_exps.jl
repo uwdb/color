@@ -97,16 +97,11 @@ degree_deviations = []
 
 # close(results_file)
 
-datapoint_datasets = [yeast, yeast, yeast, yeast, yeast, yeast, yeast, yeast, human, human, human, human, human, human, human, human, aids, aids, aids, aids, aids, aids, aids, aids, lubm80, lubm80, lubm80, lubm80, lubm80, lubm80, lubm80, lubm80]
-num_colors = [1, 4, 16, 32, 64, 128, 256, 512, 1, 4, 16, 32, 64, 128, 256, 512, 1, 4, 16, 32, 64, 128, 256, 512, 1, 4, 16, 32, 64, 128, 256, 512]
-degree_deviations = [6.880726758945922, 4.989643770088716, 1.3337394493305714, 0.5722709934061954, 0.29276791901184857, 0.1576596246976241, 0.04501312177993107, 0.008963394836190203, 26.087460965548715, 15.064273420577308, 2.5033955872900266, 2.011004083809858, 0.9549079332306909, 0.24716697193598255, 0.04852883518585504, 0.01006048907235267, 0.7785905698253888, 0.29769545667568575, 0.1325487056264329, 0.07776684144988345, 0.03704532690058064, 0.01758307485593726, 0.008193695393059712, 0.0035230466131828345, 12.918023635006346, 13.103759670112357, 1.1393851794427807, 1.0811658329775096, 0.3945170971118752, 0.22551298336436013, 0.11471444564342485, 0.03493673703138958]
-
-log_deviations = [deviation == 0 ? 0 : log(deviation) for deviation in degree_deviations]
+log_deviations = [deviation == 0 ? 0 : log10(deviation) for deviation in degree_deviations]
 
 ENV["GKSwstype"]="100"
 # now graph a scatter plot with lines connecting data points from the same dataset
-p = plot(num_colors, log_deviations, group = datapoint_datasets, legend = :topright, size=(600, 400), linewidth=2, left_margin = 10mm,
-)
+p = plot(num_colors, log_deviations, group = datapoint_datasets, legend = :topright, size=(600, 400), linewidth=2, left_margin = 10mm,)
 xlabel!(p, "Number of Colors")
 ylabel!(p, "Degree Variance Within Colors log\$_{10}\$")
-savefig("Experiments/Results/Figures/degree_deviations.png")
+savefig("Experiments/Results/Figures/fig_2.png") # degree range

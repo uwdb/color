@@ -53,46 +53,46 @@ failure_probabilities["BSK++"] = Dict()
 failure_probabilities["AvgMix32"] = Dict()
 for dataset in datasets
     string_dataset = string(dataset)
-    bsk_params = ExperimentParams(deg_stats_type=MaxDegStats,
-                                    dataset=dataset,
-                                    partitioning_scheme=[(Hash, 64)],
-                                    max_cycle_size = -1,
-                                    inference_max_paths = 10^30,
-                                    summary_max_paths=1000,
-                                    use_partial_sums = false,
-                                    description = "BSK",
-                                    n_replications = 1)
-#    run_estimation_experiments([bsk_params]; timeout=TIMEOUT_SEC)
-    bsk_filename = params_to_results_filename(bsk_params)
-    bsk_path = "Experiments/Results/Estimation_" * bsk_filename
-    bsk_df = CSV.read(bsk_path, DataFrame; normalizenames=true)
-    for i in 1:nrow(bsk_df)
-        if bsk_df[i, :Failure]
-            inc!(failure_counts["BSK"], string_dataset)
-        end
-    end
-    failure_probabilities["BSK"][string_dataset] = failure_counts["BSK"][string_dataset] / num_queries[string_dataset]
+#     bsk_params = ExperimentParams(deg_stats_type=MaxDegStats,
+#                                     dataset=dataset,
+#                                     partitioning_scheme=[(Hash, 64)],
+#                                     max_cycle_size = -1,
+#                                     inference_max_paths = 10^30,
+#                                     summary_max_paths=1000,
+#                                     use_partial_sums = false,
+#                                     description = "BSK",
+#                                     n_replications = 1)
+# #    run_estimation_experiments([bsk_params]; timeout=TIMEOUT_SEC)
+#     bsk_filename = params_to_results_filename(bsk_params)
+#     bsk_path = "Experiments/Results/Estimation_" * bsk_filename
+#     bsk_df = CSV.read(bsk_path, DataFrame; normalizenames=true)
+#     for i in 1:nrow(bsk_df)
+#         if bsk_df[i, :Failure]
+#             inc!(failure_counts["BSK"], string_dataset)
+#         end
+#     end
+#     failure_probabilities["BSK"][string_dataset] = failure_counts["BSK"][string_dataset] / num_queries[string_dataset]
 
 
-    bsk_agg_params = ExperimentParams(deg_stats_type=MaxDegStats,
-                                    dataset=dataset,
-                                    partitioning_scheme=[(Hash, 64)],
-                                    max_cycle_size = -1,
-                                    inference_max_paths = 10^30,
-                                    summary_max_paths=1000,
-                                    use_partial_sums = true,
-                                    description = "BSK++",
-                                    n_replications=1)
-#    run_estimation_experiments([bsk_agg_params]; timeout=TIMEOUT_SEC)
-    bsk_agg_filename = params_to_results_filename(bsk_agg_params)
-    bsk_agg_path = "Experiments/Results/Estimation_" * bsk_agg_filename
-    bsk_agg_df = CSV.read(bsk_agg_path, DataFrame; normalizenames=true)
-    for i in 1:nrow(bsk_agg_df)
-        if bsk_agg_df[i, :Failure]
-            inc!(failure_counts["BSK++"], string_dataset)
-        end
-    end
-    failure_probabilities["BSK++"][string_dataset] = failure_counts["BSK++"][string_dataset] / num_queries[string_dataset]
+#     bsk_agg_params = ExperimentParams(deg_stats_type=MaxDegStats,
+#                                     dataset=dataset,
+#                                     partitioning_scheme=[(Hash, 64)],
+#                                     max_cycle_size = -1,
+#                                     inference_max_paths = 10^30,
+#                                     summary_max_paths=1000,
+#                                     use_partial_sums = true,
+#                                     description = "BSK++",
+#                                     n_replications=1)
+# #    run_estimation_experiments([bsk_agg_params]; timeout=TIMEOUT_SEC)
+#     bsk_agg_filename = params_to_results_filename(bsk_agg_params)
+#     bsk_agg_path = "Experiments/Results/Estimation_" * bsk_agg_filename
+#     bsk_agg_df = CSV.read(bsk_agg_path, DataFrame; normalizenames=true)
+#     for i in 1:nrow(bsk_agg_df)
+#         if bsk_agg_df[i, :Failure]
+#             inc!(failure_counts["BSK++"], string_dataset)
+#         end
+#     end
+#     failure_probabilities["BSK++"][string_dataset] = failure_counts["BSK++"][string_dataset] / num_queries[string_dataset]
 
 
     mix_scheme = [(Degree, 8), (QuasiStable, 8), (NeighborNodeLabels, 8), (NodeLabels, 8)]
@@ -112,7 +112,8 @@ for dataset in datasets
     failure_probabilities["AvgMix32"][string_dataset] = failure_counts["AvgMix32"][string_dataset] / num_queries[string_dataset]
 end
 
-estimators = ["cs", "wj", "jsub", "impr", "cset", "alley", "alleyTPI", "BSK++", "sumrdf", "AvgMix32"]
+# estimators = ["cs", "wj", "jsub", "impr", "cset", "alley", "alleyTPI", "BSK++", "sumrdf", "AvgMix32"]
+estimators = ["cs", "wj", "jsub", "impr", "cset", "alley", "alleyTPI", "sumrdf", "AvgMix32"]
 
 global latex_table = """
 \\begin{table*}[]

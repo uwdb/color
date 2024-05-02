@@ -55,6 +55,5 @@ p = bar(graph_sizes,
     legend = false)
 xlabel!("Graph Size (V+E)")
 ylabel!("Build Time (s)")
-# title!("Graph Size vs Average Build Time")
-savefig(p, "Experiments/Results/Figures/fig_8")
+savefig(p, "Experiments/Results/Figures/fig_10")
 
