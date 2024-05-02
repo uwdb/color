@@ -19,7 +19,7 @@
 [![Documentation](https://img.shields.io/badge/docs-master-blue.svg)](https://mkyl.github.io/qColoringCardinality.jl/dev)
 -->
 
-COLOR is a framework for improving traditional cardinality estimators in graph databases by applying graph colorings to produce a compact summary of the data graph. The project uses the Julia language for its implementation and provides tools to build graphs and run estimations. The corresponding paper submitted to SIGMOD can be found [here](TODO).
+COLOR is a framework for improving traditional cardinality estimators in graph databases by applying graph colorings to produce a compact summary of the data graph. The project uses the Julia language for its implementation and provides tools to build graphs and run estimations.
 
 ## Installation
 
