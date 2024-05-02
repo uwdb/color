@@ -133,13 +133,15 @@ $ julia Experiments/Scripts/max_cycle_size.jl
 ```
 
 The bash script `run_submitted_experiments.sh` in the `Experiments` folder is also included and will run the experiments described in the submitted paper. The script will run all included experiments then save all the corresponding figures. Any figures that are included in the paper have their file name match their figure number (i.e. the figure presenting the effect of inference sampling on relative error is named `fig_10.png`). The experiments included in this bash script are:
-- `comparison_exps.jl` (figures 2, 3, 4, 5, 6)
-- `coloring_strategies.jl` (figure 7)
-- `construction_scaling.jl` (figure 8)
-- `proportion_updated.jl` (figure 9)
-- `max_inference_paths.jl` (figure 10)
-- `max_cycle_size.jl` (figure 11)
-- `query_path_width_build.jl` (figure 12)
+- `degree_variance_exps.jl` (figure 2)
+- `comparison_exps.jl` (figures 3, 4, 5, 6, 7, 8)
+- `coloring_strategies.jl` (figure 9)
+- `construction_scaling.jl` (figure 10)
+- `proportion_updated.jl` (figure 11)
+- `max_cycle_size.jl` (figure 12)
+- `query_path_width_build.jl` (figure 13)
+- `max_inference_paths.jl` (figure 14)
+
 The script can be called from the main directory:
 ```
 $ Experiments/run_submitted_experiments.sh
