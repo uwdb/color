@@ -12,7 +12,7 @@
 <!-- travis-ci.com badge, uncomment or delete as needed, depending on whether you are using that service. -->
 <!-- [![Build Status](https://travis-ci.com/mkyl/qColoringCardinality.jl.svg?branch=master)](https://travis-ci.com/mkyl/qColoringCardinality.jl) -->
 <!-- Coverage badge on codecov.io, which is used by default. -->
-<!-- [![codecov.io](http://codecov.io/github/mkyl/qColoringCardinality.jl/coverage.svg?branch=master)](http://codecov.io/github/mkyl/qColoringCardinality.jl?branch=master) -->
+[![codecov.io](http://codecov.io/github/mkyl/qColoringCardinality.jl/coverage.svg?branch=master)](http://codecov.io/github/mkyl/qColoringCardinality.jl?branch=master)
 <!-- Documentation -- uncomment or delete as needed -->
 <!--
 [![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://mkyl.github.io/qColoringCardinality.jl/stable)
