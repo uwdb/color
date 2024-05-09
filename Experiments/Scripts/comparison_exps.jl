@@ -7,6 +7,7 @@ include("../Experiments.jl")
 datasets = [human, aids, lubm80, yeast, dblp, youtube, eu2005, patents]
 bounds_datasets = [human, aids, lubm80]
 
+bounds_mix_scheme = [(Degree, 8), (QuasiStable, 8), (NeighborNodeLabels, 8), (NodeLabels, 8)]
 mix_scheme = [(Degree, 8), (QuasiStable, 8), (NeighborNodeLabels, 8), (NodeLabels, 8)]
 
 experiment_params = Vector{ExperimentParams}()
@@ -16,7 +17,7 @@ smaller_experiment_params = Vector{ExperimentParams}()
 for dataset in bounds_datasets
     push!(max_bounds_experiment_params, ExperimentParams(deg_stats_type=MaxDegStats,
                                                 dataset=dataset,
-                                                partitioning_scheme=mix_scheme,
+                                                partitioning_scheme=bounds_mix_scheme,
                                                 max_cycle_size = -1,
                                                 description = "COLOR (MaxMix32)"))
 
@@ -33,7 +34,7 @@ for dataset in datasets
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=mix_scheme,
-                                                description = "COLOR (AvgMix32)"))
+                                                description = "COLOR \n(AvgMix32)"))
                                                 
     push!(smaller_experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
@@ -46,47 +47,61 @@ for dataset in datasets
                                                 max_cycle_size = -1,
                                                 description = "TradEst"))
 
-    push!(min_bounds_experiment_params, ExperimentParams(deg_stats_type=MinDegStats,
-                                                dataset=dataset,
-                                                partitioning_scheme=mix_scheme,
-                                                max_cycle_size = -1,
-                                                description = "COLOR (MinMix32)"))
+    
 end
 
 println("Building...")
 
-#build_experiments(experiment_params)
+build_experiments(experiment_params)
+build_experiments(max_bounds_experiment_params)
 
 println("Estimating...")
 
-#run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
+run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
+run_estimation_experiments(max_bounds_experiment_params; timeout=TIMEOUT_SEC)
 
 comparison_methods =  ["alley", "alleyTPI", "wj", "impr", "jsub", "cs", "cset", "sumrdf"]
 x_order = [string(data) for data in datasets]
 bounds_x_order = [string(data) for data in bounds_datasets]
 legend_order = [params.description for params in experiment_params][1:Int(length(experiment_params)/ length(datasets))]
 max_bounds_legend_order = [params.description for params in max_bounds_experiment_params][1:Int(length(max_bounds_experiment_params)/ length(bounds_datasets))]
-min_bounds_legend_order = [params.description for params in min_bounds_experiment_params][1:Int(length(min_bounds_experiment_params)/length(datasets))]
 legend_order = vcat(legend_order, comparison_methods)
-min_bounds_legend_order = vcat(min_bounds_legend_order, "Minimum Estimate")
 
-# max_bounds_legend_order = vcat(max_bounds_legend_order, comparison_methods)
+colors = [:red :yellow :maroon3 :palevioletred1 :dodgerblue :coral :palegreen :mediumpurple2 :darkgreen :cadetblue1]
 
-colors = [:red :yellow :maroon3 :fuchsia :darkblue :navajowhite :lime :cornflowerblue :darkgreen :aqua]
-println("Graphing figures 2 and 3...")
+println("Graphing figures 3 and 4...")
 
-graph_grouped_box_plot(max_bounds_experiment_params;
+graph_grouped_boxplot_with_comparison_methods(experiment_params;
+                                                ylims=[10^-21, 10^21],
+                                                y_ticks=[10^-20, 10^-15, 10^-10, 10^-5, 10^-2, 10^0, 10^2, 10^5, 10^10, 10^15, 10^20],
+                                                y_type = estimate_error,
+                                                x_type = dataset,
+                                                x_order = x_order,
+                                                legend_order = legend_order,
+                                                grouping=description,
+                                                dimensions = (1550, 650),
+                                                legend_pos=:outerright,
+                                                legend_columns = 1,
+                                                y_label="Relative Error log\$_{10}\$",
+                                                group_colors = colors,
+                                                filename="fig_3") # overall error
+
+graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 ylims=[10^-5, 10^4],
                                                 y_ticks=[10^-5, 10^-4, 10^-3, 10^-2, 10^-1, 10^0, 10^1, 10^2, 10^3, 10^4],
                                                 y_type = runtime,
                                                 x_type = dataset,
-                                                x_order = bounds_x_order,
-                                                legend_order = max_bounds_legend_order,
+                                                x_order = x_order,
+                                                legend_order = legend_order,
                                                 grouping=description,
-                                                dimensions = (600, 400),
-                                                legend_pos=:topright,
+                                                dimensions = (1550, 650),
+                                                legend_pos=:outerright,
+                                                legend_columns = 1,
                                                 y_label="Inference Latency log\$_{10}\$ (s)",
-                                                filename="fig_3_bounds") # overall runtime
+                                                group_colors = colors,
+                                                filename="fig_4") # overall runtime
+
+println("Graphing figures 5 and 6...")
 
 graph_grouped_box_plot(max_bounds_experiment_params;
                                                 ylims=[10^0, 10^30],
@@ -101,74 +116,44 @@ graph_grouped_box_plot(max_bounds_experiment_params;
                                                 legend_columns=1,
                                                 # include_hline = false,
                                                 y_label="Relative Error log\$_{10}\$",
-                                                filename="fig_2_bounds") # overall error
+                                                filename="fig_5") # bounds error
 
-graph_grouped_box_plot(min_bounds_experiment_params;
-                                                ylims=[10^-20, 10^5],
-                                                y_ticks=[10^-15, 10^-10, 10^-5, 10^0, 10^5],
-                                                y_type = estimate_error,
-                                                x_type = dataset,
-                                                x_order = x_order,
-                                                legend_order = min_bounds_legend_order,
-                                                grouping=description,
-                                                dimensions = (800, 400),
-                                                legend_pos=:bottomleft,
-                                                legend_columns=1,
-                                                compare_min=true,
-                                                y_label="Relative Error log\$_{10}\$",
-                                                filename="fig_2_min") # overall error
-
-# want to graph just the estimator work
-
-graph_grouped_boxplot_with_comparison_methods(experiment_params;
+graph_grouped_box_plot(max_bounds_experiment_params;
                                                 ylims=[10^-5, 10^4],
                                                 y_ticks=[10^-5, 10^-4, 10^-3, 10^-2, 10^-1, 10^0, 10^1, 10^2, 10^3, 10^4],
                                                 y_type = runtime,
                                                 x_type = dataset,
-                                                x_order = x_order,
-                                                legend_order = legend_order,
+                                                x_order = bounds_x_order,
+                                                legend_order = max_bounds_legend_order,
                                                 grouping=description,
                                                 dimensions = (600, 400),
                                                 legend_pos=:topright,
                                                 y_label="Inference Latency log\$_{10}\$ (s)",
-                                                group_colors = colors,
-                                                filename="fig_3_estimates") # overall runtime
-
-graph_grouped_boxplot_with_comparison_methods(experiment_params;
-                                                ylims=[10^-21, 10^21],
-                                                y_ticks=[10^-20, 10^-15, 10^-10, 10^-5, 10^-2, 10^0, 10^2, 10^5, 10^10, 10^15, 10^20],
-                                                y_type = estimate_error,
-                                                x_type = dataset,
-                                                x_order = x_order,
-                                                legend_order = legend_order,
-                                                grouping=description,
-                                                dimensions = (1550, 650),
-                                                legend_pos=:topright,
-                                                y_label="Relative Error log\$_{10}\$",
-                                                group_colors = colors,
-                                                filename="fig_2_estimates") # overall error
+                                                filename="fig_6") # bounds runtime
 
 comparison_methods =  ["alleyTPI", "sumrdf"]
 x_order = [string(data) for data in datasets]
 bar_legend_order = [params.description for params in smaller_experiment_params][1:Int(length(smaller_experiment_params)/ length(datasets))]
 bar_legend_order = vcat(bar_legend_order, comparison_methods)
 println("bar legend order: ", bar_legend_order)
-bar_plot_colors = [:red :fuchsia :aqua]
-println("Graphing figures 5 and 6")
+bar_plot_colors = [:red :palevioletred1 :cadetblue1]
+
+println("Graphing figures 7 and 8")
 
 graph_grouped_bar_plot(smaller_experiment_params;
                         grouping=description,
                         y_type=memory_footprint,
                         x_order = x_order,
                         legend_order = bar_legend_order,
-                        ylims=[0, 6],
-                        y_ticks = [1, 2, 3, 4, 5],#[20, 40, 60, 80, 100],
-                        legend_pos=:topright,
-                        dimensions = (1000, 550),
+                        ylims=[0, 10],
+                        y_ticks = [1, 2, 3, 4, 5, 6, 7, 8, 9],#[20, 40, 60, 80, 100],
+                        legend_pos=:topleft,
+                        dimensions = (850, 400),
+                        scale_factor = 1000,
                         log_scale = true,
                         group_colors = bar_plot_colors,
-                        y_label="Memory log\$_{10}\$ (MBs)",
-                        filename="fig_5") # overall memory
+                        y_label="Memory log\$_{10}\$ (KB)",
+                        filename="fig_7") # overall memory
 
 graph_grouped_bar_plot(smaller_experiment_params;
                         grouping=description,
@@ -176,10 +161,11 @@ graph_grouped_bar_plot(smaller_experiment_params;
                         x_order = x_order,
                         legend_order = bar_legend_order,
                         legend_pos=:topleft,
-                        ylims=[0, 6],
-                        y_ticks = [1, 2, 3, 4, 5], #[100, 200, 300, 400, 500, 600, 700, 800],
-                        dimensions = (1000, 550),
+                        ylims=[0, 10],
+                        y_ticks = [1, 2, 3, 4, 5, 6, 7, 8, 9], #[100, 200, 300, 400, 500, 600, 700, 800],
+                        dimensions = (850, 400),
+                        scale_factor = 1000,
                         log_scale = true,
                         group_colors = bar_plot_colors,
-                        y_label="Build Time log\$_{10}\$ (s)",
-                        filename="fig_6") # overall build time
+                        y_label="Build Time log\$_{10}\$ (ms)",
+                        filename="fig_8") # overall build time

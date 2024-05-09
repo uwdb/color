@@ -239,7 +239,8 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
                                         filename=nothing,
                                         legend_pos = :outertopleft,
                                         dimensions = (1000, 600),
-                                        group_colors = nothing)
+                                        group_colors = nothing,
+                                        legend_columns = 2)
     # for now let's just use the dataset as the x-values and the cycle size as the groups
     x_values = []
     y_values = []
@@ -345,7 +346,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
                         bottom_margin = 40px,
                         top_margin = 20px,
                         left_margin = 10mm,
-                        legend_column = 2,
+                        legend_column = legend_columns,
                         titlefont = (12, :black),
                         legendfont = (11, :black),
                         tickfont = (12, :black),
@@ -365,7 +366,7 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
                         bottom_margin = 40px,
                         top_margin = 20px,
                         left_margin = 10mm,
-                        legend_column = 2,
+                        legend_column = legend_columns,
                         titlefont = (12, :black),
                         legendfont = (11, :black),
                         tickfont = (12, :black),
@@ -393,6 +394,7 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
                                         y_ticks = [1, 10^.5, 10, 10^2, 10^2.5],
                                         dimensions = (800, 300),
                                         legend_pos = :topleft,
+                                        scale_factor = 1,
                                         log_scale = false,
                                         group_colors = nothing,
                                         filename=nothing)
@@ -412,9 +414,7 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
         append!(y_values, [.3, 4.5, 9.9, .5, 4.2, 8.5, .1, 2.1])
         append!(groups, ["sumrdf" for _ in eachindex(y_values)])
         append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "patents", "yeast", "youtube"])
-        # append!(y_values, [49, 614, 313])
         append!(y_values, [221, 2518, 17452, 1061, 14233, 11738, 35585, 11044])
-
         append!(groups, ["alleyTPI" for _ in 1:8])
     end
     for experiment_params in experiment_params_list
@@ -486,7 +486,7 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
     # This seems to be necessary for using Plots.jl outside of the ipynb framework.
     # See this: https://discourse.julialang.org/t/deactivate-plot-display-to-avoid-need-for-x-server/19359/15
     if (log_scale) 
-        y_values = [log10(y) for y in y_values]
+        y_values = [log10(y*scale_factor) for y in y_values]
         # y_ticks = [log(tick) for tick in y_ticks]
     end
     ENV["GKSwstype"]="100"

@@ -76,5 +76,5 @@ gbplot = groupedboxplot(x_values,
                         whisker_range=2)
 xlabel!(gbplot, "Query Path Width")
 ylabel!(gbplot, "Inference Latency log\$_{10}\$ (s)")
-plotname = "fig_12.png"
+plotname = "fig_13.png"
 savefig(gbplot, "Experiments/Results/Figures/" * plotname)

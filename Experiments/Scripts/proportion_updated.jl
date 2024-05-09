@@ -174,4 +174,4 @@ end
 println("started estimating")
 run_estimation_experiments(experiment_params_list)
 println("started graphing")
-graph_box_plot(experiment_params_list, dimensions=(600,400), x_type=proportion_updated, y_type=estimate_error, ylims=[10e-10, 10e20], y_ticks=[10^-5, 1, 10^5, 10^10, 10^15], x_label="Proportion Updated (AIDS)", y_label="Relative Error (log\$_{10}\$)", grouping=proportion_updated, legend_pos=:outerright, filename="fig_9")
+graph_box_plot(experiment_params_list, dimensions=(600,400), x_type=proportion_updated, y_type=estimate_error, ylims=[10e-10, 10e20], y_ticks=[10^-5, 1, 10^5, 10^10, 10^15], x_label="Proportion Updated (AIDS)", y_label="Relative Error (log\$_{10}\$)", grouping=proportion_updated, legend_pos=:outerright, filename="fig_11")

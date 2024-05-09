@@ -23,7 +23,7 @@ graph_grouped_box_plot(experiment_params_list;
                         legend_pos = nothing,
                         y_label="Relative Error log\$_{10}\$",
                         x_label="Maximum Cycle Size",
-                        filename="fig_11") # cycles size error
+                        filename="fig_12") # cycles size error
 
 graph_grouped_box_plot(experiment_params_list;
                         x_type=cycle_size,

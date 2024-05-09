@@ -30,7 +30,7 @@ graph_grouped_box_plot(experiment_params_list,
                         x_label="Maximum Inference Paths",
                         y_label="Relative Error log\$_{10}\$",
                         grouping=description,
-                        filename="fig_10") # inference paths error
+                        filename="fig_14") # inference paths error
 
 graph_grouped_box_plot(experiment_params_list,
                         x_type=inference_paths,
