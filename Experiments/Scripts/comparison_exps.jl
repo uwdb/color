@@ -34,7 +34,7 @@ for dataset in datasets
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=mix_scheme,
-                                                description = "COLOR \n(AvgMix32)"))
+                                                description = "COLOR"))
                                                 
     push!(smaller_experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
@@ -52,13 +52,13 @@ end
 
 println("Building...")
 
-build_experiments(experiment_params)
-build_experiments(max_bounds_experiment_params)
+# build_experiments(experiment_params)
+# build_experiments(max_bounds_experiment_params)
 
 println("Estimating...")
 
-run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
-run_estimation_experiments(max_bounds_experiment_params; timeout=TIMEOUT_SEC)
+# run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
+# run_estimation_experiments(max_bounds_experiment_params; timeout=TIMEOUT_SEC)
 
 comparison_methods =  ["alley", "alleyTPI", "wj", "impr", "jsub", "cs", "cset", "sumrdf"]
 x_order = [string(data) for data in datasets]
@@ -80,8 +80,8 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 legend_order = legend_order,
                                                 grouping=description,
                                                 dimensions = (1550, 650),
-                                                legend_pos=:outerright,
-                                                legend_columns = 1,
+                                                legend_pos=:bottomleft,
+                                                legend_columns = 2,
                                                 y_label="Relative Error log\$_{10}\$",
                                                 group_colors = colors,
                                                 filename="fig_3") # overall error
@@ -148,7 +148,7 @@ graph_grouped_bar_plot(smaller_experiment_params;
                         ylims=[0, 10],
                         y_ticks = [1, 2, 3, 4, 5, 6, 7, 8, 9],#[20, 40, 60, 80, 100],
                         legend_pos=:topleft,
-                        dimensions = (850, 400),
+                        dimensions = (500, 400),
                         scale_factor = 1000,
                         log_scale = true,
                         group_colors = bar_plot_colors,
@@ -163,7 +163,7 @@ graph_grouped_bar_plot(smaller_experiment_params;
                         legend_pos=:topleft,
                         ylims=[0, 10],
                         y_ticks = [1, 2, 3, 4, 5, 6, 7, 8, 9], #[100, 200, 300, 400, 500, 600, 700, 800],
-                        dimensions = (850, 400),
+                        dimensions = (500, 400),
                         scale_factor = 1000,
                         log_scale = true,
                         group_colors = bar_plot_colors,
