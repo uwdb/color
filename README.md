@@ -37,7 +37,7 @@ julia> using Pkg;
 julia> Pkg.instantiate();
 ```
 
-3. Download query graphs, data graphs, and true cardinalities from [G-Care](https://github.com/yspark-dblab/gcare) and [In-Memory Subgraph Matching](https://github.com/RapidsAtHKUST/SubgraphMatching)
+3. Download query graphs, data graphs, and true cardinalities from [G-Care](https://github.com/yspark-dblab/gcare) and [In-Memory Subgraph Matching](https://github.com/RapidsAtHKUST/SubgraphMatching), also available as [zipped files](https://drive.google.com/drive/folders/1pjJz9ahXFEd3Nd1OxqLA2YNnXGuCVpEp?usp=sharing).
 
 ## API
 
