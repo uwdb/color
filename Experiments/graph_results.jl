@@ -186,11 +186,17 @@ function comparison_dataset()
         dataset = comparison_results[i, :Dataset]
         query_path = comparison_results[i, :Query]
         if dataset == "lubm80"
-            comparison_results[i, :QueryType] = match(r".*/lubm80_(.*).txt", query_path).captures[1]
+            if !isnothing(match(r".*/lubm80_(.*).txt", query_path))
+                comparison_results[i, :QueryType] = match(r".*/lubm80_(.*).txt", query_path).captures[1]
+            end
         elseif dataset in ["aids", "human", "yago"]
-            comparison_results[i, :QueryType] = match(r"(.*)_.*/.*", query_path).captures[1]
+            if !isnothing(match(r"(.*)_.*/.*", query_path))
+                comparison_results[i, :QueryType] = match(r"(.*)_.*/.*", query_path).captures[1]
+            end
         else
-            comparison_results[i, :QueryType] = match(r".*/query_(.*)_.*", query_path).captures[1]
+            if !isnothing(match(r".*/query_(.*)_.*", query_path))
+                comparison_results[i, :QueryType] = match(r".*/query_(.*)_.*", query_path).captures[1]
+            end
         end
     end
     results_dict = Dict()
@@ -409,6 +415,10 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
         append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "patents", "yeast", "youtube"])
         append!(y_values, [88, 648, 569, 800, 6600, 6900, 6300, 3200])
         append!(groups, ["alleyTPI" for _ in 1:8])
+        append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "yeast", "youtube"])
+        append!(y_values, [9023910, 9067842, 9018477, 8981142, 9010042,9045878, 8992702])
+        append!(groups, ["lss" for _ in 1:7])
+
     elseif y_type == build_time
         append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "patents", "yeast", "youtube"])
         append!(y_values, [.3, 4.5, 9.9, .5, 4.2, 8.5, .1, 2.1])
@@ -416,6 +426,11 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
         append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "patents", "yeast", "youtube"])
         append!(y_values, [221, 2518, 17452, 1061, 14233, 11738, 35585, 11044])
         append!(groups, ["alleyTPI" for _ in 1:8])
+        append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "yeast", "youtube"])
+        append!(y_values, [1022.6, 29.5023, 3.6737, 3355.36, 492.89, 7047.44, 3130.0165])
+        append!(groups, ["lss" for _ in 1:7])
+
+
     end
     for experiment_params in experiment_params_list
         # load the results

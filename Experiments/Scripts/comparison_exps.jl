@@ -60,14 +60,14 @@ println("Estimating...")
 # run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
 # run_estimation_experiments(max_bounds_experiment_params; timeout=TIMEOUT_SEC)
 
-comparison_methods =  ["alley", "alleyTPI", "wj", "impr", "jsub", "cs", "cset", "sumrdf"]
+comparison_methods =  ["alley", "alleyTPI", "wj", "impr", "jsub", "cs", "cset", "sumrdf", "lss"]
 x_order = [string(data) for data in datasets]
 bounds_x_order = [string(data) for data in bounds_datasets]
 legend_order = [params.description for params in experiment_params][1:Int(length(experiment_params)/ length(datasets))]
 max_bounds_legend_order = [params.description for params in max_bounds_experiment_params][1:Int(length(max_bounds_experiment_params)/ length(bounds_datasets))]
 legend_order = vcat(legend_order, comparison_methods)
 
-colors = [:red :yellow :maroon3 :palevioletred1 :dodgerblue :coral :palegreen :mediumpurple2 :darkgreen :cadetblue1]
+colors = [:red :yellow :maroon3 :palevioletred1 :dodgerblue :coral :palegreen :mediumpurple2 :darkgreen :cadetblue1 :goldenrod]
 
 println("Graphing figures 3 and 4...")
 
@@ -80,8 +80,8 @@ graph_grouped_boxplot_with_comparison_methods(experiment_params;
                                                 legend_order = legend_order,
                                                 grouping=description,
                                                 dimensions = (1550, 650),
-                                                legend_pos=:bottomleft,
-                                                legend_columns = 2,
+                                                legend_pos=:outerright,
+                                                legend_columns = 1,
                                                 y_label="Relative Error log\$_{10}\$",
                                                 group_colors = colors,
                                                 filename="fig_3") # overall error
@@ -131,12 +131,12 @@ graph_grouped_box_plot(max_bounds_experiment_params;
                                                 y_label="Inference Latency log\$_{10}\$ (s)",
                                                 filename="fig_6") # bounds runtime
 
-comparison_methods =  ["alleyTPI", "sumrdf"]
+comparison_methods =  ["alleyTPI", "sumrdf", "lss"]
 x_order = [string(data) for data in datasets]
 bar_legend_order = [params.description for params in smaller_experiment_params][1:Int(length(smaller_experiment_params)/ length(datasets))]
 bar_legend_order = vcat(bar_legend_order, comparison_methods)
 println("bar legend order: ", bar_legend_order)
-bar_plot_colors = [:red :palevioletred1 :cadetblue1]
+bar_plot_colors = [:red :palevioletred1 :cadetblue1 :goldenrod]
 
 println("Graphing figures 7 and 8")
 
@@ -145,10 +145,10 @@ graph_grouped_bar_plot(smaller_experiment_params;
                         y_type=memory_footprint,
                         x_order = x_order,
                         legend_order = bar_legend_order,
-                        ylims=[0, 10],
-                        y_ticks = [1, 2, 3, 4, 5, 6, 7, 8, 9],#[20, 40, 60, 80, 100],
+                        ylims=[0, 14],
+                        y_ticks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],#[20, 40, 60, 80, 100],
                         legend_pos=:topleft,
-                        dimensions = (500, 400),
+                        dimensions = (900, 400),
                         scale_factor = 1000,
                         log_scale = true,
                         group_colors = bar_plot_colors,
@@ -163,7 +163,7 @@ graph_grouped_bar_plot(smaller_experiment_params;
                         legend_pos=:topleft,
                         ylims=[0, 10],
                         y_ticks = [1, 2, 3, 4, 5, 6, 7, 8, 9], #[100, 200, 300, 400, 500, 600, 700, 800],
-                        dimensions = (500, 400),
+                        dimensions = (900, 400),
                         scale_factor = 1000,
                         log_scale = true,
                         group_colors = bar_plot_colors,
