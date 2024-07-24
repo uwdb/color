@@ -34,7 +34,7 @@ for dataset in datasets
     push!(experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
                                                 partitioning_scheme=mix_scheme,
-                                                description = "COLOR"))
+                                                description = "COLOR \n(AvgMix32)"))
                                                 
     push!(smaller_experiment_params, ExperimentParams(deg_stats_type=AvgDegStats,
                                                 dataset=dataset,
