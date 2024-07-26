@@ -5,7 +5,7 @@ import pandas as pd
 
 lss_datasets = ['aids', 'dblp', 'eu2005', 'human', 'lubm80', 'yeast', 'youtube']
 
-build_inference_filename = 'Experiments/Results/LSS/result/build_and_inference.csv'
+build_inference_filename = 'Experiments/Results/LSS/result/build_and_inference_ST.csv'
 comparison_filename = 'Experiments/comparison_results.csv'
 
 estimator = 'lss'

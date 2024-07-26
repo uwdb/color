@@ -21,7 +21,6 @@ function graph_box_plot(experiment_params_list::Vector{ExperimentParams};
         # load the results
         results_filename = params_to_results_filename(experiment_params)
         results_path = "Experiments/Results/Estimation_" * results_filename
-        # println("results path: ", results_path)
         results_df = CSV.read(results_path, DataFrame; normalizenames=true)
 
         # keep track of the data points
@@ -105,7 +104,6 @@ function graph_grouped_box_plot(experiment_params_list::Vector{ExperimentParams}
         # load the results
         results_filename = params_to_results_filename(experiment_params)
         results_path = "Experiments/Results/Estimation_" * results_filename
-        # println("results path: ", results_path)
         results_df = CSV.read(results_path, DataFrame; normalizenames=true)
 
         # get the x_value and grouping (same for all results in this experiment param)
@@ -188,14 +186,20 @@ function comparison_dataset()
         if dataset == "lubm80"
             if !isnothing(match(r".*/lubm80_(.*).txt", query_path))
                 comparison_results[i, :QueryType] = match(r".*/lubm80_(.*).txt", query_path).captures[1]
+            else
+                comparison_results[i, :QueryType] = "n/a"
             end
         elseif dataset in ["aids", "human", "yago"]
             if !isnothing(match(r"(.*)_.*/.*", query_path))
                 comparison_results[i, :QueryType] = match(r"(.*)_.*/.*", query_path).captures[1]
+            else
+                comparison_results[i, :QueryType] = "n/a"
             end
         else
             if !isnothing(match(r".*/query_(.*)_.*", query_path))
                 comparison_results[i, :QueryType] = match(r".*/query_(.*)_.*", query_path).captures[1]
+            else
+                comparison_results[i, :QueryType] = "n/a"
             end
         end
     end
@@ -203,13 +207,13 @@ function comparison_dataset()
     for i in 1:nrow(comparison_results)
         dataset = comparison_results[i, :Dataset]
         estimator = comparison_results[i, :Estimator]
-        query_path = comparison_results[i, :Query]
+        query_path = (estimator == "lss") ? "query" * string(i) : comparison_results[i, :Query]
         results_dict[(dataset, estimator, query_path)] = (Estimate=comparison_results[i, :Value],
                                                             Runtime=comparison_results[i, :Runtime],
                                                             QueryType=comparison_results[i,:QueryType])
     end
     estimators = unique(comparison_results[:, :Estimator])
-    println(estimators)
+    println("Estimators: ", estimators)
     return estimators, results_dict
 end
 
@@ -271,12 +275,12 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
             current_y = if y_type == estimate_error
                 min(10^30, max(1, results_df[i, :Estimate])) / results_df[i, :TrueCard]
             else # y_type == runtime
-                results_df[i, :EstimationTime]
+                typeof(results_df[i, :EstimationTime]) == String ? parse(Float64, results_df[i, :EstimationTime]) : results_df[i, :EstimationTime]
             end
             true_card[(data, get_query_id(string(experiment_params.dataset), results_df[i, :QueryPath]))] = (results_df[i, :TrueCard], current_x)
             # push the errors and their groupings into the correct vector
             push!(x_values, string(current_x))
-            push!(y_values, current_y)
+            push!(y_values, typeof(current_y) == String ? parse(Float64, current_y) : current_y)
             push!(estimators, current_group)
         end
     end
@@ -288,7 +292,15 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
         query_path = query_key[2]
         card = query_card_and_size[1]
         size = query_card_and_size[2]
+        # TODO: CURRENT ISSUE IS THAT LSS FOLLOWS DIFFERENT FORMAT, WILL HAVE TO DO A CASE SPECIFICALLY FOR HANDLING THEIR DATASET
+        # SOMETHING LIKE IF THE ESTIMATOR IS LSS THEN DO SOMETHING ELSE....
+        # RIGHT NOW THEY SEARCH FOR SPECIFIC QUERY/ESTIMATOR COMBOS BUT WE CAN'T DO THAT...
+        # WILL PROBABLY HAVE TO DO A CONTINUE WHENEVER ESTIMATOR IS LSS AND THEN DO SOMETHING AFTER THE LOOP
+        # OR MAYBE CONSIDER CHANGING THIS TO ACCESS THE FILE SEPARATELY?
         for estimator in estimator_types
+            if (estimator == "lss")
+                continue
+            end
             comp_key = (data, estimator, query_path)
             (estimate, runtime) = 1, 60 # TODO: We shouldn't use an arbitrary number for runtime here
             if haskey(comparison_results, comp_key)
@@ -308,11 +320,33 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
             current_y = if y_type == estimate_error
                 min(10^30, max(1, estimate)) / card
             else # y_type == runtime
-                runtime / 1000.0
+                typeof(runtime) == String ? parse(Float64, runtime) / 1000 : runtime / 1000.0
             end
+            
             # push the errors and their groupings into the correct vector
             push!(x_values, string(current_x))
-            push!(y_values, current_y)
+            push!(y_values, typeof(current_y) == String ? parse(Float64, current_y) : current_y)
+            push!(estimators, estimator)
+        end
+    end
+
+    # now handle leftover lss data
+    total = 0
+    for results_key in keys(comparison_results)
+        # results_dict[(dataset, estimator, query_path)] = (Estimate=comparison_results[i, :Value], Runtime=comparison_results[i, :Runtime], QueryType=comparison_results[i,:QueryType])
+        # look for all the rows where the estimator is lss, then push the appropriate x and y values.
+        if (results_key[2] == "lss")
+            total += 1
+            current_results = comparison_results[results_key]
+            current_x = results_key[1]
+            current_y = if y_type == estimate_error
+                current_results[1]
+            else
+                current_results[2]
+            end
+            estimator = "lss"
+            push!(x_values, string(current_x))
+            push!(y_values, typeof(current_y) == String ? parse(Float64, current_y) : current_y)
             push!(estimators, estimator)
         end
     end
@@ -427,7 +461,8 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
         append!(y_values, [221, 2518, 17452, 1061, 14233, 11738, 35585, 11044])
         append!(groups, ["alleyTPI" for _ in 1:8])
         append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "yeast", "youtube"])
-        append!(y_values, [1022.6, 29.5023, 3.6737, 3355.36, 492.89, 7047.44, 3130.0165])
+        # append!(y_values, [1022.6, 29.5023, 3.6737, 3355.36, 492.89, 7047.44, 3130.0165])
+        append!(y_values, [2207.7717, 50.2491, 5.9976, 8105.503, 328.89, 19839.2887, 2309.733])
         append!(groups, ["lss" for _ in 1:7])
 
 
