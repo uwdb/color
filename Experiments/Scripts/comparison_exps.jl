@@ -52,13 +52,13 @@ end
 
 println("Building...")
 
-build_experiments(experiment_params)
-build_experiments(max_bounds_experiment_params)
+# build_experiments(experiment_params)
+# build_experiments(max_bounds_experiment_params)
 
 println("Estimating...")
 
-run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
-run_estimation_experiments(max_bounds_experiment_params; timeout=TIMEOUT_SEC)
+# run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
+# run_estimation_experiments(max_bounds_experiment_params; timeout=TIMEOUT_SEC)
 
 comparison_methods =  ["alley", "alleyTPI", "wj", "impr", "jsub", "cs", "cset", "sumrdf", "lss"]
 x_order = [string(data) for data in datasets]
@@ -145,8 +145,8 @@ graph_grouped_bar_plot(smaller_experiment_params;
                         y_type=memory_footprint,
                         x_order = x_order,
                         legend_order = bar_legend_order,
-                        ylims=[0, 14],
-                        y_ticks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],#[20, 40, 60, 80, 100],
+                        ylims=[0, 10],
+                        y_ticks = [1, 2, 3, 4, 5, 6, 7, 8],
                         legend_pos=:topleft,
                         dimensions = (900, 400),
                         scale_factor = 1000,
@@ -162,7 +162,7 @@ graph_grouped_bar_plot(smaller_experiment_params;
                         legend_order = bar_legend_order,
                         legend_pos=:topleft,
                         ylims=[0, 11],
-                        y_ticks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], #[100, 200, 300, 400, 500, 600, 700, 800],
+                        y_ticks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
                         dimensions = (900, 400),
                         scale_factor = 1000,
                         log_scale = true,

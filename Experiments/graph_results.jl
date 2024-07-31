@@ -331,23 +331,23 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
     end
 
     # now handle leftover lss data
-    total = 0
-    for results_key in keys(comparison_results)
-        # results_dict[(dataset, estimator, query_path)] = (Estimate=comparison_results[i, :Value], Runtime=comparison_results[i, :Runtime], QueryType=comparison_results[i,:QueryType])
-        # look for all the rows where the estimator is lss, then push the appropriate x and y values.
-        if (results_key[2] == "lss")
-            total += 1
-            current_results = comparison_results[results_key]
-            current_x = results_key[1]
-            current_y = if y_type == estimate_error
-                current_results[1]
-            else
-                current_results[2]
+    if ("lss" in estimator_types)
+        for results_key in keys(comparison_results)
+            # results_dict[(dataset, estimator, query_path)] = (Estimate=comparison_results[i, :Value], Runtime=comparison_results[i, :Runtime], QueryType=comparison_results[i,:QueryType])
+            # look for all the rows where the estimator is lss, then push the appropriate x and y values.
+            if (results_key[2] == "lss")
+                current_results = comparison_results[results_key]
+                current_x = results_key[1]
+                current_y = if y_type == estimate_error
+                    current_results[1]
+                else
+                    current_results[2]
+                end
+                estimator = "lss"
+                push!(x_values, string(current_x))
+                push!(y_values, typeof(current_y) == String ? parse(Float64, current_y) : current_y)
+                push!(estimators, estimator)
             end
-            estimator = "lss"
-            push!(x_values, string(current_x))
-            push!(y_values, typeof(current_y) == String ? parse(Float64, current_y) : current_y)
-            push!(estimators, estimator)
         end
     end
 
@@ -450,7 +450,7 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
         append!(y_values, [88, 648, 569, 800, 6600, 6900, 6300, 3200])
         append!(groups, ["alleyTPI" for _ in 1:8])
         append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "yeast", "youtube"])
-        append!(y_values, [9023910, 9067842, 9018477, 8981142, 9010042,9045878, 8992702])
+        append!(y_values, [9.023910, 9.067842, 9.018477, 8.981142, 9.010042, 9.045878, 8.992702]) # units of MB
         append!(groups, ["lss" for _ in 1:7])
 
     elseif y_type == build_time
@@ -461,8 +461,8 @@ function graph_grouped_bar_plot(experiment_params_list::Vector{ExperimentParams}
         append!(y_values, [221, 2518, 17452, 1061, 14233, 11738, 35585, 11044])
         append!(groups, ["alleyTPI" for _ in 1:8])
         append!(x_values, ["aids", "human", "lubm80", "dblp", "eu2005", "yeast", "youtube"])
-        # append!(y_values, [1022.6, 29.5023, 3.6737, 3355.36, 492.89, 7047.44, 3130.0165])
-        append!(y_values, [2207.7717, 50.2491, 5.9976, 8105.503, 328.89, 19839.2887, 2309.733])
+        # append!(y_values, [1022.6, 29.5023, 3.6737, 3355.36, 492.89, 7047.44, 3130.0165]) # multithreaded results
+        append!(y_values, [2207.7717, 50.2491, 5.9976, 8105.503, 328.89, 19839.2887, 2309.733]) # single-threaded results
         append!(groups, ["lss" for _ in 1:7])
 
 
