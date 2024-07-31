@@ -52,13 +52,13 @@ end
 
 println("Building...")
 
-# build_experiments(experiment_params)
-# build_experiments(max_bounds_experiment_params)
+build_experiments(experiment_params)
+build_experiments(max_bounds_experiment_params)
 
 println("Estimating...")
 
-# run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
-# run_estimation_experiments(max_bounds_experiment_params; timeout=TIMEOUT_SEC)
+run_estimation_experiments(experiment_params; timeout=TIMEOUT_SEC)
+run_estimation_experiments(max_bounds_experiment_params; timeout=TIMEOUT_SEC)
 
 comparison_methods =  ["alley", "alleyTPI", "wj", "impr", "jsub", "cs", "cset", "sumrdf", "lss"]
 x_order = [string(data) for data in datasets]

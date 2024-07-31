@@ -292,11 +292,6 @@ function graph_grouped_boxplot_with_comparison_methods(experiment_params_list::V
         query_path = query_key[2]
         card = query_card_and_size[1]
         size = query_card_and_size[2]
-        # TODO: CURRENT ISSUE IS THAT LSS FOLLOWS DIFFERENT FORMAT, WILL HAVE TO DO A CASE SPECIFICALLY FOR HANDLING THEIR DATASET
-        # SOMETHING LIKE IF THE ESTIMATOR IS LSS THEN DO SOMETHING ELSE....
-        # RIGHT NOW THEY SEARCH FOR SPECIFIC QUERY/ESTIMATOR COMBOS BUT WE CAN'T DO THAT...
-        # WILL PROBABLY HAVE TO DO A CONTINUE WHENEVER ESTIMATOR IS LSS AND THEN DO SOMETHING AFTER THE LOOP
-        # OR MAYBE CONSIDER CHANGING THIS TO ACCESS THE FILE SEPARATELY?
         for estimator in estimator_types
             if (estimator == "lss")
                 continue
